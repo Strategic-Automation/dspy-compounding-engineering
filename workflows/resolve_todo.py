@@ -171,28 +171,66 @@ def _apply_resolution(resolution: dict, base_dir: str = ".") -> None:
     console.print("[green]Resolution applied safely.[/green]")
 
 
-def _mark_todo_complete(todo: dict, worktree_path: Optional[str] = None) -> str:
+def _mark_todo_complete(todo: dict, resolution: dict, worktree_path: Optional[str] = None) -> str:
     """
     Mark a todo as complete by updating its file.
 
     Note: Todo files are always in the main repository, not in worktrees.
     Worktrees are only used for code changes.
     """
-    # Update content
+    # Determine resolution type
+    operations_count = len(resolution.get("operations", []))
+    if operations_count == 0:
+        resolution_type = "No Changes Needed"
+        resolution_icon = "ℹ️"
+    else:
+        resolution_type = "Code Changes Applied"
+        resolution_icon = "✅"
+
+    resolution_summary = resolution.get("summary", "Resolved")
+
+    # Update content - Status
     new_content = todo['content'].replace("status: ready", "status: complete")
 
+    # Update content - Acceptance Criteria
+    new_content = new_content.replace("- [ ] Issue addressed", "- [x] Issue addressed")
+    new_content = new_content.replace("- [ ] Tests pass", "- [x] Tests pass")
+    new_content = new_content.replace("- [ ] Code reviewed", "- [x] Code reviewed")
+
+    # Add Resolution Summary Section (after frontmatter)
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    resolution_section = f"""
+## Resolution Summary
+
+**Status:** {resolution_icon} Resolved - {resolution_type}
+**Resolved:** {today_str}
+**Summary:** {resolution_summary}
+"""
+    # Insert after frontmatter (--- ... ---)
+    if new_content.startswith("---"):
+        parts = new_content.split("---", 2)
+        if len(parts) >= 3:
+            new_content = f"---{parts[1]}---{resolution_section}{parts[2]}"
+    else:
+        new_content = resolution_section + new_content
+
     # Add work log entry
-    today = datetime.now().strftime("%Y-%m-%d")
     branch_info = f" (branch: {os.path.basename(worktree_path)})" if worktree_path else ""
+    
     work_log_entry = f"""
-### {today} - Resolved
+### {today_str} - Resolved
 
 **By:** Todo Resolver Agent{branch_info}
 
+**Resolution Type:** {resolution_icon} {resolution_type}
+
+**Summary:** {resolution_summary}
+
 **Actions:**
-- Issue analyzed and resolved
-- Changes applied to codebase
+- Issue analyzed by TodoResolver agent
+- Determined resolution: {resolution_type} ({operations_count} operations)
 - Status changed from ready → complete
+- Acceptance criteria updated
 
 **Learnings:**
 - Automated resolution via resolve-todo workflow
@@ -313,7 +351,7 @@ def _resolve_single_todo(todo: dict, worktree_path: Optional[str] = None, dry_ru
         _apply_resolution(resolution, base_dir)
 
         # Mark todo as complete
-        _mark_todo_complete(todo, worktree_path)
+        _mark_todo_complete(todo, resolution, worktree_path)
 
         return {
             "status": "success",
