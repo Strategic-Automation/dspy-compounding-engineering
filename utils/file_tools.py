@@ -119,15 +119,18 @@ def read_file_range(
 def edit_file_lines(
     file_path: str,
     edits: List[Dict[str, Union[int, str]]],
-    backup: bool = True,
     base_dir: str = ".",
 ) -> str:
     """
     Edit specific lines in a file.
-    edits: List of dicts with keys:
-        - start_line: int (1-based)
-        - end_line: int (1-based)
+
+    Args:
+        file_path: Path to the file (relative to base_dir)
+        edits: List of dicts with keys:
+        - start_line: int (1-indexed)
+        - end_line: int (1-indexed, inclusive)
         - content: str (new content)
+        base_dir: Base directory for path resolution
 
     Edits must be non-overlapping and sorted by start_line (descending) to avoid index shifts,
     but we will handle sorting here.
@@ -139,10 +142,6 @@ def edit_file_lines(
 
         with open(safe_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
-
-        if backup:
-            backup_path = f"{file_path}.backup"
-            safe_write(backup_path, "".join(lines), base_dir)
 
         # Sort edits by start_line descending to apply from bottom up
         sorted_edits = sorted(edits, key=lambda x: x["start_line"], reverse=True)

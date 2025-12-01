@@ -45,9 +45,16 @@ class PerformanceOracle(dspy.Signature):
     3. **Optimization Opportunities**: Improvements that would enhance performance
     4. **Scalability Assessment**: How the code will perform under increased load
     5. **Recommended Actions**: Prioritized list of performance improvements
+
+    CRITICAL: Set action_required based on findings:
+    - False if: no performance issues found, all checks passed, no recommendations
+    - True if: any performance bottlenecks, risks, or optimizations found
     """
 
-    code_diff = dspy.InputField(desc="The code changes to review")
-    performance_analysis = dspy.OutputField(
+    code_diff: str = dspy.InputField(desc="The code changes to review")
+    performance_analysis: str = dspy.OutputField(
         desc="The performance analysis and recommendations"
+    )
+    action_required: bool = dspy.OutputField(
+        desc="False if no performance issues found (review passed), True if actionable findings present"
     )

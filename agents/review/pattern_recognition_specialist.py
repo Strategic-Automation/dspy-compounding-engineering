@@ -33,7 +33,11 @@ class PatternRecognitionSpecialist(dspy.Signature):
     - Account for legitimate exceptions
     - Prioritize findings by impact
     - Provide actionable recommendations
+
     """
 
-    code_diff = dspy.InputField(desc="The code changes to review")
-    pattern_analysis = dspy.OutputField(desc="The pattern analysis and recommendations")
+    code_diff: str = dspy.InputField(desc="The code changes to review")
+    pattern_analysis: str = dspy.OutputField(desc="The pattern analysis and recommendations")
+    action_required: bool = dspy.OutputField(
+        desc="False if no pattern issues found (review passed), True if actionable findings present"
+    )

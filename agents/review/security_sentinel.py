@@ -86,7 +86,14 @@ class SecuritySentinel(dspy.Signature):
       - Unsafe redirects
 
     You are the last line of defense. Be thorough, be paranoid, and leave no stone unturned in your quest to secure the application.
+    
+    CRITICAL: Set action_required based on findings:
+    - False if: no vulnerabilities found, all checks passed, no recommendations
+    - True if: any vulnerabilities, risks, or security improvements found
     """
 
-    code_diff = dspy.InputField(desc="The code changes to review")
-    security_report = dspy.OutputField(desc="The security audit report")
+    code_diff: str = dspy.InputField(desc="The code changes to review")
+    security_report: str = dspy.OutputField(desc="The security audit report")
+    action_required: bool = dspy.OutputField(
+        desc="False if no vulnerabilities found (review passed), True if actionable findings present"
+    )

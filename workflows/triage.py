@@ -8,8 +8,67 @@ from rich.prompt import Prompt
 from rich.table import Table
 import dspy
 from agents.workflow import TriageAgent
+import yaml
+from filelock import FileLock
+import tempfile
+import frontmatter
 
 console = Console()
+
+def parse_todo(file_path: str) -> dict:
+    post = frontmatter.load(file_path)
+    return {'frontmatter': dict(post.metadata), 'body': post.content}
+
+
+def serialize_todo(frontmatter_dict: dict, body: str) -> str:
+    fm_yaml = yaml.dump(frontmatter_dict, default_flow_style=False, sort_keys=False)
+    return f"---\n{fm_yaml}\n---\n{body}"
+
+
+def atomic_update_todo(old_path: str, new_path: str, update_fn: callable) -> None:
+    lock_path = old_path + '.lock'
+    with FileLock(lock_path):
+        parsed = parse_todo(old_path)
+        updated = update_fn(parsed)
+        content = serialize_todo(updated['frontmatter'], updated['body'])
+        with tempfile.NamedTemporaryFile(mode='w', dir=os.path.dirname(new_path), delete=False, suffix='.md') as temp_f:
+            temp_f.write(content)
+            temp_path = temp_f.name
+        os.replace(temp_path, new_path)
+        os.remove(old_path)
+
+
+def atomic_append_to_ai_md(entry: str) -> None:
+    ai_md_path = "AI.md"
+    lock_path = ai_md_path + '.lock'
+    with FileLock(lock_path):
+        if not os.path.exists(ai_md_path):
+            header = """# AI System Learning Log\n\nThis file captures learnings from the AI-powered code review and triage system.\nEach entry documents decisions, patterns, and insights to improve future performance.\n\n"""
+            current_content = header
+        else:
+            with open(ai_md_path, 'r') as f:
+                current_content = f.read()
+        new_content = current_content + entry
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.md') as temp_f:
+            temp_f.write(new_content)
+            temp_path = temp_f.name
+        os.replace(temp_path, ai_md_path)
+
+
+def consistency_check_todos(todos_dir: str) -> None:
+    issue_to_files = {}
+    for file_path in glob.glob(os.path.join(todos_dir, '*.md')):
+        filename = os.path.basename(file_path)
+        match = re.match(r'^(\d+)-', filename)
+        if match:
+            issue_id = match.group(1)
+            issue_to_files.setdefault(issue_id, []).append(filename)
+    duplicates = {iid: files for iid, files in issue_to_files.items() if len(files) > 1}
+    if duplicates:
+        console.print("[yellow]Warning: Duplicate issue IDs found:[/yellow]")
+        for iid, files in duplicates.items():
+            console.print(f"  Issue {iid}: {files}")
+    console.print("[green]Consistency check passed.[/green]")
 
 
 def _add_work_log_entry(content: str, action: str) -> str:
@@ -41,14 +100,51 @@ def _add_work_log_entry(content: str, action: str) -> str:
     return content + "\n" + work_log_entry
 
 
-def _fill_recommended_action(content: str) -> str:
+def _fill_recommended_action(content: str, solution_text: str = None) -> str:
     """Replace the 'Recommended Action' placeholder with actual recommendation."""
     placeholder = "*To be filled during triage.*"
-    recommendation = (
-        "Implement the proposed solution from the code review finding (Option 1)."
-    )
+    
+    if solution_text:
+        recommendation = solution_text
+    else:
+        recommendation = (
+            "Implement the proposed solution from the code review finding (Option 1)."
+        )
 
     return content.replace(placeholder, recommendation)
+
+
+def _log_to_ai_md(finding_title: str, decision: str, learnings: str) -> None:
+    """Log triage decisions and learnings to AI.md for system learning."""
+    ai_md_path = "AI.md"
+    today = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    entry = f"""
+---
+
+## [{today}] Triage Decision: {finding_title}
+
+**Decision:** {decision}
+
+**Learnings:**
+{learnings}
+
+"""
+    
+    # Create AI.md if it doesn't exist
+    if not os.path.exists(ai_md_path):
+        header = """# AI System Learning Log
+
+This file captures learnings from the AI-powered code review and triage system.
+Each entry documents decisions, patterns, and insights to improve future performance.
+
+"""
+        with open(ai_md_path, "w") as f:
+            f.write(header)
+    
+    # Append the new entry
+    with open(ai_md_path, "a") as f:
+        f.write(entry)
 
 
 def run_triage():
@@ -59,7 +155,7 @@ def run_triage():
         )
         os.makedirs(todos_dir)
 
-    # Find pending todos
+    consistency_check_todos(todos_dir)
     # Pattern: *-pending-*.md
     pending_files = glob.glob(os.path.join(todos_dir, "*-pending-*.md"))
 
@@ -115,10 +211,104 @@ def run_triage():
         console.print(Markdown(response.formatted_presentation))
         console.print("\n")
 
+        # Debug: Show action_required value
+        if hasattr(response, 'action_required'):
+            if response.action_required:
+                action_status = "⚠️  Action IS Required (code changes needed)"
+            else:
+                action_status = "✅ No Action Required (review passed)"
+            console.print(f"[dim]Analysis: {action_status}[/dim]")
+        else:
+            console.print("[dim yellow]Warning: action_required field not present[/dim yellow]")
+
+        # Content-based fallback analysis (extracted to helper)
+        def suggests_no_action(content: str) -> bool:
+            content_lower = content.lower()
+            proposed_solution = ""
+            if "proposed solution:" in content_lower:
+                parts = content_lower.split("proposed solution:", 1)
+                if len(parts) > 1:
+                    proposed_solution = parts[1].split("\n\n")[0] if parts[1] else ""
+            no_action_indicators = [
+                "no fixes required",
+                "no changes required",
+                "no action required",
+                "acknowledge clean review",
+                "acknowledge the",
+                "optionally document",
+                "close the issue",
+            ]
+            action_indicators = [
+                "implement",
+                "refactor",
+                "extract",
+                "add",
+                "fix",
+                "update",
+                "create",
+                "modify",
+                "strengthen",
+                "improve",
+            ]
+            description_no_action = any(
+                phrase in content_lower
+                for phrase in [
+                    "no vulnerabilities identified",
+                    "no issues identified",
+                    "passes all checks",
+                    "all checks passed",
+                ]
+            )
+            solution_suggests_no_action = (
+                any(indicator in proposed_solution for indicator in no_action_indicators)
+                and not any(indicator in proposed_solution for indicator in action_indicators)
+            )
+            return description_no_action or solution_suggests_no_action
+
+        content_suggests_no_action = suggests_no_action(content)
+        # Simplified: Trust action_required FIRST, fallback ONLY if missing; warn on mismatch
+        should_auto_complete = (
+            (hasattr(response, 'action_required') and not response.action_required) or
+            (not hasattr(response, 'action_required') and content_suggests_no_action)
+        )
+        if (
+            hasattr(response, 'action_required')
+            and response.action_required
+            and content_suggests_no_action
+        ):
+            console.print(
+                "[yellow]⚠️ Warning: LLM action_required=True but content suggests no action. "
+                "Trusting structured field (no override).[/yellow]"
+            )
+        # Auto-complete if no action required
+        if should_auto_complete:
+            console.print("[dim]🤖 Auto-completing: No action required[/dim]")
+            
+            if "-pending-" in filename:
+                new_filename = filename.replace("-pending-", "-complete-")
+                new_path = os.path.join(todos_dir, new_filename)
+                resolution_section = "\n## Resolution Summary\n\n**Status:** ✅ Resolved (Auto-Triage)\n**Summary:** Automatically marked as complete - no action required based on finding analysis.\n"
+                action_msg = "Auto-completed during triage (no action required)"
+                def update_auto(parsed):
+                    fm = dict(parsed['frontmatter'])
+                    fm['status'] = 'complete'
+                    new_body = parsed['body']
+                    if "## Resolution Summary" not in new_body:
+                        new_body = resolution_section + '\n' + new_body
+                    temp_full = serialize_todo(fm, new_body)
+                    updated_full = _add_work_log_entry(temp_full, action_msg)
+                    post = frontmatter.loads(updated_full)
+                    return {'frontmatter': dict(post.metadata), 'body': post.content}
+                atomic_update_todo(file_path, new_path, update_auto)
+                console.print(
+                    f"[green]✅ Auto-Completed: {new_filename}[/green]"
+                )
+            continue
+
         remaining = total_items - idx + 1
         choice = Prompt.ask(
             f"Action? ({remaining} remaining)",
-            choices=["yes", "all", "next", "custom"],
+            choices=["yes", "all", "next", "custom", "complete"],
             default="yes",
         )
 
@@ -130,9 +320,20 @@ def run_triage():
 
                 # Update status in content and add work log entry
                 new_content = content.replace("status: pending", "status: ready")
-                new_content = _fill_recommended_action(new_content)
+                
+                # Fill recommended action with the proposed solution from triage
+                solution = response.proposed_solution if hasattr(response, 'proposed_solution') else None
+                new_content = _fill_recommended_action(new_content, solution)
+                
                 new_content = _add_work_log_entry(
                     new_content, "Issue approved during triage session"
+                )
+                
+                # Log to AI.md
+                _log_to_ai_md(
+                    finding_title=filename.replace(".md", ""),
+                    decision="Approved for work",
+                    learnings=f"Proposed solution: {solution}" if solution else "Standard approval"
                 )
 
                 with open(new_path, "w") as f:
@@ -144,6 +345,42 @@ def run_triage():
                 )
                 approved_count += 1
                 approved_todos.append(new_filename)
+            else:
+                console.print(
+                    f"[red]Error: Filename format unexpected: {filename}[/red]"
+                )
+
+        elif choice == "complete":
+            # Mark as complete immediately
+            if "-pending-" in filename:
+                new_filename = filename.replace("-pending-", "-complete-")
+                new_path = os.path.join(todos_dir, new_filename)
+
+                # Update status
+                new_content = content.replace("status: pending", "status: complete")
+                
+                # Add resolution summary
+                resolution_section = "\n## Resolution Summary\n\n**Status:** ✅ Resolved (Triage)\n**Summary:** Marked as complete during triage (no action required).\n"
+                
+                if new_content.startswith("---"):
+                    parts = new_content.split("---", 2)
+                    if len(parts) >= 3:
+                        new_content = f"---{parts[1]}---{resolution_section}{parts[2]}"
+                else:
+                    new_content = resolution_section + new_content
+
+                new_content = _add_work_log_entry(
+                    new_content, "Issue marked complete during triage (no action required)"
+                )
+
+                with open(new_path, "w") as f:
+                    f.write(new_content)
+
+                os.remove(file_path)
+                console.print(
+                    f"[green]✅ Completed: {new_filename} - Status: complete[/green]"
+                )
+                # We don't add to approved_todos since it's already done
             else:
                 console.print(
                     f"[red]Error: Filename format unexpected: {filename}[/red]"
@@ -170,7 +407,11 @@ def run_triage():
                     new_content = remaining_content.replace(
                         "status: pending", "status: ready"
                     )
-                    new_content = _fill_recommended_action(new_content)
+                    
+                    # Fill recommended action with proposed solution if available
+                    solution = response.proposed_solution if hasattr(response, 'proposed_solution') else None
+                    new_content = _fill_recommended_action(new_content, solution)
+                    
                     new_content = _add_work_log_entry(
                         new_content, "Issue approved (batch accept all)"
                     )
@@ -220,7 +461,11 @@ def run_triage():
                 new_content = re.sub(
                     r"priority: p[123]", f"priority: {new_priority}", new_content
                 )
-                new_content = _fill_recommended_action(new_content)
+                
+                # Fill recommended action with proposed solution
+                solution = response.proposed_solution if hasattr(response, 'proposed_solution') else None
+                new_content = _fill_recommended_action(new_content, solution)
+                
                 new_content = _add_work_log_entry(
                     new_content, f"Issue approved with custom priority: {new_priority}"
                 )

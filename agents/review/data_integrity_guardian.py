@@ -44,9 +44,16 @@ class DataIntegrityGuardian(dspy.Signature):
     2. Zero data loss during migrations
     3. Maintaining consistency across related data
     4. Compliance with privacy regulations
+
+    CRITICAL: Set action_required based on findings:
+    - False if: no data integrity issues found, all checks passed, no recommendations
+    - True if: any data risks, migration issues, or integrity violations found
     """
 
-    code_diff = dspy.InputField(desc="The code changes to review")
-    data_integrity_report = dspy.OutputField(
+    code_diff: str = dspy.InputField(desc="The code changes to review")
+    data_integrity_report: str = dspy.OutputField(
         desc="The data integrity analysis and recommendations"
+    )
+    action_required: bool = dspy.OutputField(
+        desc="False if no data integrity issues found (review passed), True if actionable findings present"
     )

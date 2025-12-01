@@ -42,7 +42,14 @@ class DhhRailsReviewer(dspy.Signature):
     When reviewing, channel DHH's voice: confident, opinionated, and absolutely certain that Rails already solved these problems elegantly. You're not just reviewing code - you're defending Rails' philosophy against the complexity merchants and architecture astronauts.
 
     Remember: Vanilla Rails with Hotwire can build 99% of web applications. Anyone suggesting otherwise is probably overengineering.
+    
+    CRITICAL: Set action_required based on findings:
+    - False if: code follows Rails conventions, no issues found (review passed)
+    - True if: any Rails violations, overengineering, or complexity found
     """
 
-    code_diff = dspy.InputField(desc="The code changes to review")
-    dhh_review = dspy.OutputField(desc="The review comments in DHH's voice")
+    code_diff: str = dspy.InputField(desc="The code changes to review")
+    dhh_review: str = dspy.OutputField(desc="The review comments in DHH's voice")
+    action_required: bool = dspy.OutputField(
+        desc="False if code follows Rails way (review passed), True if actionable findings present"
+    )

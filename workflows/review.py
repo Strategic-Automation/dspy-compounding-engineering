@@ -188,6 +188,7 @@ def run_review(pr_url_or_id: str, project: bool = False):
     def run_single_agent(name, agent_cls, diff):
         try:
             predictor = dspy.Predict(agent_cls)
+        
             return name, predictor(code_diff=diff)
         except Exception as e:
             return name, f"Error: {e}"
@@ -234,7 +235,10 @@ def run_review(pr_url_or_id: str, project: bool = False):
                             break
 
                     if review_text:
-                        findings.append({"agent": name, "review": review_text})
+                        finding_data = {"agent": name, "review": review_text}
+                        if hasattr(result, "action_required"):
+                            finding_data["action_required"] = result.action_required
+                        findings.append(finding_data)
 
                 except Exception as e:
                     findings.append(
@@ -287,22 +291,17 @@ def run_review(pr_url_or_id: str, project: bool = False):
         ):
             continue
 
-        # Skip findings that indicate no issues (common patterns)
-        lower_review = review_text.lower()
-        if any(
-            phrase in lower_review
-            for phrase in [
-                "no issues found",
-                "no concerns",
-                "looks good",
-                "no problems",
-                "nothing to report",
-                "no findings",
-                "code looks clean",
-            ]
-        ):
-            console.print(f"  [dim]Skipped {agent_name}: No actionable findings[/dim]")
+        # Check action_required field from agent
+        action_required = finding.get("action_required")
+        
+        # If agent explicitly says no action required, skip it
+        if action_required is False:
+            console.print(f"  [dim]Skipped {agent_name}: No actionable findings (action_required=False)[/dim]")
             continue
+
+
+        lower_review = review_text.lower()
+
 
         # Get category and severity from agent
         category, severity = agent_categories.get(agent_name, ("code-review", "p2"))

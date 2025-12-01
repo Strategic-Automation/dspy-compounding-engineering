@@ -33,9 +33,13 @@ class ArchitectureStrategist(dspy.Signature):
     3. **Compliance Check**: Specific principles upheld or violated
     4. **Risk Analysis**: Potential architectural risks or technical debt
     5. **Recommendations**: Specific suggestions for improvements
+
     """
 
-    code_diff = dspy.InputField(desc="The code changes to review")
-    architecture_analysis = dspy.OutputField(
+    code_diff: str = dspy.InputField(desc="The code changes to review")
+    architecture_analysis: str = dspy.OutputField(
         desc="The architectural analysis and recommendations"
+    )
+    action_required: bool = dspy.OutputField(
+        desc="False if no architectural issues found (review passed), True if actionable findings present"
     )
