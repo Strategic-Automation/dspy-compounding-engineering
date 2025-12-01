@@ -30,11 +30,24 @@ class PlanExecutionSignature(dspy.Signature):
 
 
 class ReActPlanExecutor(dspy.Module):
-    def __init__(self):
+    def __init__(self, base_dir: str = "."):
         super().__init__()
 
-        # Define tools
-        self.tools = [list_directory, search_files, read_file_range, edit_file_lines]
+        # Define tools with base_dir bound
+        from functools import partial
+
+        self.tools = [
+            partial(list_directory, base_dir=base_dir),
+            partial(search_files, base_dir=base_dir),
+            partial(read_file_range, base_dir=base_dir),
+            partial(edit_file_lines, base_dir=base_dir),
+        ]
+
+        # Update tool names and docstrings to match originals (needed for dspy)
+        for tool in self.tools:
+            if hasattr(tool, "func"):
+                tool.__name__ = tool.func.__name__
+                tool.__doc__ = tool.func.__doc__
 
         # Create ReAct agent
         self.react_agent = dspy.ReAct(

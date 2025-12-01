@@ -162,39 +162,28 @@ def _run_react_todo(
             return {"todo_id": todo["id"], "success": True, "dry_run": True}
 
         try:
-            resolver = ReActTodoResolver()
+            # Initialize resolver with correct base_dir
+            resolver = ReActTodoResolver(base_dir=base_dir)
 
-            # Change to worktree directory if using worktrees
-            original_dir = os.getcwd()
-            if worktree_path:
-                os.chdir(base_dir)
+            result = resolver(todo_content=todo["content"], todo_id=todo["id"])
 
-            try:
-                result = resolver(todo_content=todo["content"], todo_id=todo["id"])
-
-                if result.success_status:
-                    console.print(
-                        f"[green]Success:[/green] {result.resolution_summary}"
-                    )
-                    # Mark todo complete in main repo (not worktree)
-                    if worktree_path:
-                        os.chdir(original_dir)
-                    _mark_todo_complete(todo, result.resolution_summary)
-                    return {
-                        "todo_id": todo["id"],
-                        "success": True,
-                        "summary": result.resolution_summary,
-                    }
-                else:
-                    console.print(f"[red]Failed:[/red] {result.resolution_summary}")
-                    return {
-                        "todo_id": todo["id"],
-                        "success": False,
-                        "summary": result.resolution_summary,
-                    }
-            finally:
-                if worktree_path:
-                    os.chdir(original_dir)
+            if result.success_status:
+                console.print(f"[green]Success:[/green] {result.resolution_summary}")
+                # Mark todo complete in main repo (not worktree)
+                # Note: _mark_todo_complete uses absolute paths or relative to CWD (which is now main repo)
+                _mark_todo_complete(todo, result.resolution_summary)
+                return {
+                    "todo_id": todo["id"],
+                    "success": True,
+                    "summary": result.resolution_summary,
+                }
+            else:
+                console.print(f"[red]Failed:[/red] {result.resolution_summary}")
+                return {
+                    "todo_id": todo["id"],
+                    "success": False,
+                    "summary": result.resolution_summary,
+                }
 
         except Exception as e:
             console.print(f"[red]Error resolving todo {todo['id']}: {e}[/red]")
@@ -272,23 +261,14 @@ def _run_react_plan(plan_path: str, dry_run: bool, in_place: bool = True):
         return
 
     try:
-        executor = ReActPlanExecutor()
+        executor = ReActPlanExecutor(base_dir=base_dir)
 
-        # Change to worktree directory if using worktrees
-        original_dir = os.getcwd()
-        if worktree_path:
-            os.chdir(base_dir)
+        result = executor(plan_content=content, plan_path=plan_path)
 
-        try:
-            result = executor(plan_content=content, plan_path=plan_path)
-
-            if result.success_status:
-                console.print(f"[green]Success:[/green] {result.execution_summary}")
-            else:
-                console.print(f"[red]Failed:[/red] {result.execution_summary}")
-        finally:
-            if worktree_path:
-                os.chdir(original_dir)
+        if result.success_status:
+            console.print(f"[green]Success:[/green] {result.execution_summary}")
+        else:
+            console.print(f"[red]Failed:[/red] {result.execution_summary}")
 
     except Exception as e:
         console.print(f"[red]Error executing plan: {e}[/red]")
