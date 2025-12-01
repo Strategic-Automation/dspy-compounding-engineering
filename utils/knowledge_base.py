@@ -122,17 +122,22 @@ class KnowledgeBase:
             return "No relevant past learnings found."
             
         context = "## Relevant Past Learnings\n\n"
-        for l in learnings:
-            context += f"### {l.get('title', 'Untitled')}\n"
-            context += f"- **Category**: {l.get('category', 'General')}\n"
-            context += f"- **Description**: {l.get('description', '')}\n"
-            if l.get('codified_improvements'):
+        for learning in learnings:
+            context += f"### {learning.get('title', 'Untitled')}\n"
+            context += f"- **Category**: {learning.get('category', 'General')}\n"
+            context += f"- **Source**: {learning.get('source', 'Unknown')}\n"
+            context += f"- **Date**: {learning.get('created_at', 'Unknown')}\n"
+            content = learning.get('content', '')
+            if isinstance(content, dict):
+                context += f"\n{content.get('summary', '')}\n\n"
+            else:
+                context += f"\n{content}\n\n"
+            if learning.get('codified_improvements'):
                 context += "- **Improvements**:\n"
-                for imp in l['codified_improvements']:
+                for imp in learning['codified_improvements']:
                     context += f"  - [{imp.get('type', 'item')}] {imp.get('title', '')}: {imp.get('description', '')}\n"
             context += "\n"
             
-        return context
         return context
 
     def _update_ai_md(self):
@@ -144,11 +149,11 @@ class KnowledgeBase:
         
         # Group by category
         by_category = {}
-        for l in learnings:
-            cat = l.get("category", "General").title()
+        for learning in learnings:
+            cat = learning.get("category", "General").title()
             if cat not in by_category:
                 by_category[cat] = []
-            by_category[cat].append(l)
+            by_category[cat].append(learning)
             
         content = "# AI Knowledge Base\n\n"
         content += "This file contains codified learnings and improvements for the AI system.\n"

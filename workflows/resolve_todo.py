@@ -237,21 +237,8 @@ def _mark_todo_complete(todo: dict, resolution: dict, worktree_path: Optional[st
 """
 
     # Codify learnings
-    try:
-        kb = KnowledgeBase()
-        # Create a learning summary from the resolution
-        learning_text = f"Resolved todo {todo['id']} ({todo['slug']}). "
-        if "summary" in todo:
-             learning_text += f"Summary: {todo['summary']}"
-        
-        # We don't have the full resolution details here easily available without passing them
-        # So we'll just log a basic learning for now, or we could pass the resolution object
-        # For now, let's just skip auto-codification here to avoid noise, 
-        # or we could make it a separate step.
-        # Let's actually implement it properly by passing resolution details if possible.
-        pass
-    except Exception:
-        pass
+    # TODO: Implement learning codification from resolution data
+    # This would extract patterns and improvements from the resolution process
 
     if "## Work Log" in new_content:
         parts = new_content.split("## Work Log")
