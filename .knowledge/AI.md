@@ -5,7 +5,7 @@ It is automatically updated when new learnings are added.
 
 ## Automation
 
-### Untitled
+### Always use strict typing in Python files
 
 **Improvements:**
 
