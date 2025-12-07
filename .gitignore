@@ -53,3 +53,13 @@ plans/
 worktrees/
 *.log
 .knowledge/
+
+# MkDocs documentation
+docs/site/
+site/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/

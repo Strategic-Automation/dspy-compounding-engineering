@@ -1,5 +1,6 @@
 import dspy
 
+
 class KnowledgeGardener(dspy.Signature):
     """
     You are a Knowledge Gardener. Your role is to maintain the health and utility

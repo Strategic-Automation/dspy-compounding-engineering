@@ -1,16 +1,16 @@
-import os
-import subprocess
-import re
 import json
+import os
+import re
+import subprocess
 from typing import Optional
 
 import dspy
 from rich.console import Console
+from rich.panel import Panel
 from rich.prompt import Confirm
 from rich.table import Table
-from rich.panel import Panel
 
-from agents.workflow import TaskExtractor, TaskExecutor
+from agents.workflow import TaskExecutor, TaskExtractor
 from utils.safe_io import safe_apply_operations, skip_ai_commands
 
 console = Console()

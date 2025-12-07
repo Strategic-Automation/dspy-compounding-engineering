@@ -5,15 +5,16 @@ This module manages the persistent storage and retrieval of learnings,
 enabling the system to improve over time by accessing past insights.
 """
 
-import os
-import json
 import glob
-from datetime import datetime
-from typing import List, Dict, Any
-from rich.console import Console
 import hashlib
+import json
+import os
 import shutil
-from filelock import FileLock
+from datetime import datetime
+from typing import Any, Dict, List
+
+from rich.console import Console
+
 console = Console()
 
 

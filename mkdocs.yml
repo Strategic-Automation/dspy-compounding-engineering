@@ -1,0 +1,108 @@
+site_name: Compounding Engineering (DSPy)
+site_description: AI-powered development tools that make each unit of work easier than the last
+site_author: Strategic Automation
+site_url: https://strategic-automation.github.io/dspy-compounding-engineering/
+repo_name: Strategic-Automation/dspy-compounding-engineering
+repo_url: https://github.com/Strategic-Automation/dspy-compounding-engineering
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    # Light mode
+    - scheme: default
+      primary: deep purple
+      accent: purple
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Dark mode
+    - scheme: slate
+      primary: deep purple
+      accent: purple
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+  icon:
+    repo: fontawesome/brands/github
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quickstart.md
+      - Configuration: getting-started/configuration.md
+  - Usage:
+      - Code Review: usage/review.md
+      - Triage Findings: usage/triage.md
+      - Work Execution: usage/work.md
+      - Planning: usage/planning.md
+      - Codify Learnings: usage/codify.md
+  - Concepts:
+      - Compounding Engineering: concepts/compounding-engineering.md
+      - Architecture: concepts/architecture.md
+      - Knowledge Base: concepts/knowledge-base.md
+  - API Reference:
+      - Agents: api/agents.md
+      - Workflows: api/workflows.md
+      - Utilities: api/utilities.md
+  - Contributing: contributing.md
+  - Roadmap: roadmap.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - tables
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_source: true
+            show_root_heading: true
+            show_root_full_path: false
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            members_order: source
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/Strategic-Automation/dspy-compounding-engineering
+    - icon: fontawesome/solid/globe
+      link: https://strategicautomation.co.uk
+      name: Strategic Automation
+
+copyright: Copyright &copy; 2025 Strategic Automation

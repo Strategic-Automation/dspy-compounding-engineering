@@ -1,24 +1,26 @@
 import os
 import subprocess
+
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.progress import Progress
 from rich.table import Table
+
 from agents.review import (
+    ArchitectureStrategist,
+    CodeSimplicityReviewer,
+    DataIntegrityGuardian,
+    DhhRailsReviewer,
+    KieranPythonReviewer,
     KieranRailsReviewer,
     KieranTypescriptReviewer,
-    KieranPythonReviewer,
-    SecuritySentinel,
-    CodeSimplicityReviewer,
-    DhhRailsReviewer,
-    PerformanceOracle,
-    DataIntegrityGuardian,
-    ArchitectureStrategist,
     PatternRecognitionSpecialist,
+    PerformanceOracle,
+    SecuritySentinel,
 )
-from utils.todo_service import create_finding_todo
 from utils.kb_module import KBPredict
 from utils.project_context import ProjectContext
+from utils.todo_service import create_finding_todo
 
 console = Console()
 
@@ -34,8 +36,9 @@ def run_review(pr_url_or_id: str, project: bool = False):
         project: If True, review entire project instead of just changes
     """
 
-    from utils.git_service import GitService
     import concurrent.futures
+
+    from utils.git_service import GitService
 
     if project:
         console.print("[bold]Starting Full Project Review[/bold]\n")

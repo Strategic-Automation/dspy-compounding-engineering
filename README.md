@@ -8,6 +8,8 @@
 
 A Python implementation of the [Compounding Engineering Plugin](https://github.com/EveryInc/compounding-engineering-plugin) using [DSPy](https://github.com/stanfordnlp/dspy).
 
+[**📚 Documentation**](https://strategic-automation.github.io/dspy-compounding-engineering/)
+
 ## What Is Compounding Engineering?
 
 **Each unit of engineering work should make subsequent units of work easier—not harder.**
@@ -67,7 +69,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 ```bash
 # Clone repository
-git clone https://github.com/Dan-StrategicAutomation/dspy-compounding-engineering.git
+git clone https://github.com/Strategic-Automation/dspy-compounding-engineering.git
 cd dspy-compounding-engineering
 
 # Configure environment
@@ -113,14 +115,13 @@ graph LR
 
 ## Roadmap
 
-While the core compounding engineering system is fully functional, some enhancements are planned:
+See our [detailed Roadmap](https://strategic-automation.github.io/dspy-compounding-engineering/roadmap/) for upcoming features.
 
-- 🔄 **Vector Embeddings**: Upgrade from keyword matching to semantic similarity
-- 🤖 **Auto-Triage**: Pattern-based auto-approval/rejection of similar findings
-- 📊 **Learning Analytics**: Dashboard showing knowledge growth and reuse
-- 🔗 **GitHub Integration**: Create Issues, post PR comments, manage Projects
-- 🧪 **Test Runner Integration**: Robust test execution and coverage reporting
-- 🔌 **IDE Plugins**: VS Code and JetBrains extensions
+Key focus areas:
+- **GitHub Integration**: Create Issues, post PR comments, manage Projects
+- **Vector Embeddings**: Upgrade from keyword matching to semantic similarity
+- **Auto-Triage**: Pattern-based auto-approval/rejection of similar findings
+- **Learning Analytics**: Dashboard showing knowledge growth and reuse
 
 ## Configuration
 
@@ -291,6 +292,12 @@ Based on the [Compounding Engineering](https://every.to/source-code/my-ai-had-al
 | **Integration**| GitHub App | Local-First CLI |
 | **Learning** | Manual CLAUDE.md | **Automatic KB Injection** |
 | **Codification** | Manual | **Automatic on every resolution** |
+
+## Contributing
+
+We welcome contributions! If you're looking for ways to help, please check out our [Issues on GitHub](https://github.com/Strategic-Automation/dspy-compounding-engineering/issues).
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 
 ## License
 

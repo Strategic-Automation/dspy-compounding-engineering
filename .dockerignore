@@ -1,0 +1,9 @@
+.git
+.venv
+.env
+__pycache__
+.pytest_cache
+.ruff_cache
+.knowledge
+site
+tests

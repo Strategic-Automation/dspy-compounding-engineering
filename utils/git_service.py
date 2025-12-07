@@ -1,5 +1,5 @@
-import subprocess
 import shutil
+import subprocess
 
 
 class GitService:

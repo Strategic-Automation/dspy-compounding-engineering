@@ -5,8 +5,9 @@ This workflow allows users to manually codify feedback, learnings, or instructio
 into the persistent knowledge base using the FeedbackCodifier agent.
 """
 
-import dspy
 import json
+
+import dspy
 from rich.console import Console
 from rich.panel import Panel
 

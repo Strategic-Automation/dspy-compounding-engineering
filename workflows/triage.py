@@ -1,25 +1,15 @@
-import os
 import glob
+import os
 import re
-from datetime import datetime
+
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.prompt import Prompt
 from rich.table import Table
+
 from agents.workflow import TriageAgent
-import yaml
-import textwrap
-from filelock import FileLock
-import tempfile
-import frontmatter
 from utils.kb_module import KBPredict
-from utils.todo_service import (
-    parse_todo,
-    serialize_todo,
-    add_work_log_entry,
-    complete_todo,
-    atomic_update_todo
-)
+from utils.todo_service import add_work_log_entry, complete_todo
 
 console = Console()
 
