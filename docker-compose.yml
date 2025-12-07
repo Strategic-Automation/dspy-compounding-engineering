@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    image: dspy-ce:latest
+    volumes:
+      - ./:/app
+      # Mount .knowledge to ensure learnings are persisted if not in root
+      - ./.knowledge:/app/.knowledge
+    env_file:
+      - .env
+    # Use host network to access local LLM providers (e.g. Ollama on localhost:11434)
+    network_mode: "host"
+    profiles: [ "cli" ]
+
+  # Optional: Dev shell service that overrides entrypoint
+  dev:
+    build: .
+    volumes:
+      - ./:/app
+    env_file:
+      - .env
+    network_mode: "host"
+    entrypoint: [ "/bin/bash" ]
+    stdin_open: true
+    tty: true
