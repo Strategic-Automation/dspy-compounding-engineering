@@ -29,4 +29,18 @@ packages = ["agents", "workflows", "utils", "cli.py", "config.py"]
 [dependency-groups]
 dev = [
     "ruff>=0.14.7",
+    "isort>=5.13.0",
+    "mkdocs>=1.5.0",
+    "mkdocs-material>=9.5.0",
+    "mkdocstrings[python]>=0.24.0",
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "pytest-asyncio>=0.21.0",
 ]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+known_first_party = ["agents", "workflows", "utils"]
+skip_gitignore = true
+

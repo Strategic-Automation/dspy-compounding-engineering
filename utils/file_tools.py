@@ -1,8 +1,10 @@
 import os
 import subprocess
-from typing import List, Dict, Union
+from typing import Dict, List, Union
+
 from rich.console import Console
-from utils.safe_io import validate_path, safe_write
+
+from utils.safe_io import safe_write, validate_path
 
 console = Console()
 

@@ -1,13 +1,14 @@
 import os
 import re
-import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
 from rich.console import Console
 from rich.panel import Panel
+
 from agents.workflow.react_todo_resolver import ReActTodoResolver
 from agents.workflow.work_agent import ReActPlanExecutor
-from utils.todo_service import get_ready_todos, complete_todo, parse_todo, analyze_dependencies
 from utils.git_service import GitService
+from utils.todo_service import analyze_dependencies, complete_todo, get_ready_todos, parse_todo
 
 console = Console()
 

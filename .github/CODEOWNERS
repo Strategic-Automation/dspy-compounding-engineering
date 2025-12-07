@@ -1,0 +1,24 @@
+# Code Owners
+
+# Default owners for all files
+* @Strategic-Automation
+
+# GitHub workflows and CI/CD
+/.github/ @Strategic-Automation
+
+# Documentation
+/docs/ @Strategic-Automation
+/mkdocs.yml @Strategic-Automation
+README.md @Strategic-Automation
+
+# Core configuration
+/pyproject.toml @Strategic-Automation
+/.gitignore @Strategic-Automation
+/pytest.ini @Strategic-Automation
+
+# Core application code
+/cli.py @Strategic-Automation
+/config.py @Strategic-Automation
+
+# Critical workflows
+/workflows/ @Strategic-Automation

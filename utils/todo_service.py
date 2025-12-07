@@ -5,15 +5,14 @@ This module provides functions for creating, updating, and managing todo files
 in the todos/ directory following the compounding engineering workflow.
 """
 
+import glob
 import os
 import re
-import glob
 from datetime import datetime
-from typing import Optional, List, Dict, Any, Callable
-import yaml
+from typing import Callable, List, Optional
+
 import frontmatter
 from filelock import FileLock
-import shutil
 
 
 def get_next_issue_id(todos_dir: str = "todos") -> int:

@@ -3,11 +3,11 @@ from typing import Optional
 import typer
 
 from config import configure_dspy
-from workflows.triage import run_triage
+from workflows.codify import run_codify
+from workflows.generate_command import run_generate_command
 from workflows.plan import run_plan
 from workflows.review import run_review
-from workflows.generate_command import run_generate_command
-from workflows.codify import run_codify
+from workflows.triage import run_triage
 from workflows.work_unified import run_unified_work
 
 app = typer.Typer()

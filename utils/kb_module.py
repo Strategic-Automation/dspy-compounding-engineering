@@ -9,9 +9,9 @@ Based on DSPy best practices: instead of extending dspy.Predict, we create
 a custom dspy.Module that wraps it and injects KB context in the forward method.
 """
 
-import dspy
+from typing import Any, List, Optional
 
-from typing import Any, Optional, List
+import dspy
 
 from utils.knowledge_base import KnowledgeBase
 

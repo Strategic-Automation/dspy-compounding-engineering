@@ -1,12 +1,13 @@
 import os
-import dspy
+
 from rich.console import Console
+
 from agents.research import (
-    RepoResearchAnalyst,
     BestPracticesResearcher,
     FrameworkDocsResearcher,
+    RepoResearchAnalyst,
 )
-from agents.workflow import SpecFlowAnalyzer, PlanGenerator
+from agents.workflow import PlanGenerator, SpecFlowAnalyzer
 from utils.kb_module import KBPredict
 
 console = Console()

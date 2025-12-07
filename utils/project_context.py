@@ -7,8 +7,7 @@ for analysis.
 """
 
 import os
-import glob
-from typing import List, Set, Optional
+
 
 class ProjectContext:
     """

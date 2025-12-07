@@ -5,15 +5,16 @@ This workflow generates new CLI commands for the Compounding Engineering plugin
 based on natural language descriptions.
 """
 
+import json
 import os
 import re
-import json
+
+import dspy
 from rich.console import Console
 from rich.panel import Panel
-from rich.syntax import Syntax
 from rich.prompt import Confirm
+from rich.syntax import Syntax
 from rich.table import Table
-import dspy
 
 from agents.workflow import CommandGenerator
 
