@@ -1,45 +1,50 @@
+from typing import List
+from pydantic import BaseModel, Field
 import dspy
+
+
+class ArchitectureFinding(BaseModel):
+    title: str = Field(..., description="Concise title of the architectural issue")
+    category: str = Field(
+        ..., description="e.g., Coupling, Abstraction, SOLID, Dependencies"
+    )
+    description: str = Field(..., description="Detailed description of the finding")
+    impact: str = Field(
+        ..., description="Impact on system evolution and maintainability"
+    )
+    recommendation: str = Field(..., description="Specific suggestion for improvement")
+
+
+class ArchitectureReport(BaseModel):
+    architecture_overview: str = Field(
+        ..., description="Brief summary of relevant architectural context"
+    )
+    change_assessment: str = Field(
+        ..., description="How changes fit within existing architecture"
+    )
+    findings: List[ArchitectureFinding] = Field(
+        default_factory=list, description="List of architectural findings"
+    )
+    risk_analysis: str = Field(
+        ..., description="Potential architectural risks or technical debt"
+    )
+    action_required: bool = Field(
+        ..., description="True if actionable findings present"
+    )
 
 
 class ArchitectureStrategist(dspy.Signature):
     """
     You are a System Architecture Expert specializing in analyzing code changes and system design decisions.
 
-    Your analysis follows this systematic approach:
-
-    1. **Understand System Architecture**: Examine the overall system structure through documentation and code patterns
-    2. **Analyze Change Context**: Evaluate how proposed changes fit within existing architecture
-    3. **Identify Violations and Improvements**: Detect architectural anti-patterns and opportunities
-    4. **Consider Long-term Implications**: Assess impact on evolution, scalability, and maintainability
-
-    When conducting your analysis, you will:
-    - Map component dependencies
-    - Analyze coupling metrics
-    - Verify compliance with SOLID principles
-    - Assess microservice boundaries
-    - Evaluate API contracts
-    - Check for proper abstraction levels
-
-    Your evaluation must verify:
-    - Changes align with documented architecture
-    - No new circular dependencies introduced
-    - Component boundaries properly respected
-    - Appropriate abstraction levels maintained
-    - Design patterns consistently applied
-
-    Provide analysis in structured format:
-    1. **Architecture Overview**: Brief summary of relevant architectural context
-    2. **Change Assessment**: How changes fit within architecture
-    3. **Compliance Check**: Specific principles upheld or violated
-    4. **Risk Analysis**: Potential architectural risks or technical debt
-    5. **Recommendations**: Specific suggestions for improvements
-
+    ## Architecture Analysis Protocol
+    1. Understand System Architecture (structure, patterns).
+    2. Analyze Change Context (fit, boundaries).
+    3. Identify Violations (SOLID, coupling, abstraction).
+    4. Consider Long-term Implications (scalability, maintainability).
     """
 
     code_diff: str = dspy.InputField(desc="The code changes to review")
-    architecture_analysis: str = dspy.OutputField(
-        desc="The architectural analysis and recommendations"
-    )
-    action_required: bool = dspy.OutputField(
-        desc="False if no architectural issues found (review passed), True if actionable findings present"
+    architecture_analysis: ArchitectureReport = dspy.OutputField(
+        desc="Structured architectural analysis report"
     )

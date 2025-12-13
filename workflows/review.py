@@ -233,6 +233,7 @@ def run_review(pr_url_or_id: str, project: bool = False):
                                 if hasattr(val, "model_dump"):
                                     # It's a Pydantic model we didn't expect? Dump it to JSON/String
                                     import json
+
                                     review_text = f"```json\n{json.dumps(val.model_dump(), indent=2)}\n```"
                                 else:
                                     review_text = str(val)

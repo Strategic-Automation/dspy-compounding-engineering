@@ -195,9 +195,9 @@ def create_file(file_path: str, content: str, base_dir: str = ".") -> str:
     try:
         safe_path = validate_path(file_path, base_dir)
         if os.path.exists(safe_path):
-            return f"Error: File already exists: {file_path}"
+            return "Error: File already exists"
 
         safe_write(file_path, content, base_dir)
         return f"Successfully created file: {file_path}"
-    except Exception as e:
-        return f"Error creating file: {str(e)}"
+    except Exception:
+        return "Error creating file: Invalid path or permission denied"

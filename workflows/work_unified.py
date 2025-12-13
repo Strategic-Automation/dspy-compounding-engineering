@@ -137,6 +137,8 @@ def _run_react_todo(
                 f"[yellow]Warning: Could not create worktree, working in place: {e}[/yellow]"
             )
             worktree_path = None
+    else:
+        console.print("[dim]Phase 2: Setup Worktree (Skipped - Running In-Place)[/dim]")
 
     # Phase 3: Execute
     console.rule("[bold]Phase 3: Resolution[/bold]")

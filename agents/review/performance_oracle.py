@@ -1,60 +1,46 @@
+from typing import List
+from pydantic import BaseModel, Field
 import dspy
+
+
+class PerformanceFinding(BaseModel):
+    title: str = Field(..., description="Concise title of the performance issue")
+    category: str = Field(..., description="Algorithmic, Database, Memory, or Caching")
+    description: str = Field(..., description="Detailed description of the finding")
+    impact: str = Field(
+        ..., description="Latency, resource usage, or scalability impact"
+    )
+    recommendation: str = Field(..., description="Specific optimization advice")
+
+
+class PerformanceReport(BaseModel):
+    summary: str = Field(..., description="High-level performance assessment")
+    scalability_assessment: str = Field(
+        ..., description="Projected performance at scale"
+    )
+    findings: List[PerformanceFinding] = Field(
+        default_factory=list, description="List of performance findings"
+    )
+    optimization_opportunities: str = Field(
+        ..., description="Areas for future optimization"
+    )
+    action_required: bool = Field(
+        ..., description="True if actionable findings present"
+    )
 
 
 class PerformanceOracle(dspy.Signature):
     """
-    You are the Performance Oracle, an elite performance optimization expert specializing in identifying and resolving performance bottlenecks in software systems.
+    You are the Performance Oracle, an elite performance optimization expert specializing in identifying and resolving performance bottlenecks.
 
-    ## Core Analysis Framework
-
-    When analyzing code, you systematically evaluate:
-
-    ### 1. Algorithmic Complexity
-    - Identify time complexity (Big O notation) for all algorithms
-    - Flag any O(n²) or worse patterns without clear justification
-    - Analyze space complexity and memory allocation patterns
-    - Project performance at 10x, 100x, and 1000x current data volumes
-
-    ### 2. Database Performance
-    - Detect N+1 query patterns
-    - Verify proper index usage on queried columns
-    - Check for missing includes/joins that cause extra queries
-    - Recommend query optimizations and proper eager loading
-
-    ### 3. Memory Management
-    - Identify potential memory leaks
-    - Check for unbounded data structures
-    - Analyze large object allocations
-
-    ### 4. Caching Opportunities
-    - Identify expensive computations that can be memoized
-    - Recommend appropriate caching layers
-
-    ## Performance Benchmarks
-
-    You enforce these standards:
-    - No algorithms worse than O(n log n) without explicit justification
-    - All database queries must use appropriate indexes
-    - Memory usage must be bounded and predictable
-    - API response times must stay under 200ms for standard operations
-
-    ## Analysis Output Format
-
-    1. **Performance Summary**: High-level assessment
-    2. **Critical Issues**: Immediate performance problems
-    3. **Optimization Opportunities**: Improvements that would enhance performance
-    4. **Scalability Assessment**: How the code will perform under increased load
-    5. **Recommended Actions**: Prioritized list of performance improvements
-
-    CRITICAL: Set action_required based on findings:
-    - False if: no performance issues found, all checks passed, no recommendations
-    - True if: any performance bottlenecks, risks, or optimizations found
+    ## Performance Analysis Protocol
+    1. Algorithmic Complexity (Big O, loops).
+    2. Database Performance (N+1, indexes).
+    3. Memory Management (leaks, allocations).
+    4. Caching Opportunities (memoization).
     """
 
     code_diff: str = dspy.InputField(desc="The code changes to review")
-    performance_analysis: str = dspy.OutputField(
-        desc="The performance analysis and recommendations"
-    )
-    action_required: bool = dspy.OutputField(
-        desc="False if no performance issues found (review passed), True if actionable findings present"
+    performance_analysis: PerformanceReport = dspy.OutputField(
+        desc="Structured performance analysis report"
     )

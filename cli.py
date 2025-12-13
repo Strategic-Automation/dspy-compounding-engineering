@@ -177,8 +177,12 @@ def compress_kb(
     while preserving key learnings and structure.
     """
     # Input validation for ratio parameter
+    if not isinstance(ratio, (int, float)):
+        raise ValueError("Ratio must be a number")
     if not (0.0 <= ratio <= 1.0):
         raise ValueError("Ratio must be between 0.0 and 1.0")
+    if not (ratio == ratio and ratio != float("inf") and ratio != float("-inf")):
+        raise ValueError("Ratio must be a finite number (not NaN or infinity)")
 
     kb = KnowledgeBase()
     kb.compress_ai_md(ratio=ratio, dry_run=dry_run)
