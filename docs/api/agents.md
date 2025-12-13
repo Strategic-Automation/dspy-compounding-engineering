@@ -19,7 +19,7 @@ Detects security vulnerabilities.
 - Path traversal vulnerabilities
 - CORS misconfigurations
 
-**Output**: List of findings with severity (Critical, High, Medium, Low)
+**Output**: `SecurityReport` (Pydantic model) containing a list of findings with severity.
 
 ### PerformanceOracle
 **Module**: `agents/review/performance_oracle.py`
@@ -45,6 +45,8 @@ Reviews system design and patterns.
 - God objects and tight coupling
 - Missing abstraction layers
 - Circular dependencies
+
+**Output**: `ArchitectureReport` (Pydantic model) containing analysis and findings.
 
 ### DataIntegrityGuardian
 **Module**: `agents/review/data_integrity_guardian.py`
