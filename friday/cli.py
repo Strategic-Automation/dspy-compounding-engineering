@@ -117,7 +117,20 @@ class FridayCLI:
         self.console.print("\n[dim]Use /exit or Ctrl+D to quit[/dim]")
 
     def _print_banner(self):
-        """Print the welcome banner with ASCII art"""
+        """Print the welcome banner with optional ASCII art.
+        Controlled by env vars:
+          - FRIDAY_NO_BANNER=1 -> skip all banner output
+          - FRIDAY_MINIMAL=1   -> no ASCII art / tips, compact panel
+        """
+        # Feature toggles from env
+        def _is_true(val: str | None) -> bool:
+            return str(val or "").strip().lower() in {"1", "true", "yes", "on"}
+
+        if _is_true(os.getenv("FRIDAY_NO_BANNER")):
+            return
+
+        minimal_mode = _is_true(os.getenv("FRIDAY_MINIMAL"))
+
         try:
             from friday import __version__ as friday_version
         except Exception:
@@ -146,19 +159,27 @@ class FridayCLI:
         header = f"[bold white]FRIDAY[/] [dim]v{friday_version}[/]" if friday_version else "[bold white]FRIDAY[/]"
 
         # Build adaptive banner using Rich Panel
-        body = "\n".join([
-            f"{header}",
-            "[cyan]AI-Powered Coding Assistant[/]",
-            "",
-            f"[dim]{tip}[/]",
-            "[green]/help[/]  [dim]Show available commands[/]",
-            "[green]/clear[/] [dim]Clear conversation[/]",
-            "[green]/exit[/]  [dim]Exit Friday[/]",
-        ])
-
-        # Print ASCII art followed by adaptive panel and working directory
-        self.console.print(ascii_art)
-        self.console.print(Panel.fit(body, border_style="blue"))
+        if minimal_mode:
+            body = "\n".join([
+                f"{header}",
+                "[cyan]AI-Powered Coding Assistant[/]",
+                "[green]/help[/]  [dim]Commands[/]  [green]/clear[/]  [dim]Clear[/]  [green]/exit[/]  [dim]Quit[/]",
+            ])
+            # Minimal: no ASCII art, compact body
+            self.console.print(Panel.fit(body, border_style="blue"))
+        else:
+            body = "\n".join([
+                f"{header}",
+                "[cyan]AI-Powered Coding Assistant[/]",
+                "",
+                f"[dim]{tip}[/]",
+                "[green]/help[/]  [dim]Show available commands[/]",
+                "[green]/clear[/] [dim]Clear conversation[/]",
+                "[green]/exit[/]  [dim]Exit Friday[/]",
+            ])
+            # Print ASCII art followed by adaptive panel
+            self.console.print(ascii_art)
+            self.console.print(Panel.fit(body, border_style="blue"))
 
         cwd = os.getcwd()
         self.console.print(f"[dim]Working directory:[/] [cyan]{cwd}[/]")
