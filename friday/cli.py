@@ -262,6 +262,7 @@ class FridayCLI:
   [dim]›[/] "/work p1"
   [dim]›[/] "/codify Always use type hints in Python functions"
   [dim]›[/] "/compound run my-workflow"
+  [dim]›[/] "!ls -la" (Execute shell command)
 
 [bold]Tips:[/]
   [dim]•[/] Be specific about file paths and function names
@@ -598,6 +599,12 @@ class FridayCLI:
                 if user_input.startswith("/"):
                     if not self._handle_command(user_input):
                         break
+                    continue
+                
+                if user_input.startswith("!"):
+                    shell_cmd = user_input[1:].strip()
+                    if shell_cmd:
+                        self.tools.execute_command(shell_cmd)
                     continue
                 
                 self.agent.process_message(user_input)
