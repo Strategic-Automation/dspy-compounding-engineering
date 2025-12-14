@@ -46,11 +46,14 @@ class TodoResolutionSignature(dspy.Signature):
     - If you want to replace line 10, 'edits' should be [{'start_line': 10, 'end_line': 10, 'content': 'new_line_10_content'}].
     - DO NOT include lines 9 or 11 in 'content' unless you are changing them too.
     - TRIPLE QUOTES (''') HAZARD: When editing docstrings or multiline strings, be careful not to break the tool call syntax.
+<<<<<<< HEAD
 
     4. PREVENT DUPLICATION:
        - Before adding a new function, class, or variable, ALWAYS check if it already exists in the file.
        - If it does, you MUST replace the existing definition (using the correct line range) instead of appending a new one.
        - Use 'search_files' or 'read_file_range' to find the exact line numbers of the existing code before editing.
+=======
+>>>>>>> origin/master
     """
 
     todo_content: str = dspy.InputField(desc="Content of the todo file")
