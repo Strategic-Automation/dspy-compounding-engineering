@@ -1,10 +1,10 @@
 [project]
 name = "dspy-compounding-engineering"
 version = "0.1.0"
-description = "DSPy implementation of the Compounding Engineering Plugin"
+description = "DSPy implementation of the Compounding Engineering"
 readme = "README.md"
 authors = [
-    {name = "Strategic Automation", email = "contact@strategic-automation.dev"}
+    {name = "Strategic Automation", email = "hello@strategicautomation.co.uk"}
 ]
 license = {text = "MIT"}
 keywords = ["ai", "llm", "dspy", "compounding", "engineering", "cli", "agent"]

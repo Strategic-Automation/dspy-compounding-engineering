@@ -8,7 +8,7 @@ from workflows.generate_command import run_generate_command
 from workflows.plan import run_plan
 from workflows.review import run_review
 from workflows.triage import run_triage
-from workflows.work_unified import run_unified_work
+from workflows.work import run_unified_work
 from utils.knowledge_base import KnowledgeBase
 
 app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})

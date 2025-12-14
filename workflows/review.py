@@ -9,9 +9,11 @@ from pydantic import BaseModel
 
 from agents.review import (
     ArchitectureStrategist,
+    AgentNativeReviewer,
     CodeSimplicityReviewer,
     DataIntegrityGuardian,
     DhhRailsReviewer,
+    JulikFrontendRacesReviewer,
     KieranPythonReviewer,
     KieranRailsReviewer,
     KieranTypescriptReviewer,
@@ -192,6 +194,8 @@ def run_review(pr_url_or_id: str, project: bool = False):
         ("Pattern Recognition Specialist", PatternRecognitionSpecialist),
         ("Code Simplicity Reviewer", CodeSimplicityReviewer),
         ("DHH Rails Reviewer", DhhRailsReviewer),
+        ("Agent Native Reviewer", AgentNativeReviewer),
+        ("Julik Frontend Races Reviewer", JulikFrontendRacesReviewer),
     ]
 
     findings = []
@@ -248,7 +252,8 @@ def run_review(pr_url_or_id: str, project: bool = False):
                         for field_name in [
                             "review_comments", "security_report", "performance_analysis", 
                             "architecture_analysis", "data_integrity_report", 
-                            "pattern_analysis", "simplification_analysis", "dhh_review"
+                            "pattern_analysis", "simplification_analysis", "dhh_review",
+                            "agent_native_analysis", "race_condition_analysis"
                         ]:
                             if hasattr(result, field_name):
                                 val = getattr(result, field_name)
@@ -285,7 +290,8 @@ def run_review(pr_url_or_id: str, project: bool = False):
                                     if "description" in f:
                                         parts.append(f"{f['description']}\n")
                                     for k, v in f.items():
-                                        if k in ["title", "description", "severity"]: continue
+                                        if k in ["title", "description", "severity"]:
+                                            continue
                                         label = k.replace("_", " ").title()
                                         parts.append(f"- **{label}**: {v}")
                                     parts.append("")
@@ -305,7 +311,7 @@ def run_review(pr_url_or_id: str, project: bool = False):
                                 try:
                                     json_str = json.dumps(value, indent=2)
                                     parts.append(f"## {title}\n\n```json\n{json_str}\n```\n")
-                                except:
+                                except Exception:
                                     parts.append(f"## {title}\n\n{str(value)}\n")
                             elif isinstance(value, (int, float, bool)):
                                 title = key.replace("_", " ").title()
@@ -364,6 +370,8 @@ def run_review(pr_url_or_id: str, project: bool = False):
         "Kieran Rails Reviewer": ("rails", "p2"),
         "Kieran TypeScript Reviewer": ("typescript", "p2"),
         "Kieran Python Reviewer": ("python", "p2"),
+        "Agent Native Reviewer": ("agent-native", "p2"),
+        "Julik Frontend Races Reviewer": ("frontend", "p2"),
     }
 
     for finding in findings:

@@ -1,33 +1,10 @@
-from typing import List
-from pydantic import BaseModel, Field
+from agents.review.schema import ReviewReport
+from pydantic import Field
 import dspy
 
 
-class RaceFinding(BaseModel):
-    title: str = Field(..., description="Concise title of the race/timing issue")
-    category: str = Field(
-        ..., description="Hotwire, Timer, Promise, Event, or Transition"
-    )
-    description: str = Field(
-        ..., description="Witty description of the potential race condition"
-    )
-    location: str = Field(..., description="File and line number")
-    recommendation: str = Field(
-        ..., description="Specific fix (e.g., cancellation token, state machine)"
-    )
-
-
-class JulikReport(BaseModel):
-    summary: str = Field(
-        ..., description="High-level assessment in Julik's witty voice"
-    )
-    findings: List[RaceFinding] = Field(
-        default_factory=list, description="List of race condition findings"
-    )
+class JulikReport(ReviewReport):
     timing_analysis: str = Field(..., description="Critique of timer/promise usage")
-    action_required: bool = Field(
-        ..., description="True if race conditions or timing issues found"
-    )
 
 
 class JulikFrontendRacesReviewer(dspy.Signature):
@@ -36,13 +13,34 @@ class JulikFrontendRacesReviewer(dspy.Signature):
     You review all code changes with focus on timing, because timing is everything.
 
     ## Julik's Review Protocol
-    1. Hotwire/Turbo Compatibility (lifecycle, unmounting).
-    2. DOM Events (propagation, listener management).
-    3. Promises (unhandled rejections, cancellation).
-    4. Timers (cancellation tokens, cleanup).
-    5. Transitions (frame counts, jank).
-    6. Concurrency (mutual exclusion, state machines).
-    7. Review Style (witty, direct, unapologetic).
+    1. **Hotwire/Turbo Compatibility**:
+       - Lifecycle management: what happens when element is removed?
+       - Persisting elements: are they properly cleaned up?
+
+    2. **DOM Events**:
+       - Propagation: `stopPropagation` / `preventDefault` usage
+       - Listener management: adding/removing listeners properly
+
+    3. **Promises**:
+       - Unhandled rejections
+       - Race conditions in parallel requests
+       - Cancellation handling
+
+    4. **Timers**:
+       - `setTimeout` / `setInterval` cleanup
+       - `requestAnimationFrame` for animations
+
+    5. **Transitions**:
+       - Frame counts and jank
+       - CSS transitions vs JS animations
+
+    6. **Concurrency**:
+       - Mutual exclusion for shared resources
+       - State machine correctness
+
+    7. **Review Style**:
+       - Witty, direct, unapologetic
+       - "If it flickers, it's trash"
     """
 
     code_diff: str = dspy.InputField(

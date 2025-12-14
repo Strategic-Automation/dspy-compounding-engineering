@@ -120,6 +120,27 @@ Identifies design patterns and anti-patterns.
 
 **Output**: `PatternReport`
 
+### AgentNativeReviewer
+**Module**: `agents/review/agent_native_reviewer.py`
+
+Ensures features are accessible to agents (Action/Context parity).
+
+**Unique Fields**:
+- `agent_native_score`: Assessment of agent capability.
+- `capability_analysis`: Analysis of user vs agent capability gaps.
+
+**Output**: `AgentNativeReport`
+
+### JulikFrontendRacesReviewer
+**Module**: `agents/review/julik_frontend_races_reviewer.py`
+
+Detects race conditions, timing issues, and frontend concurrency bugs.
+
+**Unique Fields**:
+- `timing_analysis`: Critique of promise/timer usage.
+
+**Output**: `JulikReport`
+
 ## Workflow Agents
 
 Located in `agents/workflow/`, these agents execute tasks.
