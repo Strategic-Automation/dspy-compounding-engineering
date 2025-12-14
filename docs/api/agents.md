@@ -4,82 +4,121 @@ The system uses specialized DSPy agents for different tasks. Each agent is imple
 
 ## Review Agents
 
-Located in `agents/review/`, these agents analyze code for specific concerns.
+Located in `agents/review/`, these agents analyze code for specific concerns. All review agents now return structured data using Pydantic models inheriting from `ReviewReport`.
+
+### Common Schema
+
+All agents return a report inheriting from `ReviewReport` containing:
+- `summary`: High-level executive summary.
+- `analysis`: detailed technical analysis.
+- `findings`: List of `ReviewFinding` objects (category, severity, description, solution, etc.).
+- `action_required`: Boolean indicating if manual intervention is needed.
 
 ### SecuritySentinel
 **Module**: `agents/review/security_sentinel.py`
 
 Detects security vulnerabilities.
 
-**Checks**:
-- SQL injection via string concatenation
-- XSS vulnerabilities in web output
-- Insecure cryptographic functions (MD5, SHA1)
-- Hardcoded secrets/credentials
-- Path traversal vulnerabilities
-- CORS misconfigurations
+**Unique Fields**:
+- `risk_matrix`: A text-based matrix assessing likelihood and impact.
 
-**Output**: List of findings with severity (Critical, High, Medium, Low)
+**Output**: `SecurityReport`
 
 ### PerformanceOracle
 **Module**: `agents/review/performance_oracle.py`
 
-Identifies performance issues.
+Identifies performance issues and optimization opportunities.
 
-**Checks**:
-- O(n²) or worse algorithmic complexity
-- N+1 query problems in ORMs
-- Inefficient loops and iterations
-- Missing database indexes
-- Unoptimized regular expressions
-- Memory leaks
+**Unique Fields**:
+- `scalability_assessment`: Analysis of how the code scales.
+- `optimization_opportunities`: List of specific performance wins.
+
+**Output**: `PerformanceReport`
 
 ### ArchitectureStrategist
 **Module**: `agents/review/architecture_strategist.py`
 
-Reviews system design and patterns.
+Reviews system design, patterns, and SOLID principles.
 
-**Checks**:
-- SOLID principle violations
-- Improper dependency injection
-- God objects and tight coupling
-- Missing abstraction layers
-- Circular dependencies
+**Unique Fields**:
+- `risk_analysis`: Analysis of architectural risks and debt.
+
+**Output**: `ArchitectureReport`
 
 ### DataIntegrityGuardian
 **Module**: `agents/review/data_integrity_guardian.py`
 
-Ensures data consistency and validation.
+Ensures data consistency, privacy compliance, and safe migrations.
 
-**Checks**:
-- Missing input validation
-- Transaction boundary issues
-- Data race conditions
-- Schema migration problems
-- Improper error handling in DB operations
+**Unique Fields**:
+- `migration_analysis`: Safety check for schema changes.
+- `privacy_compliance`: GDPR/CCPA compliance check.
+- `rollout_strategy`: Recommended deployment strategy for data changes.
 
-### TestCoverageWarden
-**Module**: `agents/review/test_coverage_warden.py`
+**Output**: `DataIntegrityReport`
 
-Ensures adequate testing.
+### CodeSimplicityReviewer
+**Module**: `agents/review/code_simplicity_reviewer.py`
 
-**Checks**:
-- Missing unit tests for new code
-- Untested error paths
-- Missing integration tests
-- Test quality issues
+Focuses on code readability, complexity reduction, and specific "Simplicity Wins".
 
-### MaintainabilitySage
-**Module**: `agents/review/maintainability_sage.py`
+**Unique Fields**:
+- `core_purpose`: The deduced primary goal of the code.
+- `final_assessment`: Overall simplicity rating.
 
-Reviews code quality and readability.
+**Output**: `SimplicityReport`
 
-**Checks**:
-- Poor naming conventions
-- Excessive function/class complexity
-- Missing documentation
-- Code duplication
-- Magic numbers and hardcoded values
+### DhhRailsReviewer
+**Module**: `agents/review/dhh_rails_reviewer.py`
+
+Enforces "The Rails Way" conventions and DHH-style coding philosophies.
+
+**Unique Fields**:
+- `complexity_analysis`: Evaluation of necessary vs accidental complexity.
+- `final_verdict`: Pass/Fail/Warn verdict.
+
+**Output**: `DhhReviewReport`
+
+### KieranRailsReviewer
+**Module**: `agents/review/kieran_rails_reviewer.py`
+
+Checks for specific Rails patterns and conventions preferred by the team (Kieran's style).
+
+**Unique Fields**:
+- `convention_score`: Quantitative score (0-100) of adherence to conventions.
+
+**Output**: `KieranReport`
+
+### KieranPythonReviewer
+**Module**: `agents/review/kieran_python_reviewer.py`
+
+Enforces Pythonic idioms and project-specific Python standards.
+
+**Unique Fields**:
+- `pythonic_score`: Quantitative score (0-100) of Pythonic code quality.
+
+**Output**: `KieranPythonReport`
+
+### KieranTypescriptReviewer
+**Module**: `agents/review/kieran_typescript_reviewer.py`
+
+Reviews TypeScript code for type safety and best practices.
+
+**Unique Fields**:
+- `typesafety_score`: Quantitative score (0-100) of type safety (e.g., use of `any`).
+
+**Output**: `KieranTSReport`
+
+### PatternRecognitionSpecialist
+**Module**: `agents/review/pattern_recognition_specialist.py`
+
+Identifies design patterns and anti-patterns.
+
+**Unique Fields**:
+- `naming_convention_analysis`: Review of variable/function naming.
+- `duplication_metrics`: Assessment of code duplication.
+
+**Output**: `PatternReport`
 
 ## Workflow Agents
 
@@ -231,34 +270,40 @@ agent = SecuritySentinel()
 
 To create a new review agent:
 
+1. Define your output schema inheriting from `ReviewReport`.
+2. Define your signature using the schema.
+3. Subclass `ReviewAgent` (or implement `dspy.Module` similar to existing agents).
+
 ```python
 import dspy
-from typing import List
+from pydantic import Field
+from agents.review.schema import ReviewReport, ReviewFinding
 
+# 1. Define Output Schema
+class MyCustomReport(ReviewReport):
+    custom_metric: str = Field(..., description="Some custom analysis metric")
+
+# 2. Define Signature
+class MyCustomReviewSignature(dspy.Signature):
+    """Review code for custom concerns."""
+    code_diff: str = dspy.InputField(desc="Code changes")
+    review_report: MyCustomReport = dspy.OutputField(desc="Structured review report")
+
+# 3. Implement Agent
 class MyCustomReviewer(dspy.Module):
-    def __init__(self, kb=None):
+    def __init__(self):
         super().__init__()
-        self.kb = kb
-        self.reviewer = dspy.ChainOfThought("code, context -> findings")
+        self.reviewer = dspy.TypedPredictor(MyCustomReviewSignature)
     
-    def forward(self, code: str, file_path: str = ""):
-        kb_context = self.kb.retrieve_relevant(f"custom review {file_path}") if self.kb else ""
-        
-        result = self.reviewer(
-            code=code,
-            context=kb_context
-        )
-        
-        return result.findings
+    def forward(self, code_diff: str):
+        return self.reviewer(code_diff=code_diff).review_report
 ```
 
 Then register it in `workflows/review.py`:
 
 ```python
 review_agents = [
-    SecuritySentinel(kb=kb),
-    PerformanceOracle(kb=kb),
-    MyCustomReviewer(kb=kb),  # Add your agent
     # ...
+    ("My Custom Reviewer", MyCustomReviewer),
 ]
 ```

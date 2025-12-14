@@ -100,7 +100,7 @@ dependencies: []
 
 Finding from **{agent}** during code review.
 
-{review_text[:2000] if len(review_text) > 2000 else review_text}
+{review_text}
 
 ## Findings
 
@@ -269,7 +269,9 @@ def add_work_log_entry(content: str, action: str) -> str:
         return f"{content}\n\n## Work Log\n{log_entry}"
 
 
-def get_ready_todos(todos_dir: str = "todos", pattern: Optional[str] = None) -> List[str]:
+def get_ready_todos(
+    todos_dir: str = "todos", pattern: Optional[str] = None
+) -> List[str]:
     """
     Find all ready todos in the todos directory, optionally filtered by pattern.
 
@@ -371,10 +373,10 @@ def complete_todo(
 def analyze_dependencies(todos: List[dict]) -> dict:
     """
     Analyze dependencies between todos and create execution plan.
-    
+
     Args:
         todos: List of todo dictionaries with 'id' and 'frontmatter'
-        
+
     Returns:
         Dict containing execution_order (batches) and mermaid_diagram
     """
@@ -384,7 +386,7 @@ def analyze_dependencies(todos: List[dict]) -> dict:
     # Build dependency graph
     graph = {t["id"]: set() for t in todos}
     id_to_todo = {t["id"]: t for t in todos}
-    
+
     for todo in todos:
         deps = todo["frontmatter"].get("dependencies", [])
         for dep in deps:
@@ -400,16 +402,14 @@ def analyze_dependencies(todos: List[dict]) -> dict:
 
     queue = [t_id for t_id in graph if in_degree[t_id] == 0]
     batches = []
-    
+
     while queue:
         # Current batch can be executed in parallel
-        current_batch = sorted(queue) # Sort for deterministic order
-        batches.append({
-            "batch": len(batches) + 1,
-            "todos": current_batch,
-            "can_parallel": True
-        })
-        
+        current_batch = sorted(queue)  # Sort for deterministic order
+        batches.append(
+            {"batch": len(batches) + 1, "todos": current_batch, "can_parallel": True}
+        )
+
         # Remove current batch from graph
         next_queue = []
         for t_id in current_batch:
@@ -421,12 +421,12 @@ def analyze_dependencies(todos: List[dict]) -> dict:
             # Here "A depends on B" means B must be done before A.
             # So edge is B -> A.
             pass
-            
+
         # Let's rebuild graph as "Prerequisite -> Dependent"
         # If A depends on B, then B -> A
         forward_graph = {t["id"]: set() for t in todos}
         in_degree = {t["id"]: 0 for t in todos}
-        
+
         for todo in todos:
             deps = todo["frontmatter"].get("dependencies", [])
             for dep in deps:
@@ -434,20 +434,22 @@ def analyze_dependencies(todos: List[dict]) -> dict:
                 if dep_id in id_to_todo:
                     forward_graph[dep_id].add(todo["id"])
                     in_degree[todo["id"]] += 1
-        
-        queue = [t_id for t_id in todos if in_degree[t["id"]] == 0]
+
+        queue = [t["id"] for t in todos if in_degree[t["id"]] == 0]
         batches = []
-        
+
         processed_count = 0
         while queue:
             current_batch = sorted(queue)
-            batches.append({
-                "batch": len(batches) + 1,
-                "todos": current_batch,
-                "can_parallel": True
-            })
+            batches.append(
+                {
+                    "batch": len(batches) + 1,
+                    "todos": current_batch,
+                    "can_parallel": True,
+                }
+            )
             processed_count += len(current_batch)
-            
+
             next_queue = []
             for t_id in current_batch:
                 for dependent in forward_graph[t_id]:
@@ -459,12 +461,14 @@ def analyze_dependencies(todos: List[dict]) -> dict:
         if processed_count < len(todos):
             # Cycle detected or missing dependencies
             remaining = [t["id"] for t in todos if in_degree[t["id"]] > 0]
-            batches.append({
-                "batch": len(batches) + 1,
-                "todos": remaining,
-                "can_parallel": False,
-                "warning": "Cycle detected or missing dependencies"
-            })
+            batches.append(
+                {
+                    "batch": len(batches) + 1,
+                    "todos": remaining,
+                    "can_parallel": False,
+                    "warning": "Cycle detected or missing dependencies",
+                }
+            )
 
         # Generate Mermaid diagram
         mermaid = ["flowchart TD"]
@@ -472,8 +476,5 @@ def analyze_dependencies(todos: List[dict]) -> dict:
             mermaid.append(f"  T{t_id}[Todo {t_id}]")
             for dep in forward_graph[t_id]:
                 mermaid.append(f"  T{t_id} --> T{dep}")
-        
-        return {
-            "execution_order": batches,
-            "mermaid_diagram": "\n".join(mermaid)
-        }
+
+        return {"execution_order": batches, "mermaid_diagram": "\n".join(mermaid)}

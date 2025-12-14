@@ -5,6 +5,7 @@ from rich.console import Console
 from rich.markdown import Markdown
 from rich.progress import Progress
 from rich.table import Table
+from pydantic import BaseModel
 
 from agents.review import (
     ArchitectureStrategist,
@@ -25,6 +26,64 @@ from utils.todo_service import create_finding_todo
 console = Console()
 
 
+def convert_pydantic_to_markdown(model: BaseModel) -> str:
+    """
+    Convert any Pydantic model into a structured markdown report.
+    Auto-detects findings lists and summary fields.
+    """
+    data = model.model_dump()
+    parts = []
+
+    # 1. Handle Summary Fields (High Priority)
+    summary_keys = [
+        "executive_summary",
+        "architecture_overview",
+        "summary",
+        "overview",
+        "assessment",
+    ]
+    for key in summary_keys:
+        if key in data and isinstance(data[key], str):
+            title = key.replace("_", " ").title()
+            parts.append(f"# {title}\n\n{data[key]}\n")
+            del data[key]  # Consumed
+
+    # 2. Handle Findings List (Core Content)
+    if "findings" in data and isinstance(data["findings"], list):
+        findings = data["findings"]
+        if findings:
+            parts.append("## Detailed Findings\n")
+            for f in findings:
+                # Try to get title, fallback to generic
+                f_title = f.get("title", "Untitled Finding")
+                parts.append(f"### {f_title}\n")
+
+                # Print other fields in list format
+                for k, v in f.items():
+                    if k == "title":
+                        continue
+                    label = k.replace("_", " ").title()
+                    parts.append(f"- **{label}**: {v}")
+                parts.append("")  # Spacing
+        del data["findings"]
+
+    # 3. Handle Remaining Fields (Generic Sections)
+    for key, value in data.items():
+        if key == "action_required":
+            continue  # meaningful metadata but not report text
+
+        if isinstance(value, str):
+            title = key.replace("_", " ").title()
+            parts.append(f"## {title}\n\n{value}\n")
+        elif isinstance(value, (dict, list)):
+            # Fallback for complex nested data
+            import json
+
+            title = key.replace("_", " ").title()
+            json_str = json.dumps(value, indent=2)
+            parts.append(f"## {title}\n\n```json\n{json_str}\n```\n")
+
+    return "\n".join(parts)
 
 
 def run_review(pr_url_or_id: str, project: bool = False):
@@ -101,11 +160,12 @@ def run_review(pr_url_or_id: str, project: bool = False):
             return
 
         # Truncate if too large (simple safety check)
-        if len(code_diff) > 100000:
+        MAX_DIFF_SIZE = 50000
+        if len(code_diff) > MAX_DIFF_SIZE:
             console.print(
-                f"[yellow]Warning: Content is very large ({len(code_diff)} chars). Truncating...[/yellow]"
+                f"[yellow]Warning: Content is very large ({len(code_diff)} chars). Truncating to {MAX_DIFF_SIZE}...[/yellow]"
             )
-            code_diff = code_diff[:100000] + "\n...[truncated]..."
+            code_diff = code_diff[:MAX_DIFF_SIZE] + "\n...[truncated]..."
 
     except Exception as e:
         console.print(f"[red]Error fetching content: {e}[/red]")
@@ -172,27 +232,99 @@ def run_review(pr_url_or_id: str, project: bool = False):
                         findings.append({"agent": name, "review": result})
                         continue
 
-                    # Extract the review from the result
                     review_text = None
-                    # Check all possible output fields
-                    for field in [
-                        "review_comments",
-                        "security_report",
-                        "performance_analysis",
-                        "data_integrity_report",
-                        "architecture_analysis",
-                        "pattern_analysis",
-                        "simplification_analysis",
-                        "dhh_review",
-                    ]:
-                        if hasattr(result, field):
-                            review_text = getattr(result, field)
-                            break
+                    action_required_val = None
+                    report_data = None
+                    report_obj = None # Keep track for attribute access if needed
+
+                    # 1. Attempt to find the report data (model or dict)
+                    if hasattr(result, "model_dump"):
+                        report_data = result.model_dump()
+                        report_obj = result
+                    elif isinstance(result, dict):
+                        report_data = result
+                    else:
+                        # Scan common output fields for the report model
+                        for field_name in [
+                            "review_comments", "security_report", "performance_analysis", 
+                            "architecture_analysis", "data_integrity_report", 
+                            "pattern_analysis", "simplification_analysis", "dhh_review"
+                        ]:
+                            if hasattr(result, field_name):
+                                val = getattr(result, field_name)
+                                if hasattr(val, "model_dump"):
+                                    report_data = val.model_dump()
+                                    report_obj = val
+                                    break
+                                elif isinstance(val, dict):
+                                    report_data = val
+                                    break
+                    
+                    # 2. Render the report if found
+                    if report_data:
+                        data = report_data
+                        parts = []
+                        
+                        # A. Standard Sections
+                        if "summary" in data:
+                            parts.append(f"# Summary\n\n{data['summary']}\n")
+                        elif "executive_summary" in data:
+                             parts.append(f"# Summary\n\n{data['executive_summary']}\n")
+
+                        if "analysis" in data:
+                            parts.append(f"## Analysis\n\n{data['analysis']}\n")
+                        
+                        if "findings" in data and isinstance(data["findings"], list):
+                            found_list = data["findings"]
+                            if found_list:
+                                parts.append("## Detailed Findings\n")
+                                for f in found_list:
+                                    title = f.get("title", "Untitled Finding")
+                                    severity = f.get("severity", "Medium")
+                                    parts.append(f"### {title} ({severity})\n")
+                                    if "description" in f:
+                                        parts.append(f"{f['description']}\n")
+                                    for k, v in f.items():
+                                        if k in ["title", "description", "severity"]: continue
+                                        label = k.replace("_", " ").title()
+                                        parts.append(f"- **{label}**: {v}")
+                                    parts.append("")
+
+                        # B. Unique/Extra Sections
+                        captured_keys = {"summary", "executive_summary", "analysis", "findings", "action_required"}
+                        for key, value in data.items():
+                            if key in captured_keys:
+                                continue
+
+                            if isinstance(value, str):
+                                title = key.replace("_", " ").title()
+                                parts.append(f"## {title}\n\n{value}\n")
+                            elif isinstance(value, (dict, list)):
+                                import json
+                                title = key.replace("_", " ").title()
+                                try:
+                                    json_str = json.dumps(value, indent=2)
+                                    parts.append(f"## {title}\n\n```json\n{json_str}\n```\n")
+                                except:
+                                    parts.append(f"## {title}\n\n{str(value)}\n")
+                            elif isinstance(value, (int, float, bool)):
+                                title = key.replace("_", " ").title()
+                                parts.append(f"## {title}\n\n{value}\n")
+
+                        review_text = "\n".join(parts)
+                        # Try to get action_required from dict or object
+                        action_required_val = data.get("action_required")
+                        if action_required_val is None and report_obj:
+                             action_required_val = getattr(report_obj, "action_required", None)
+                    
+                    # 3. Fallback
+                    else:
+                        review_text = str(result)
 
                     if review_text:
                         finding_data = {"agent": name, "review": review_text}
-                        if hasattr(result, "action_required"):
-                            finding_data["action_required"] = result.action_required
+                        if action_required_val is not None:
+                            finding_data["action_required"] = action_required_val
                         findings.append(finding_data)
 
                 except Exception as e:
@@ -336,13 +468,11 @@ def run_review(pr_url_or_id: str, project: bool = False):
     # Extract and codify learnings from the review
     if findings:
         from utils.learning_extractor import codify_review_findings
-        
+
         try:
             codify_review_findings(findings, len(created_todos))
         except Exception as e:
-            console.print(
-                f"[yellow]⚠ Could not codify review learnings: {e}[/yellow]"
-            )
+            console.print(f"[yellow]⚠ Could not codify review learnings: {e}[/yellow]")
 
     # Cleanup worktree
     if worktree_path and os.path.exists(worktree_path):

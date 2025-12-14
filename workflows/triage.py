@@ -14,8 +14,6 @@ from utils.todo_service import add_work_log_entry, complete_todo
 console = Console()
 
 
-
-
 def consistency_check_todos(todos_dir: str) -> None:
     issue_to_files = {}
     for file_path in glob.glob(os.path.join(todos_dir, "*.md")):
@@ -32,8 +30,6 @@ def consistency_check_todos(todos_dir: str) -> None:
     console.print("[green]Consistency check passed.[/green]")
 
 
-
-
 def _fill_recommended_action(content: str, solution_text: str = None) -> str:
     """Replace the 'Recommended Action' placeholder with actual recommendation."""
     placeholder = "*To be filled during triage.*"
@@ -46,8 +42,6 @@ def _fill_recommended_action(content: str, solution_text: str = None) -> str:
         )
 
     return content.replace(placeholder, recommendation)
-
-
 
 
 def run_triage():
@@ -141,9 +135,11 @@ def run_triage():
                     file_path,
                     resolution_summary="Automatically marked as complete - no action required based on finding analysis.",
                     action_msg="Auto-completed during triage (no action required)",
-                    rename_to_complete=True
+                    rename_to_complete=True,
                 )
-                console.print(f"[green]✅ Auto-Completed: {filename.replace('-pending-', '-complete-')} - Status: complete[/green]")
+                console.print(
+                    f"[green]✅ Auto-Completed: {filename.replace('-pending-', '-complete-')} - Status: complete[/green]"
+                )
             continue
 
         remaining = total_items - idx + 1
@@ -183,14 +179,15 @@ def run_triage():
                 )
                 approved_count += 1
                 approved_todos.append(new_filename)
-                
+
                 # Codify triage decision
                 from utils.learning_extractor import codify_triage_decision
+
                 try:
                     codify_triage_decision(
                         finding_content=content,
                         decision="approved",
-                        proposed_solution=solution
+                        proposed_solution=solution,
                     )
                 except Exception:
                     pass  # Don't fail triage if codification fails
@@ -200,9 +197,11 @@ def run_triage():
                     file_path,
                     resolution_summary="Marked as complete during triage (no action required).",
                     action_msg="Issue marked complete during triage (no action required)",
-                    rename_to_complete=True
+                    rename_to_complete=True,
                 )
-                console.print(f"[green]✅ Completed: {filename.replace('-pending-', '-complete-')} - Status: complete[/green]")
+                console.print(
+                    f"[green]✅ Completed: {filename.replace('-pending-', '-complete-')} - Status: complete[/green]"
+                )
             else:
                 console.print(f"[red]Error: Expected '-pending-' in {filename}[/red]")
         elif choice == "all":
@@ -336,13 +335,13 @@ def run_triage():
     # Codify batch triage session learnings
     if approved_count > 0 or skipped_count > 0:
         from utils.learning_extractor import codify_batch_triage_session
-        
+
         try:
             codify_batch_triage_session(
                 approved_count=approved_count,
                 skipped_count=skipped_count,
                 total_count=total_items,
-                approved_todos=approved_todos
+                approved_todos=approved_todos,
             )
         except Exception as e:
             console.print(f"[dim yellow]⚠ Could not codify session: {e}[/dim yellow]")

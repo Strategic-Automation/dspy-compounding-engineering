@@ -142,17 +142,13 @@ def run_plan(feature_description: str):
         best_practices = KBPredict(
             BestPracticesResearcher,
             kb_tags=["planning", "best-practices"],
-        )(
-            topic=feature_description
-        )
+        )(topic=feature_description)
         console.print("[green]✓ Best Practices Research Complete[/green]")
 
         framework_docs = KBPredict(
             FrameworkDocsResearcher,
             kb_tags=["planning", "framework-docs"],
-        )(
-            framework_or_library=feature_description
-        )
+        )(framework_or_library=feature_description)
         console.print("[green]✓ Framework Docs Research Complete[/green]")
 
     research_summary = f"""
@@ -172,9 +168,7 @@ def run_plan(feature_description: str):
         spec_flow = KBPredict(
             SpecFlowAnalyzer,
             kb_tags=["planning", "spec-flow"],
-        )(
-            feature_description=feature_description, research_findings=research_summary
-        )
+        )(feature_description=feature_description, research_findings=research_summary)
     console.print("[green]✓ SpecFlow Analysis Complete[/green]")
 
     # 3. Plan Generation

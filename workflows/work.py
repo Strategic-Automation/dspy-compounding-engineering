@@ -1,4 +1,3 @@
-import json
 import os
 import re
 import subprocess
@@ -160,22 +159,20 @@ def run_work(plan_file: str) -> None:
     console.rule("[bold]Phase 1: Task Extraction[/bold]")
 
     try:
-        extractor = dspy.Predict(TaskExtractor)
-        extraction_result = extractor(plan_content=plan_content)
-        tasks_json = extraction_result.tasks_json
+        # Use ChainOfThought for robust typed output
+        extractor = dspy.ChainOfThought(TaskExtractor)
+        result = extractor(
+            plan_content=plan_content, project_context=_get_project_context()
+        )
 
-        # Parse tasks
-        try:
-            if "```json" in tasks_json:
-                import re as regex
-
-                match = regex.search(r"```json\s*(.*?)\s*```", tasks_json, regex.DOTALL)
-                if match:
-                    tasks_json = match.group(1)
-            tasks = json.loads(tasks_json)
-        except json.JSONDecodeError:
-            console.print("[yellow]Warning: Could not parse tasks JSON[/yellow]")
+        # Get typed result
+        task_list_obj = result.extraction_result
+        if not task_list_obj:
+            console.print("[yellow]No tasks extracted from plan.[/yellow]")
             tasks = []
+        else:
+            # Convert Pydantic to list of dicts for existing logic
+            tasks = [t.model_dump() for t in task_list_obj.tasks]
 
         # Display tasks
         if tasks:
@@ -251,7 +248,8 @@ def run_work(plan_file: str) -> None:
                     else {"name": str(task), "description": str(task)}
                 )
 
-                executor = dspy.Predict(TaskExecutor)
+                # Use ChainOfThought for robust typed output
+                executor = dspy.ChainOfThought(TaskExecutor)
                 result = executor(
                     task_title=task_obj.get("name", "Unknown Task"),
                     task_description=task_obj.get("description", str(task)),
@@ -263,23 +261,16 @@ def run_work(plan_file: str) -> None:
                     project_conventions="Follow existing patterns. Use Python 3.10+. Use Rich for CLI output.",
                 )
 
-                # Parse resolution
-                resolution_text = result.implementation_json
-                try:
-                    if "```json" in resolution_text:
-                        import re as regex
-
-                        match = regex.search(
-                            r"```json\s*(.*?)\s*```", resolution_text, regex.DOTALL
-                        )
-                        if match:
-                            resolution_text = match.group(1)
-                    resolution = json.loads(resolution_text)
-                except json.JSONDecodeError:
+                # Get typed result
+                execution_obj = result.execution_result
+                if not execution_obj:
                     console.print(
-                        f"[yellow]Warning: Could not parse resolution for task {i}[/yellow]"
+                        f"[yellow]Warning: Agent failed to return structure for task {i}[/yellow]"
                     )
                     continue
+
+                # Convert Pydantic to dict for existing apply_task_resolution function
+                resolution = execution_obj.model_dump()
 
                 # Apply resolution in WORKTREE
                 apply_task_resolution(resolution, worktree_path)

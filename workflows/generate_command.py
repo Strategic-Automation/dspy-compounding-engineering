@@ -5,7 +5,6 @@ This workflow generates new CLI commands for the Compounding Engineering plugin
 based on natural language descriptions.
 """
 
-import json
 import os
 import re
 
@@ -125,7 +124,8 @@ def run_generate_command(description: str, dry_run: bool = False):
     console.rule("[bold]Phase 2: Command Generation[/bold]")
 
     with console.status("[cyan]Generating command specification...[/cyan]"):
-        generator = dspy.Predict(CommandGenerator)
+        # Use ChainOfThought for robust typed output
+        generator = dspy.ChainOfThought(CommandGenerator)
         result = generator(
             command_description=description,
             existing_commands=existing_commands,
@@ -133,20 +133,16 @@ def run_generate_command(description: str, dry_run: bool = False):
             project_structure=project_structure,
         )
 
-        spec_json = result.command_spec_json
-
-        # Parse JSON - handle markdown code blocks
-        if "```" in spec_json:
-            match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", spec_json)
-            if match:
-                spec_json = match.group(1)
-
-        try:
-            spec = json.loads(spec_json.strip())
-        except json.JSONDecodeError as e:
-            console.print(f"[red]Failed to parse command specification: {e}[/red]")
-            console.print(f"[dim]Raw output: {spec_json[:500]}...[/dim]")
+        # Get typed result
+        command_spec_obj = result.command_spec
+        if not command_spec_obj:
+            console.print(
+                "[red]Agent failed to return a valid command specification.[/red]"
+            )
             return None
+
+        # Convert Pydantic to dict for existing display logic
+        spec = command_spec_obj.model_dump()
 
     console.print("[green]✓ Command specification generated[/green]")
 

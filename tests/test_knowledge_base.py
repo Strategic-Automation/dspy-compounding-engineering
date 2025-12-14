@@ -25,12 +25,12 @@ def test_save_learning(temp_dir, sample_learning, monkeypatch):
     assert learning_id is not None
 
 
-@pytest.mark.unit  
+@pytest.mark.unit
 def test_retrieve_learning(temp_dir, sample_learning, monkeypatch):
     """Test retrieving learnings from the knowledge base."""
     monkeypatch.chdir(temp_dir)
     kb = KnowledgeBase()
-    
+
     # Save a learning
     kb.add_learning(sample_learning)
     

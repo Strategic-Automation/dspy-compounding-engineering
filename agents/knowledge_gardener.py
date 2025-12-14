@@ -26,7 +26,7 @@ class KnowledgeGardener(dspy.Signature):
     current_knowledge_json = dspy.InputField(
         desc="The current state of the knowledge base (list of JSON objects)."
     )
-    
+
     compressed_knowledge_json = dspy.OutputField(
         desc="The refined, compressed list of knowledge items in JSON format."
     )

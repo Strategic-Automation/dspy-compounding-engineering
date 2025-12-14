@@ -10,6 +10,7 @@ import pytest
 def test_file_tools_module_exists():
     """Test that file_tools module exists."""
     from utils import file_tools
+
     assert file_tools is not None
 
 
@@ -32,7 +33,7 @@ def test_list_directory(temp_dir):
 def test_read_file_range(temp_dir):
     """Test file range reading."""
     from utils.file_tools import read_file_range
-    
+
     test_file = temp_dir / "test.txt"
     test_file.write_text("Line 1\nLine 2\nLine 3\n")
     

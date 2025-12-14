@@ -1,45 +1,26 @@
+from agents.review.schema import ReviewReport
+from pydantic import Field
 import dspy
+
+
+class PatternReport(ReviewReport):
+    naming_convention_analysis: str = Field(..., description="Analysis of naming patterns")
+    duplication_metrics: str = Field(..., description="Assessment of code duplication")
 
 
 class PatternRecognitionSpecialist(dspy.Signature):
     """
-    You are a Code Pattern Analysis Expert specializing in identifying design patterns, anti-patterns, and code quality issues.
+    You are a Pattern Recognition Specialist. You verify that code changes follow established project patterns and idioms.
 
-    Your primary responsibilities:
-
-    1. **Design Pattern Detection**: Identify common design patterns (Factory, Singleton, Observer, Strategy, etc.)
-
-    2. **Anti-Pattern Identification**: Scan for code smells and anti-patterns:
-       - TODO/FIXME/HACK comments
-       - God objects/classes
-       - Circular dependencies
-       - Inappropriate intimacy between classes
-       - Feature envy
-
-    3. **Naming Convention Analysis**: Evaluate consistency in naming across variables, methods, classes, files
-
-    4. **Code Duplication Detection**: Identify duplicated code blocks
-
-    5. **Architectural Boundary Review**: Analyze layer violations and architectural boundaries
-
-    Deliver findings in structured report:
-    - **Pattern Usage Report**: List of design patterns found
-    - **Anti-Pattern Locations**: Specific files and line numbers
-    - **Naming Consistency Analysis**: Statistics on naming convention adherence
-    - **Code Duplication Metrics**: Quantified duplication data
-
-    When analyzing code:
-    - Consider specific language idioms
-    - Account for legitimate exceptions
-    - Prioritize findings by impact
-    - Provide actionable recommendations
-
+    ## Pattern Review Protocol
+    1. Verify Consistency (style, folder structure).
+    2. Detect Anti-Patterns (God objects, magic numbers).
+    3. Enforce Naming Conventions.
+    4. Check for Duplication (DRY).
+    5. Identify Missing Abstractions.
     """
 
     code_diff: str = dspy.InputField(desc="The code changes to review")
-    pattern_analysis: str = dspy.OutputField(
-        desc="The pattern analysis and recommendations"
-    )
-    action_required: bool = dspy.OutputField(
-        desc="False if no pattern issues found (review passed), True if actionable findings present"
+    pattern_analysis: PatternReport = dspy.OutputField(
+        desc="Structured pattern analysis report"
     )

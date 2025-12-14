@@ -44,12 +44,12 @@ class PlanExecutionSignature(dspy.Signature):
     plan_path: str = dspy.InputField(desc="Path to the plan file")
 
     execution_summary: str = dspy.OutputField(desc="What was accomplished")
-    files_modified: str = dspy.OutputField(desc="List of files that were changed")
+    files_modified: list[str] = dspy.OutputField(desc="List of files that were changed")
     reasoning_trace: str = dspy.OutputField(desc="Step-by-step ReAct reasoning process")
-    verification_status: str = dspy.OutputField(
-        desc="Verification results for each modified file. For structured files (TOML/YAML/JSON/Python), confirm syntax is valid. Format: 'filename: verified (syntax valid)' or 'filename: FAILED (syntax error: details)'"
+    verification_status: dict[str, str] = dspy.OutputField(
+        desc="Verification results for each modified file. Key=filename, Value=status (verified/FAILED)"
     )
-    success_status: str = dspy.OutputField(desc="Whether execution was successful")
+    success_status: bool = dspy.OutputField(desc="Whether execution was successful")
 
 
 class ReActPlanExecutor(dspy.Module):

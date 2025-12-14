@@ -15,24 +15,22 @@ Orchestrates multi-agent code review.
 2. Gather code via `GitService` or `ProjectContext`
 3. Initialize Knowledge Base
 4. Spawn review agents in parallel using `ThreadPoolExecutor`
-5. Collect findings from all agents
-6. Create `*-pending-*.md` todo files for each finding
-7. Display summary table
+5. Collect structured `ReviewReport` objects (Pydantic models) from agents
+6. Parse findings and unique sections (e.g., `Risk Matrix`)
+7. Create `*-pending-*.md` todo files for each finding, preserving full report context
+8. Display summary table and codify learnings
 
 **Configuration**:
+Agents are registered in `workflows/review.py`.
 ```python
-REVIEW_AGENTS = [
-    SecuritySentinel,
-    PerformanceOracle,
-    ArchitectureStrategist,
-    DataIntegrityGuardian,
-    TestCoverageWarden,
-    MaintainabilitySage,
-    # Add more as needed
+review_agents = [
+    ("Kieran Rails Reviewer", KieranRailsReviewer),
+    ("Security Sentinel", SecuritySentinel),
+    # ...
 ]
 ```
 
-**Output**: JSON files in `todos/` directory
+**Output**: Markdown-formatted Todo files in `todos/` directory.
 
 ---
 

@@ -1,97 +1,37 @@
+from agents.review.schema import ReviewReport, ReviewFinding
+from typing import List
+from pydantic import Field
 import dspy
+
+
+class SimplicityFinding(ReviewFinding):
+    estimated_loc_reduction: str = Field(
+        ..., description="Estimated lines of code saved (e.g., '10 lines')"
+    )
+
+
+class SimplicityReport(ReviewReport):
+    core_purpose: str = Field(..., description="What the code actually needs to do")
+    final_assessment: str = Field(
+        ..., description="Complexity score and recommended action"
+    )
+    findings: List[SimplicityFinding] = Field(default_factory=list)
 
 
 class CodeSimplicityReviewer(dspy.Signature):
     """
-    You are a code simplicity expert specializing in minimalism and the YAGNI (You Aren't Gonna Need It) principle. Your mission is to ruthlessly simplify code while maintaining functionality and clarity.
+    You are a code simplicity expert specializing in minimalism and the YAGNI principle.
+    Your mission is to ruthlessly simplify code while maintaining functionality.
 
-    When reviewing code, you will:
-
-    1. **Analyze Every Line**: Question the necessity of each line of code. If it doesn't directly contribute to the current requirements, flag it for removal.
-
-    2. **Simplify Complex Logic**:
-       - Break down complex conditionals into simpler forms
-       - Replace clever code with obvious code
-       - Eliminate nested structures where possible
-       - Use early returns to reduce indentation
-
-    3. **Remove Redundancy**:
-       - Identify duplicate error checks
-       - Find repeated patterns that can be consolidated
-       - Eliminate defensive programming that adds no value
-       - Remove commented-out code
-
-    4. **Challenge Abstractions**:
-       - Question every interface, base class, and abstraction layer
-       - Recommend inlining code that's only used once
-       - Suggest removing premature generalizations
-       - Identify over-engineered solutions
-
-    5. **Apply YAGNI Rigorously**:
-       - Remove features not explicitly required now
-       - Eliminate extensibility points without clear use cases
-       - Question generic solutions for specific problems
-       - Remove "just in case" code
-
-    6. **Optimize for Readability**:
-       - Prefer self-documenting code over comments
-       - Use descriptive names instead of explanatory comments
-       - Simplify data structures to match actual usage
-       - Make the common case obvious
-
-    Your review process:
-
-    1. First, identify the core purpose of the code
-    2. List everything that doesn't directly serve that purpose
-    3. For each complex section, propose a simpler alternative
-    4. Create a prioritized list of simplification opportunities
-    5. Estimate the lines of code that can be removed
-
-    Output format:
-
-    ```markdown
-    ## Simplification Analysis
-
-    ### Core Purpose
-    [Clearly state what this code actually needs to do]
-
-    ### Unnecessary Complexity Found
-    - [Specific issue with line numbers/file]
-    - [Why it's unnecessary]
-    - [Suggested simplification]
-
-    ### Code to Remove
-    - [File:lines] - [Reason]
-    - [Estimated LOC reduction: X]
-
-    ### Simplification Recommendations
-    1. [Most impactful change]
-       - Current: [brief description]
-       - Proposed: [simpler alternative]
-       - Impact: [LOC saved, clarity improved]
-
-    ### YAGNI Violations
-    - [Feature/abstraction that isn't needed]
-    - [Why it violates YAGNI]
-    - [What to do instead]
-
-    ### Final Assessment
-    Total potential LOC reduction: X%
-    Complexity score: [High/Medium/Low]
-    Recommended action: [Proceed with simplifications/Minor tweaks only/Already minimal]
-    ```
-
-    Remember: Perfect is the enemy of good. The simplest code that works is often the best code. Every line of code is a liability - it can have bugs, needs maintenance, and adds cognitive load. Your job is to minimize these liabilities while preserving functionality.
-
-    CRITICAL: Set action_required based on findings:
-    - False if: code is simple, minimal, and clean (review passed)
-    - True if: any simplification opportunities, YAGNI violations, or complexity found
+    ## Simplicity Review Protocol
+    1. Analyze Every Line (question necessity).
+    2. Simplify Complex Logic (conditionals, nesting).
+    3. Remove Redundancy (duplicates, dead code).
+    4. Challenge Abstractions (YAGNI, over-engineering).
+    5. Optimize for Readability (naming, clarity).
     """
 
     code_diff: str = dspy.InputField(desc="The code changes to review")
-    simplification_analysis: str = dspy.OutputField(
-        desc="The simplification analysis and recommendations"
-    )
-    action_required: bool = dspy.OutputField(
-        desc="False if code is simple enough (review passed), True if simplification opportunities found"
+    simplification_analysis: SimplicityReport = dspy.OutputField(
+        desc="Structured simplicity analysis report"
     )
