@@ -45,7 +45,7 @@ THEMES = {
         "thinking": "grey54 italic",
         "highlight": "bold black on grey85",
         "prompt": "blue bold",
-        "prompt.path": "cyan4",
+        "prompt.path": "cyan", # Changed from cyan4
         "prompt.arrow": "green4 bold",
         "header": "bold black",
         "subheader": "blue",
