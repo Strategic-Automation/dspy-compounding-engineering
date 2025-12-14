@@ -2,18 +2,30 @@
 
 import os
 import signal
+import asyncio
+import os
+import signal
+import asyncio
+import logging
+import time
+from typing import Optional, List, Dict, Any
+import json
+from typing import Optional, List, Dict, Any
+import json
+import signal
 import asyncio # New import
 
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.logging import RichHandler
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.formatted_text import HTML
-import random
 
 from friday.theme import FRIDAY_THEME, get_prompt_style, get_rich_theme, ASCII_ART
 from friday.tools import ToolExecutor
@@ -32,18 +44,37 @@ try:
     from workflows.work import run_unified_work
     from utils.knowledge_base import KnowledgeBase
 except ImportError as e:
-    # Handle case where dependencies aren't available
+class FridayCLI:
+    """Main Friday CLI application with enhanced error handling and user experience"""
     import sys
     print(f"DEBUG: Import failed in friday/cli.py: {e}", file=sys.stderr)
-    configure_dspy = None
-
-
-class FridayCLI:
-    """Main Friday CLI application"""
-
     def __init__(self):
+        # Set up structured logging
+        self._setup_logging()
+        
         # Configure DSPy for compounding commands
         if configure_dspy:
+            try:
+                configure_dspy()
+            except Exception as e:
+                # Use a temporary console since self.console isn't init'd yet
+                Console().print(f"[yellow]Warning: Failed to configure DSPy: {e}[/]")
+                self.logger.warning(f"Failed to configure DSPy: {e}")
+        
+        self.workflows = {}  # Store compound workflows: {workflow_name: [commands]}
+        # Load user config (~/.friday/config.json)
+        # Initialize logger
+        self.logger = logging.getLogger("friday.cli")
+        
+        # Determine theme profile from env or config
+        theme_profile = os.getenv("FRIDAY_THEME_PROFILE") or (self.user_config.get("theme") if isinstance(self.user_config, dict) else None) or "dark"
+        
+        self.console = Console(theme=get_rich_theme(theme_profile), force_terminal=True)
+        self.context = ConversationContext()
+        self.tools = ToolExecutor(self.console)
+        self.mcp_manager = MCPManager()
+        self.agent = FridayAgent(self.console, self.tools, self.context, mcp_manager=self.mcp_manager)
+        self.running = True
             try:
                 configure_dspy()
             except Exception as e:
@@ -119,7 +150,38 @@ class FridayCLI:
         @kb.add('c-c')
         def _(event):
             """Handle Ctrl+C"""
-            event.app.exit(result=None)
+    def _setup_logging(self):
+        """Set up structured logging for debugging and monitoring"""
+        logging.basicConfig(
+            level=os.getenv("FRIDAY_LOG_LEVEL", "INFO").upper(),
+            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            handlers=[
+                RichHandler(
+                    console=self.console if hasattr(self, 'console') else Console(),
+                    show_time=True,
+                    show_path=False,
+                    markup=True
+                )
+            ]
+        )
+        
+        # Set up file logging as well
+        log_dir = os.path.expanduser("~/.friday/logs")
+        os.makedirs(log_dir, exist_ok=True)
+        
+        file_handler = logging.FileHandler(
+            os.path.join(log_dir, "friday.log"),
+            encoding="utf-8"
+        )
+        file_handler.setFormatter(logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        ))
+        
+        logger = logging.getLogger("friday")
+        logger.addHandler(file_handler)
+        logger.setLevel(os.getenv("FRIDAY_LOG_LEVEL", "INFO").upper())
+        
+        self.logger = logger
         
         @kb.add('c-d')
         def _(event):
@@ -389,7 +451,33 @@ class FridayCLI:
             self.console.print(f"[success]✓ Conversation compacted[/] [muted]{before} → {after} messages[/]")
         elif cmd == "/model":
             self._show_model_info()
-        elif cmd == "/diff":
+    def _handle_file_error(self, error: Exception, operation: str, file_path: str = None):
+        """Handle file-related errors with comprehensive error messages"""
+        error_type = type(error).__name__
+        
+        if error_type == "FileNotFoundError":
+            self.console.print(f"[error]✗ File not found:[/] {file_path}")
+            self.logger.error(f"File not found: {file_path}")
+        elif error_type == "PermissionError":
+            self.console.print(f"[error]✗ Permission denied:[/] {file_path}")
+            self.logger.error(f"Permission denied for {operation} on {file_path}")
+        elif error_type == "IsADirectoryError":
+            self.console.print(f"[error]✗ Expected file, got directory:[/] {file_path}")
+            self.logger.error(f"Expected file, got directory: {file_path}")
+        elif error_type == "NotADirectoryError":
+            self.console.print(f"[error]✗ Expected directory, got file:[/] {file_path}")
+            self.logger.error(f"Expected directory, got file: {file_path}")
+        else:
+            self.console.print(f"[error]✗ File operation error:[/] {str(error)}")
+            self.logger.error(f"File operation error during {operation}: {str(error)}")
+        
+        # Provide helpful suggestions
+        if error_type == "PermissionError":
+            self.console.print(f"[info]💡 Try:[/] [command]chmod +r {file_path}[/] or run with elevated privileges")
+        elif error_type == "FileNotFoundError":
+            self.console.print(f"[info]💡 Check:[/] File path and working directory")
+        
+        return False
             self.tools.git_diff(args or "HEAD")
         elif cmd == "/status":
             self.tools.git_status()
@@ -411,7 +499,51 @@ class FridayCLI:
             self._run_safe(run_unified_work, pattern=args if args else None)
         elif cmd == "/review":
             self._run_safe(run_review, args if args else "latest")
-        elif cmd in ["/generate", "/generate-command"]:
+    def _validate_input(self, input_str: str, input_type: str = "text", allowed_values: List[str] = None) -> Optional[str]:
+        """Validate user input and provide helpful error messages"""
+    def _run_safe(self, func, *args, **kwargs):
+        """Run a workflow function safely with enhanced error handling"""
+        if not configure_dspy:
+            self.console.print("[error]✗ Error:[/] Compounding commands are not available (imports failed)")
+            self.logger.error("Compounding commands not available - imports failed")
+            return
+        
+        try:
+            self.logger.info(f"Starting workflow: {func.__name__}")
+            result = func(*args, **kwargs)
+            self.logger.info(f"Completed workflow: {func.__name__}")
+            return result
+        except FileNotFoundError as e:
+            self._handle_file_error(e, func.__name__)
+        except PermissionError as e:
+            self._handle_file_error(e, func.__name__)
+        except ValueError as e:
+            self.console.print(f"[error]✗ Invalid input:[/] {str(e)}")
+            self.logger.error(f"Invalid input in {func.__name__}: {str(e)}")
+        except Exception as e:
+            self.console.print(f"[error]✗ Error executing workflow:[/] {e}")
+            self.logger.error(f"Error in {func.__name__}: {str(e)}", exc_info=True)
+            if os.getenv("DEBUG") or os.getenv("FRIDAY_DEBUG"):
+                import traceback
+                self.console.print(f"[muted]{traceback.format_exc()}[/]")
+            self.console.print(f"[warning]⚠ Input cannot be empty[/]")
+            self.logger.warning("Empty input provided")
+            return None
+        
+        if input_type == "path":
+            # Basic path validation
+            if not os.path.exists(input_str):
+                self.console.print(f"[warning]⚠ Path does not exist:[/] {input_str}")
+                self.logger.warning(f"Non-existent path provided: {input_str}")
+                return None
+        
+        if allowed_values and input_str not in allowed_values:
+            self.console.print(f"[warning]⚠ Invalid value:[/] {input_str}")
+            self.console.print(f"[info]💡 Allowed values:[/] {', '.join(allowed_values)}")
+            self.logger.warning(f"Invalid input value: {input_str}")
+            return None
+        
+        return input_str.strip()
             if not args:
                 self.console.print("[warning]⚠ Usage:[/] [command]/generate[/] [muted]<description>[/]")
             else:
@@ -433,7 +565,32 @@ class FridayCLI:
         
         return True
 
-    def _run_safe(self, func, *args, **kwargs):
+    def _show_progress(self, task_name: str, total_steps: int = None):
+        """Show progress indicator for long-running operations"""
+        if total_steps:
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                "•",
+                TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+                "•",
+                TextColumn("[progress.completed]{task.completed}/{task.total}"),
+                console=self.console
+            ) as progress:
+                task = progress.add_task(f"[cyan]{task_name}[/]", total=total_steps)
+                while not progress.finished:
+                    progress.update(task, advance=0.1)
+                    time.sleep(0.1)
+        else:
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                console=self.console
+            ) as progress:
+                task = progress.add_task(f"[cyan]{task_name}[/]")
+                while not progress.finished:
+                    progress.update(task, advance=1)
+                    time.sleep(0.1)
         """Run a workflow function safely"""
         if not configure_dspy:
              self.console.print("[error]✗ Error:[/] Compounding commands are not available (imports failed)")
@@ -620,7 +777,10 @@ class FridayCLI:
         
         commands = self.workflows[workflow_name]
         if not commands:
-            self.console.print(f"[dim]Workflow '{workflow_name}' is empty[/dim]")
+    def _handle_interrupt(self, signum, frame):
+        """Handle interrupt signal gracefully with logging"""
+        self.console.print("\n[dim]Use /exit or Ctrl+D to quit[/dim]")
+        self.logger.info("User interrupted operation")
             return
         
         self.console.print(f"[bold]Workflow '{workflow_name}':[/]")
@@ -632,7 +792,33 @@ class FridayCLI:
         if not workflow_name:
             self.console.print("[yellow]Error: Workflow name is required[/]")
             self.console.print("[dim]Usage: /compound run <workflow_name>[/dim]")
-            return
+    def _load_user_config(self):
+        """Load user config from ~/.friday/config.json if present with error handling"""
+        import json
+        cfg_path = os.path.expanduser("~/.friday/config.json")
+        if not os.path.exists(cfg_path):
+            self.logger.info("No user config found, using defaults")
+            return {}
+        try:
+            with open(cfg_path, "r") as f:
+                data = json.load(f)
+                if isinstance(data, dict):
+                    self.logger.info("User config loaded successfully")
+                    return data
+                else:
+                    self.logger.warning("User config is not a valid dictionary")
+                    return {}
+        except json.JSONDecodeError as e:
+            self.console.print(f"[warning]⚠ Invalid config file:[/] {cfg_path}")
+            self.logger.error(f"Invalid JSON in config file: {str(e)}")
+            return {}
+        except PermissionError as e:
+            self._handle_file_error(e, "reading config", cfg_path)
+            return {}
+        except Exception as e:
+            self.console.print(f"[warning]⚠ Error loading config:[/] {str(e)}")
+            self.logger.error(f"Error loading config: {str(e)}")
+            return {}
         
         if workflow_name not in self.workflows:
             self.console.print(f"[yellow]Error: Workflow '{workflow_name}' does not exist[/]")
