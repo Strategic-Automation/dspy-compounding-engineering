@@ -1,5 +1,5 @@
-import os
 import subprocess
+from pathlib import Path
 from typing import Dict, List, Union
 
 from rich.console import Console
@@ -15,21 +15,22 @@ def list_directory(path: str, base_dir: str = ".") -> str:
     Returns a formatted string listing contents.
     """
     try:
-        safe_path = validate_path(path, base_dir)
-        if not os.path.exists(safe_path):
+        safe_path_str = validate_path(path, base_dir)
+        safe_path = Path(safe_path_str)
+
+        if not safe_path.exists():
             return f"Error: Path not found: {path}"
 
-        if not os.path.isdir(safe_path):
+        if not safe_path.is_dir():
             return f"Error: Not a directory: {path}"
 
-        items = sorted(os.listdir(safe_path))
+        items = sorted(safe_path.iterdir())
         result = []
         for item in items:
-            item_path = os.path.join(safe_path, item)
-            if os.path.isdir(item_path):
-                result.append(f"{item}/")
+            if item.is_dir():
+                result.append(f"{item.name}/")
             else:
-                result.append(item)
+                result.append(item.name)
 
         return "\n".join(result) if result else "(empty directory)"
     except Exception as e:
@@ -85,15 +86,16 @@ def read_file_range(
     If end_line is -1, read to the end.
     """
     try:
-        safe_path = validate_path(file_path, base_dir)
-        if not os.path.exists(safe_path):
+        safe_path_str = validate_path(file_path, base_dir)
+        safe_path = Path(safe_path_str)
+
+        if not safe_path.exists():
             return f"Error: File not found: {file_path}"
 
-        if not os.path.isfile(safe_path):
+        if not safe_path.is_file():
             return f"Error: Not a file: {file_path}"
 
-        with open(safe_path, "r", encoding="utf-8") as f:
-            lines = f.readlines()
+        lines = safe_path.read_text(encoding="utf-8").splitlines()
 
         total_lines = len(lines)
         if start_line < 1:
@@ -104,13 +106,12 @@ def read_file_range(
         if start_line > total_lines:
             return f"Error: Start line {start_line} exceeds file length {total_lines}"
 
-        # Adjust for 0-based indexing
         selected_lines = lines[start_line - 1 : end_line]
 
         # Add line numbers for context
         result = []
         for i, line in enumerate(selected_lines):
-            result.append(f"{start_line + i}: {line.rstrip()}")
+            result.append(f"{start_line + i}: {line}")
 
         return "\n".join(result)
 
@@ -138,12 +139,28 @@ def edit_file_lines(
     but we will handle sorting here.
     """
     try:
-        safe_path = validate_path(file_path, base_dir)
-        if not os.path.exists(safe_path):
+        # Input Validation (Todo 1009)
+        if not isinstance(edits, list):
+            return "Error: arguments 'edits' must be a list"
+
+        for i, edit in enumerate(edits):
+            if not isinstance(edit, dict):
+                return f"Error: edit item {i} must be a dictionary"
+            if (
+                "start_line" not in edit
+                or "end_line" not in edit
+                or "content" not in edit
+            ):
+                return f"Error: edit item {i} missing required keys (start_line, end_line, content)"
+
+        safe_path_str = validate_path(file_path, base_dir)
+        safe_path = Path(safe_path_str)
+
+        if not safe_path.exists():
             return f"Error: File not found: {file_path}"
 
-        with open(safe_path, "r", encoding="utf-8") as f:
-            lines = f.readlines()
+        # Read file using pathlib
+        lines = safe_path.read_text(encoding="utf-8").splitlines(keepends=True)
 
         # Sort edits by start_line descending to apply from bottom up
         sorted_edits = sorted(edits, key=lambda x: x["start_line"], reverse=True)
@@ -158,14 +175,8 @@ def edit_file_lines(
                 return f"Error: Invalid line range {start}-{end}"
 
             # Adjust for 0-based indexing
-            # Replace lines[start-1 : end] with new content
-            # Content might be multiple lines
             new_lines = [line + "\n" for line in content.splitlines()]
             if not content.endswith("\n") and content:
-                # If content doesn't end with newline, the last line shouldn't have one if it's the EOF?
-                # Actually, usually we want to preserve file structure.
-                # Let's just ensure new_lines has \n except maybe last if intended.
-                # For simplicity, splitlines() removes \n, so we add them back.
                 pass
 
             # If content is empty string, it's a deletion
@@ -173,7 +184,6 @@ def edit_file_lines(
                 new_lines = []
 
             # Handle extending file if start > len(lines)?
-            # For now, assume edits are within or at end of file.
             if start > len(lines) + 1:
                 return f"Error: Edit start line {start} beyond EOF {len(lines)}"
 
@@ -185,3 +195,17 @@ def edit_file_lines(
 
     except Exception as e:
         return f"Error editing file: {str(e)}"
+
+
+def create_file(file_path: str, content: str, base_dir: str = ".") -> str:
+    """
+    Create a new file with the given content.
+    Fails if file already exists.
+    """
+    try:
+        safe_write(file_path, content, base_dir=base_dir, overwrite=False)
+        return f"Successfully created file: {file_path}"
+    except FileExistsError:
+        return f"Error: File already exists: {file_path}"
+    except Exception as e:
+        return f"Error creating file: {str(e)}"

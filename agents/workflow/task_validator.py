@@ -1,4 +1,40 @@
+from typing import List, Optional
 import dspy
+from pydantic import BaseModel, Field
+
+
+class CriterionStatus(BaseModel):
+    criterion: str = Field(..., description="The acceptance criterion")
+    met: bool = Field(..., description="Whether it is met")
+    notes: str = Field(..., description="Observations or gaps")
+
+
+class ValidationIssue(BaseModel):
+    severity: str = Field(..., description="error, warning, or info")
+    file: str = Field(..., description="File path")
+    line: Optional[int] = Field(None, description="Line number")
+    message: str = Field(..., description="Description of issue")
+    suggestion: str = Field(..., description="How to fix it")
+
+
+class TestNeeded(BaseModel):
+    description: str = Field(..., description="Test case description")
+    file: str = Field(..., description="Suggested test file")
+
+
+class TaskValidation(BaseModel):
+    is_valid: bool = Field(..., description="Overall valid status")
+    criteria_status: List[CriterionStatus] = Field(
+        ..., description="Status of each criterion"
+    )
+    issues: List[ValidationIssue] = Field(
+        default_factory=list, description="Found issues"
+    )
+    tests_needed: List[TestNeeded] = Field(
+        default_factory=list, description="Missing tests"
+    )
+    ready_to_commit: bool = Field(..., description="Ready for safe commit")
+    summary: str = Field(..., description="Overall validation summary")
 
 
 class TaskValidator(dspy.Signature):
@@ -7,69 +43,20 @@ class TaskValidator(dspy.Signature):
     implementation meets its acceptance criteria and follows best practices.
 
     ## Validation Protocol
-
-    1. **Check Acceptance Criteria**
-       - Verify each criterion is met
-       - Note any gaps or partial implementations
-       - Identify missing edge cases
-
-    2. **Code Quality Review**
-       - Check for syntax errors
-       - Verify proper error handling
-       - Look for security issues
-       - Check for performance concerns
-
-    3. **Integration Check**
-       - Verify imports are correct
-       - Check that dependencies exist
-       - Ensure no breaking changes
-
-    4. **Test Coverage**
-       - Identify what tests are needed
-       - Check if existing tests still pass
-       - Note any untested code paths
-
-    ## Output Format
-
-    Return a JSON object:
-    ```json
-    {
-        "is_valid": true|false,
-        "criteria_status": [
-            {"criterion": "...", "met": true|false, "notes": "..."}
-        ],
-        "issues": [
-            {
-                "severity": "error|warning|info",
-                "file": "path/to/file",
-                "line": 42,
-                "message": "Description of issue",
-                "suggestion": "How to fix it"
-            }
-        ],
-        "tests_needed": [
-            {"description": "Test case description", "file": "suggested test file"}
-        ],
-        "ready_to_commit": true|false,
-        "summary": "Overall validation summary"
-    }
-    ```
-
-    ## Guidelines
-
-    - Be thorough but practical
-    - Prioritize blocking issues
-    - Provide actionable suggestions
-    - Consider the project context
-    - Don't be overly pedantic
+    1. Check Acceptance Criteria (met/unmet, gaps).
+    2. Code Quality Review (syntax, errors, security).
+    3. Integration Check (imports, dependencies).
+    4. Test Coverage (missing tests).
     """
 
-    task_title = dspy.InputField(desc="The title of the task being validated")
-    task_acceptance_criteria = dspy.InputField(
+    task_title: str = dspy.InputField(desc="The title of the task being validated")
+    task_acceptance_criteria: str = dspy.InputField(
         desc="The acceptance criteria to validate against"
     )
-    implementation_changes = dspy.InputField(desc="The code changes that were made")
-    test_output = dspy.InputField(desc="Output from running tests, if available")
-    validation_json = dspy.OutputField(
-        desc="JSON object with is_valid, criteria_status, issues, tests_needed, ready_to_commit, summary"
+    implementation_changes: str = dspy.InputField(
+        desc="The code changes that were made"
+    )
+    test_output: str = dspy.InputField(desc="Output from running tests, if available")
+    validation_result: TaskValidation = dspy.OutputField(
+        desc="Structured validation results"
     )

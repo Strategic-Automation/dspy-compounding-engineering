@@ -8,7 +8,8 @@ from workflows.generate_command import run_generate_command
 from workflows.plan import run_plan
 from workflows.review import run_review
 from workflows.triage import run_triage
-from workflows.work_unified import run_unified_work
+from workflows.work import run_unified_work
+from utils.knowledge_base import KnowledgeBase
 
 app = typer.Typer()
 
@@ -158,6 +159,33 @@ def codify(
         python cli.py codify "We should use factory pattern for creating agents" --source retro
     """
     run_codify(feedback=feedback, source=source)
+
+
+@app.command()
+def compress_kb(
+    ratio: float = typer.Option(
+        0.5, "--ratio", "-r", help="Target compression ratio (0.0 to 1.0)"
+    ),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", "-n", help="Show stats without modifying the file"
+    ),
+):
+    """
+    Compress the AI knowledge base (AI.md) using LLM.
+
+    This command semantically compresses the knowledge base to reduce token usage
+    while preserving key learnings and structure.
+    """
+    # Input validation for ratio parameter
+    if not isinstance(ratio, (int, float)):
+        raise ValueError("Ratio must be a number")
+    if not (0.0 <= ratio <= 1.0):
+        raise ValueError("Ratio must be between 0.0 and 1.0")
+    if not (ratio == ratio and ratio != float("inf") and ratio != float("-inf")):
+        raise ValueError("Ratio must be a finite number (not NaN or infinity)")
+
+    kb = KnowledgeBase()
+    kb.compress_ai_md(ratio=ratio, dry_run=dry_run)
 
 
 if __name__ == "__main__":

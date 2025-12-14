@@ -28,9 +28,17 @@ def validate_path(path: str, base_dir: str = ".") -> str:
     return full_path
 
 
-def safe_write(file_path: str, content: str, base_dir: str = ".") -> None:
-    """Safely write content to file within base_dir."""
+def safe_write(
+    file_path: str, content: str, base_dir: str = ".", overwrite: bool = True
+) -> None:
+    """
+    Safely write content to file within base_dir.
+    If overwrite is False and file exists, raises FileExistsError.
+    """
     safe_path = validate_path(file_path, base_dir)
+    if not overwrite and os.path.exists(safe_path):
+        raise FileExistsError(f"File already exists: {file_path}")
+
     os.makedirs(os.path.dirname(safe_path), exist_ok=True)
     with open(safe_path, "w", encoding="utf-8") as f:
         f.write(content)

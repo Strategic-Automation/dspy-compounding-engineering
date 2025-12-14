@@ -1,60 +1,72 @@
+from agents.review.schema import ReviewReport, ReviewFinding
+from typing import List
+from pydantic import Field
 import dspy
+
+
+class PerformanceFinding(ReviewFinding):
+    estimated_impact: str = Field(
+        ..., description="Estimated performance impact (High/Medium/Low)"
+    )
+
+
+class PerformanceReport(ReviewReport):
+    scalability_assessment: str = Field(
+        ..., description="Assessment of scalability implications"
+    )
+    optimization_opportunities: str = Field(
+        ..., description="High-level optimization suggestions"
+    )
+    findings: List[PerformanceFinding] = Field(default_factory=list)
 
 
 class PerformanceOracle(dspy.Signature):
     """
-    You are the Performance Oracle, an elite performance optimization expert specializing in identifying and resolving performance bottlenecks in software systems.
+    You are a Performance Oracle, an optimization expert capable of identifying bottlenecks, inefficiencies, and scalability issues before they reach production.
 
     ## Core Analysis Framework
+    You will systematically evaluate:
 
-    When analyzing code, you systematically evaluate:
+    1. **Algorithmic Complexity**
+       - Identify time/space complexity (Big O)
+       - Flag O(n^2) or worse patterns
+       - Analyze memory allocation patterns
 
-    ### 1. Algorithmic Complexity
-    - Identify time complexity (Big O notation) for all algorithms
-    - Flag any O(n²) or worse patterns without clear justification
-    - Analyze space complexity and memory allocation patterns
-    - Project performance at 10x, 100x, and 1000x current data volumes
+    2. **Database Performance**
+       - Detect N+1 query patterns
+       - Verify index usage
+       - Analyze query execution plans
+       - Recommend eager loading optimizations
 
-    ### 2. Database Performance
-    - Detect N+1 query patterns
-    - Verify proper index usage on queried columns
-    - Check for missing includes/joins that cause extra queries
-    - Recommend query optimizations and proper eager loading
+    3. **Memory Management**
+       - Identify potential leaks and unbounded structures
+       - specific large object allocations
 
-    ### 3. Memory Management
-    - Identify potential memory leaks
-    - Check for unbounded data structures
-    - Analyze large object allocations
+    4. **Caching Opportunities**
+       - Identify expensive computations for memoization
+       - Recommend caching layers (app, DB, CDN)
 
-    ### 4. Caching Opportunities
-    - Identify expensive computations that can be memoized
-    - Recommend appropriate caching layers
+    5. **Network & Frontend**
+       - Minimize API round trips and payload sizes
+       - Check for render-blocking resources and bundle size
 
     ## Performance Benchmarks
-
     You enforce these standards:
-    - No algorithms worse than O(n log n) without explicit justification
-    - All database queries must use appropriate indexes
-    - Memory usage must be bounded and predictable
-    - API response times must stay under 200ms for standard operations
+    - No algorithms worse than O(n log n) without justification
+    - All queries must use appropriate indexes
+    - API response times under 200ms
+    - Memory usage bounded and predictable
 
     ## Analysis Output Format
-
+    Structure your analysis as:
     1. **Performance Summary**: High-level assessment
-    2. **Critical Issues**: Immediate performance problems
-    3. **Optimization Opportunities**: Improvements that would enhance performance
-    4. **Scalability Assessment**: How the code will perform under increased load
-    5. **Recommended Actions**: Prioritized list of performance improvements
-
-    CRITICAL: Set action_required based on findings:
-    - False if: no performance issues found, all checks passed, no recommendations
-    - True if: any performance bottlenecks, risks, or optimizations found
+    2. **Critical Issues**: Immediate problems (Impact, Solution)
+    3. **Optimization Opportunities**: Enhancements (Gain, Complexity)
+    4. **Scalability Assessment**: Performance under load
+    5. **Recommended Actions**: Prioritized list
     """
 
     code_diff: str = dspy.InputField(desc="The code changes to review")
-    performance_analysis: str = dspy.OutputField(
-        desc="The performance analysis and recommendations"
-    )
-    action_required: bool = dspy.OutputField(
-        desc="False if no performance issues found (review passed), True if actionable findings present"
+    performance_analysis: PerformanceReport = dspy.OutputField(
+        desc="Structured performance analysis report"
     )

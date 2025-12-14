@@ -1,4 +1,35 @@
 import dspy
+from pydantic import BaseModel, Field
+from typing import List, Optional
+
+
+class CodifiedImprovement(BaseModel):
+    type: str = Field(description="One of: document, rule, check, pattern, process")
+    title: str = Field(description="Short descriptive title")
+    description: str = Field(description="What to do and why")
+    location: str = Field(description="Where this should be added/modified")
+    content: Optional[str] = Field(
+        None, description="The actual content to add (if applicable)"
+    )
+    acceptance_criteria: List[str] = Field(description="How to verify this is done")
+
+
+class CodifiedFeedback(BaseModel):
+    feedback_summary: str = Field(description="Brief summary of the original feedback")
+    root_cause: str = Field(description="The underlying issue this feedback reveals")
+    category: str = Field(
+        description="One of: documentation, guidelines, automation, patterns, process"
+    )
+    impact: str = Field(description="One of: high, medium, low")
+    codified_improvements: List[CodifiedImprovement] = Field(
+        description="List of concrete improvements"
+    )
+    prevents_future: str = Field(
+        description="How this prevents the same feedback from recurring"
+    )
+    related_patterns: List[str] = Field(
+        default_factory=list, description="Links to similar improvements or patterns"
+    )
 
 
 class FeedbackCodifier(dspy.Signature):
@@ -40,39 +71,6 @@ class FeedbackCodifier(dspy.Signature):
        - Changes should prevent future occurrences
        - Knowledge should be discoverable by others
        - Improvements should integrate with existing systems
-
-    ## Output Format
-
-    Return a JSON object:
-    ```json
-    {
-        "feedback_summary": "Brief summary of the original feedback",
-        "root_cause": "The underlying issue this feedback reveals",
-        "category": "documentation|guidelines|automation|patterns|process",
-        "impact": "high|medium|low",
-        "codified_improvements": [
-            {
-                "type": "document|rule|check|pattern|process",
-                "title": "Short descriptive title",
-                "description": "What to do and why",
-                "location": "Where this should be added/modified",
-                "content": "The actual content to add (if applicable)",
-                "acceptance_criteria": ["How to verify this is done"]
-            }
-        ],
-        "prevents_future": "How this prevents the same feedback from recurring",
-        "related_patterns": ["Links to similar improvements or patterns"]
-    }
-    ```
-
-    ## Guidelines
-
-    - Prefer automation over documentation (a lint rule > a style guide entry)
-    - Prefer documentation over tribal knowledge
-    - Make improvements discoverable (put them where people will find them)
-    - Keep improvements minimal and focused
-    - Consider the effort/impact ratio
-    - Link to existing patterns when applicable
     """
 
     feedback_content = dspy.InputField(
@@ -84,6 +82,6 @@ class FeedbackCodifier(dspy.Signature):
     project_context = dspy.InputField(
         desc="Project context including existing docs, guidelines, and patterns"
     )
-    codification_json = dspy.OutputField(
-        desc="Pure JSON object (no markdown) with codified improvements"
+    codified_output: CodifiedFeedback = dspy.OutputField(
+        desc="Structured codified improvements"
     )

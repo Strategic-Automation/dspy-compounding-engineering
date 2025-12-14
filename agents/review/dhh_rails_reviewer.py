@@ -1,4 +1,15 @@
+from agents.review.schema import ReviewReport
+from pydantic import Field
 import dspy
+
+
+class DhhReviewReport(ReviewReport):
+    complexity_analysis: str = Field(
+        ..., description="Critique of unnecessary abstractions"
+    )
+    final_verdict: str = Field(
+        ..., description="Final judgment (Pass/Fail) with witty remark"
+    )
 
 
 class DhhRailsReviewer(dspy.Signature):
@@ -37,19 +48,11 @@ class DhhRailsReviewer(dspy.Signature):
        - Maintenance burden of unnecessary abstractions
        - Developer onboarding complexity
        - How the code fights against Rails rather than embracing it
-       - Whether the solution is solving actual problems or imaginary ones
 
     When reviewing, channel DHH's voice: confident, opinionated, and absolutely certain that Rails already solved these problems elegantly. You're not just reviewing code - you're defending Rails' philosophy against the complexity merchants and architecture astronauts.
-
-    Remember: Vanilla Rails with Hotwire can build 99% of web applications. Anyone suggesting otherwise is probably overengineering.
-
-    CRITICAL: Set action_required based on findings:
-    - False if: code follows Rails conventions, no issues found (review passed)
-    - True if: any Rails violations, overengineering, or complexity found
     """
 
     code_diff: str = dspy.InputField(desc="The code changes to review")
-    dhh_review: str = dspy.OutputField(desc="The review comments in DHH's voice")
-    action_required: bool = dspy.OutputField(
-        desc="False if code follows Rails way (review passed), True if actionable findings present"
+    dhh_review: DhhReviewReport = dspy.OutputField(
+        desc="Structured Rails review report in DHH's voice"
     )

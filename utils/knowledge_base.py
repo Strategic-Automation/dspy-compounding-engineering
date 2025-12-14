@@ -15,6 +15,8 @@ from typing import Any, Dict, List
 
 from rich.console import Console
 
+from utils.kb_compression import LLMKBCompressor
+
 console = Console()
 
 
@@ -29,6 +31,7 @@ class KnowledgeBase:
         backups_dir = os.path.join(self.knowledge_dir, "backups")
         os.makedirs(backups_dir, exist_ok=True)
         self.lock_path = os.path.join(self.knowledge_dir, "kb.lock")
+
     def _ensure_knowledge_dir(self):
         """Ensure the knowledge directory exists."""
         if not os.path.exists(self.knowledge_dir):
@@ -56,7 +59,7 @@ class KnowledgeBase:
         learning["id"] = timestamp
 
         try:
-            tmp_path = filepath + '.tmp'
+            tmp_path = filepath + ".tmp"
             with open(tmp_path, "w") as f:
                 json.dump(learning, f, indent=2)
             os.replace(tmp_path, filepath)
@@ -66,13 +69,14 @@ class KnowledgeBase:
             self._update_ai_md()
 
             # Auto-compress if AI.md is getting large
-            if self.get_ai_md_size() > 50000:  # 50KB threshold
+            if self.get_ai_md_size() > self.COMPRESSION_THRESHOLD:
                 self.review_and_compress()
 
             return filepath
         except Exception as e:
             console.print(f"[red]Failed to save learning: {e}[/red]")
             raise
+
     def search_knowledge(
         self, query: str = "", tags: List[str] = None, limit: int = 5
     ) -> List[Dict[str, Any]]:
@@ -255,7 +259,7 @@ class KnowledgeBase:
     def get_ai_md_size(self) -> int:
         """
         Get current size of AI.md in characters.
-        
+
         Returns:
             Size in characters, or 0 if file doesn't exist
         """
@@ -268,28 +272,104 @@ class KnowledgeBase:
         except Exception:
             return 0
 
-    def compress_ai_md(self) -> None:
+    def compress_ai_md(self, ratio: float = 0.5, dry_run: bool = False) -> None:
+        """
+        Compress AI.md using LLM-based semantic compression.
+
+        Args:
+            ratio: Target compression ratio (0.0 to 1.0).
+            dry_run: If True, only simulate compression and show stats.
+        """
+
+        # Input validation for ratio parameter
+        if not (0.0 <= ratio <= 1.0):
+            raise ValueError("Ratio must be between 0.0 and 1.0")
+
+        ai_md_path = os.path.join(self.knowledge_dir, "AI.md")
+        if not os.path.exists(ai_md_path):
+            return
+
+        try:
+            console.print(
+                f"[cyan]Compressing AI.md (LLM-powered, target ratio {ratio})...[/cyan]"
+            )
+
+            # Create backup before processing
+            if not dry_run:
+                timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+                backups_dir = os.path.join(self.knowledge_dir, "backups")
+                os.makedirs(backups_dir, exist_ok=True)
+                backup_path = os.path.join(backups_dir, f"AI.md.backup.{timestamp}")
+                shutil.copy2(ai_md_path, backup_path)
+                console.print(f"[dim]Backup created at {backup_path}[/dim]")
+
+            # Size-based compression strategy
+            current_size = self.get_ai_md_size()
+
+            with open(ai_md_path, "r") as f:
+                content = f.read()
+
+            # Check cache before performing LLM compression
+            content_hash = hashlib.md5(content.encode("utf-8")).hexdigest()
+            cache_key = f"{content_hash}_{ratio}"
+
+            if cache_key in self._compression_cache:
+                console.print("[blue]Using cached compression result...[/blue]")
+                compressed_content = self._compression_cache[cache_key]
+            else:
+                # Attempt LLM compression
+                console.print("[cyan]Performing LLM compression...[/cyan]")
+                compressor = LLMKBCompressor()
+                compressed_content = compressor(content=content, ratio=ratio)
+
+                # Cache the result for future use
+                self._compression_cache[cache_key] = compressed_content
+
+            # Safety check: if compression failed (empty) or grew significantly (hallucination), fallback
+            if not compressed_content or len(compressed_content) > len(content) * 1.2:
+                raise ValueError("Compression produced invalid result")
+
+            if dry_run:
+                console.print("[yellow]Dry run: Skipping write to file.[/yellow]")
+            else:
+                # Write back
+                tmp_path = ai_md_path + ".tmp"
+                with open(tmp_path, "w") as f:
+                    f.write(compressed_content)
+                os.replace(tmp_path, ai_md_path)
+
+            new_size = len(compressed_content)
+            reduction = (1 - new_size / current_size) * 100
+            console.print(
+                f"[green]✓ AI.md compressed: {current_size:,} → {new_size:,} chars ({reduction:.1f}% reduction)[/green]"
+            )
+
+        except Exception as e:
+            console.print(f"[red]LLM compression failed: {e}[/red]")
+            raise
+
+    def _compress_heuristic(self) -> None:
         """
         Compress AI.md by consolidating similar learnings.
-        
+
         This uses simple deduplication to:
         1. Group similar learnings by category
         2. Merge duplicate or near-duplicate patterns
         3. Preserve unique insights
         4. Maintain categorical structure
-        
+
         Note: No backup is created - rely on git for version control.
         """
         ai_md_path = os.path.join(self.knowledge_dir, "AI.md")
         if not os.path.exists(ai_md_path):
             return
-        
+
         try:
             console.print("[cyan]Compressing AI.md...[/cyan]")
-            
+
             # Get all learnings
             learnings = self.get_all_learnings()
-            
+
             # Group by category and consolidate
             by_category = {}
             for learning in learnings:
@@ -297,7 +377,7 @@ class KnowledgeBase:
                 if cat not in by_category:
                     by_category[cat] = []
                 by_category[cat].append(learning)
-            
+
             # For each category, consolidate similar items
             consolidated_learnings = []
             for category, items in by_category.items():
@@ -314,37 +394,51 @@ class KnowledgeBase:
                             seen_hashes.add(h)
                 else:
                     consolidated_learnings.extend(items)
-            
+
             # Save compressed JSON files (remove duplicates)
             # Keep only the consolidated learnings
             backups_dir = os.path.join(self.knowledge_dir, "backups")
             timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
             for filepath in glob.glob(os.path.join(self.knowledge_dir, "*.json")):
                 learning_id = os.path.basename(filepath).split("-")[0]
-                if not any(l.get("id") == learning_id for l in consolidated_learnings):
-                    backup_path = os.path.join(backups_dir, f"{timestamp}_{os.path.basename(filepath)}")
+                if not any(
+                    item.get("id") == learning_id for item in consolidated_learnings
+                ):
+                    backup_path = os.path.join(
+                        backups_dir, f"{timestamp}_{os.path.basename(filepath)}"
+                    )
                     shutil.move(filepath, backup_path)
-            
+
             # Regenerate AI.md
             self._update_ai_md()
-            
+
             console.print(
                 f"[green]✓ AI.md compressed: {len(learnings)} → {len(consolidated_learnings)} learnings[/green]"
             )
-            
+
         except Exception as e:
             console.print(f"[yellow]Failed to compress AI.md: {e}[/yellow]")
+
+    # Threshold for auto-compression (in characters)
+    # 15KB ~= 3,750 tokens
+    COMPRESSION_THRESHOLD = 15000  # 15KB threshold for triggering compression
+    LLM_COMPRESSION_MIN_SIZE = (
+        10000  # 10KB minimum for LLM compression (below this, use heuristic)
+    )
+    _compression_cache: Dict[str, str] = {}  # Cache for compression results
 
     def review_and_compress(self) -> None:
         """
         Auto-review AI.md quality and compress if needed.
-        
+
         This is called automatically when AI.md exceeds size threshold.
         """
         size = self.get_ai_md_size()
-        console.print(f"[dim]AI.md size: {size:,} chars (threshold: 50,000)[/dim]")
-        
-        if size > 50000:
+        console.print(
+            f"[dim]AI.md size: {size:,} chars (threshold: {self.COMPRESSION_THRESHOLD:,})[/dim]"
+        )
+
+        if size > self.COMPRESSION_THRESHOLD:
             self.compress_ai_md()
 
     def _update_ai_md(self):
@@ -387,7 +481,7 @@ class KnowledgeBase:
 
         ai_md_path = os.path.join(self.knowledge_dir, "AI.md")
         try:
-            tmp_path = ai_md_path + '.tmp'
+            tmp_path = ai_md_path + ".tmp"
             with open(tmp_path, "w") as f:
                 f.write(content)
             os.replace(tmp_path, ai_md_path)

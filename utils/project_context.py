@@ -20,7 +20,7 @@ class ProjectContext:
     def get_context(self) -> str:
         """
         Get basic project context by reading key files.
-        
+
         Returns:
             String containing project context
         """
@@ -45,15 +45,19 @@ class ProjectContext:
                 except Exception:
                     pass
 
-        return "\n".join(context_parts) if context_parts else "No project context available"
+        return (
+            "\n".join(context_parts)
+            if context_parts
+            else "No project context available"
+        )
 
     def gather_project_files(self, max_file_size: int = 50000) -> str:
         """
         Gather all relevant project files for full project review.
-        
+
         Args:
             max_file_size: Maximum size of a file to include (in chars)
-            
+
         Returns:
             Concatenated string of file contents
         """
@@ -99,11 +103,15 @@ class ProjectContext:
                 if ext in code_extensions or ext in config_extensions:
                     filepath = os.path.join(root, filename)
                     try:
-                        with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
+                        with open(
+                            filepath, "r", encoding="utf-8", errors="ignore"
+                        ) as f:
                             content = f.read()
                             # Skip very large files
                             if len(content) > max_file_size:
-                                content = content[:max_file_size] + "\n...[truncated]..."
+                                content = (
+                                    content[:max_file_size] + "\n...[truncated]..."
+                                )
                             project_content.append(f"=== {filepath} ===\n{content}\n")
                     except Exception:
                         pass

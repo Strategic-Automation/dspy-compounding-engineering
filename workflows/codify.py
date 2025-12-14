@@ -5,8 +5,6 @@ This workflow allows users to manually codify feedback, learnings, or instructio
 into the persistent knowledge base using the FeedbackCodifier agent.
 """
 
-import json
-
 import dspy
 from rich.console import Console
 from rich.panel import Panel
@@ -35,31 +33,25 @@ def run_codify(feedback: str, source: str = "manual_input"):
 
     # 2. Run FeedbackCodifier Agent
     with console.status("[cyan]Analyzing and codifying feedback...[/cyan]"):
-        codifier = dspy.Predict(FeedbackCodifier)
+        # Use ChainOfThought for robust typed output
+        codifier = dspy.ChainOfThought(FeedbackCodifier)
         result = codifier(
             feedback_content=feedback,
             feedback_source=source,
             project_context=existing_knowledge,
         )
 
-    # 3. Parse and Save
+    # 3. Save
     try:
-        # Extract JSON from response if needed
-        json_str = result.codification_json
-        if "```json" in json_str:
-            import re
+        # Get Pydantic object directly
+        codified_obj = result.codified_output
 
-            match = re.search(r"```json\s*(.*?)\s*```", json_str, re.DOTALL)
-            if match:
-                json_str = match.group(1)
-        elif "```" in json_str:
-            import re
+        if not codified_obj:
+            console.print("[red]Agent failed to return structured data.[/red]")
+            return
 
-            match = re.search(r"```\s*(.*?)\s*```", json_str, re.DOTALL)
-            if match:
-                json_str = match.group(1)
-
-        codified_data = json.loads(json_str)
+        # Convert to dict
+        codified_data = codified_obj.model_dump()
 
         # Add metadata
         codified_data["original_feedback"] = feedback
@@ -74,12 +66,10 @@ def run_codify(feedback: str, source: str = "manual_input"):
         # Display summary
         console.print("\n[bold]Improvements Identified:[/bold]")
         for imp in codified_data.get("codified_improvements", []):
-            console.print(
-                f"- [{imp.get('type', 'item').upper()}] {imp.get('title', 'Untitled')}"
-            )
+            # Handle Pydantic model dump which returns dicts
+            title = imp.get("title", "Untitled")
+            imp_type = imp.get("type", "item").upper()
+            console.print(f"- [{imp_type}] {title}")
 
-    except json.JSONDecodeError:
-        console.print("[red]Failed to parse agent output as JSON.[/red]")
-        console.print(f"Raw output:\n{result.codification_json}")
     except Exception as e:
         console.print(f"[red]Error saving to knowledge base: {e}[/red]")

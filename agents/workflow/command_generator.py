@@ -1,4 +1,56 @@
+from typing import List, Optional, Any
 import dspy
+from pydantic import BaseModel, Field
+
+
+class CommandArgument(BaseModel):
+    name: str = Field(..., description="Argument name")
+    type: str = Field(
+        ..., description="Python type hint (str, int, bool, Optional[str])"
+    )
+    required: bool = Field(..., description="Whether the argument is required")
+    help: str = Field(..., description="Help text for the argument")
+
+
+class CommandOption(BaseModel):
+    name: str = Field(..., description="Long option name (e.g. --verbose)")
+    short: Optional[str] = Field(None, description="Short option name (e.g. -v)")
+    type: str = Field(..., description="Python type hint")
+    default: Optional[Any] = Field(None, description="Default value")
+    help: str = Field(..., description="Help text for the option")
+
+
+class AgentSpec(BaseModel):
+    name: str = Field(..., description="Name of the agent")
+    purpose: str = Field(..., description="What this agent does")
+    exists: bool = Field(..., description="Whether it already exists")
+    file_path: str = Field(..., description="Path to agent file")
+
+
+class FileSpec(BaseModel):
+    path: str = Field(..., description="File path to create")
+    content: str = Field(..., description="File content")
+
+
+class CommandSpec(BaseModel):
+    command_name: str = Field(..., description="Kebab-case command name")
+    description: str = Field(..., description="Brief CLI help description")
+    arguments: List[CommandArgument] = Field(
+        default_factory=list, description="List of arguments"
+    )
+    options: List[CommandOption] = Field(
+        default_factory=list, description="List of options"
+    )
+    workflow_steps: List[str] = Field(
+        ..., description="Step-by-step description of the workflow"
+    )
+    agents_needed: List[AgentSpec] = Field(
+        default_factory=list, description="Agents to use or create"
+    )
+    files_to_create: List[FileSpec] = Field(..., description="Files to generate")
+    cli_registration: str = Field(
+        ..., description="Python code to register the command in cli.py"
+    )
 
 
 class CommandGenerator(dspy.Signature):
@@ -7,98 +59,23 @@ class CommandGenerator(dspy.Signature):
     for the Compounding Engineering plugin based on natural language descriptions.
 
     ## Command Generation Protocol
-
-    1. **Analyze the Request**
-       - Understand what the command should accomplish
-       - Identify required inputs and outputs
-       - Determine which existing agents/patterns to leverage
-
-    2. **Design the Command**
-       - Choose a clear, descriptive command name (kebab-case)
-       - Define required and optional arguments
-       - Plan the workflow (which agents to call, in what order)
-       - Consider error handling and edge cases
-
-    3. **Generate the Implementation**
-       - Create the workflow file following existing patterns
-       - Create any new agents needed (as DSPy Signatures)
-       - Add CLI command registration
-       - Include helpful docstrings and help text
-
-    ## Output Format
-
-    Return a JSON object with the command specification:
-    ```json
-    {
-        "command_name": "kebab-case-name",
-        "description": "Brief description for CLI help",
-        "arguments": [
-            {
-                "name": "arg_name",
-                "type": "str|int|bool|Optional[str]",
-                "required": true,
-                "help": "Description of the argument"
-            }
-        ],
-        "options": [
-            {
-                "name": "--option-name",
-                "short": "-o",
-                "type": "bool|str|int",
-                "default": null,
-                "help": "Description of the option"
-            }
-        ],
-        "workflow_steps": [
-            "Step 1: Description of what happens",
-            "Step 2: Description of next step"
-        ],
-        "agents_needed": [
-            {
-                "name": "AgentName",
-                "purpose": "What this agent does",
-                "exists": true,
-                "file_path": "agents/workflow/agent_name.py"
-            }
-        ],
-        "files_to_create": [
-            {
-                "path": "workflows/command_name.py",
-                "content": "Full Python code for the workflow"
-            },
-            {
-                "path": "agents/workflow/new_agent.py",
-                "content": "Full Python code for any new agent (if needed)"
-            }
-        ],
-        "cli_registration": "Code to add to cli.py"
-    }
-    ```
-
-    ## Guidelines
-
-    - Follow existing patterns in the codebase
-    - Use Typer for CLI argument handling
-    - Use Rich for console output
-    - Create DSPy Signatures for any AI-powered components
-    - Include comprehensive docstrings
-    - Handle errors gracefully with helpful messages
-    - Support both simple and advanced use cases
-    - Make commands composable where possible
+    1. Analyze Request (inputs, outputs, patterns).
+    2. Design Command (name, args, workflow).
+    3. Generate Implementation (workflow code, agents, registration).
     """
 
-    command_description = dspy.InputField(
+    command_description: str = dspy.InputField(
         desc="Natural language description of what the command should do"
     )
-    existing_commands = dspy.InputField(
+    existing_commands: str = dspy.InputField(
         desc="List of existing commands and their descriptions for reference"
     )
-    existing_agents = dspy.InputField(
+    existing_agents: str = dspy.InputField(
         desc="List of existing agents that could be reused"
     )
-    project_structure = dspy.InputField(
+    project_structure: str = dspy.InputField(
         desc="Current project structure and conventions"
     )
-    command_spec_json = dspy.OutputField(
-        desc="Pure JSON object (no markdown) with the complete command specification"
+    command_spec: CommandSpec = dspy.OutputField(
+        desc="Structured command specification"
     )

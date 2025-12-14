@@ -39,18 +39,27 @@ uv run python cli.py review --project
 
 The system runs several agents in parallel. Each looks for different things:
 
-1.  **SecuritySentinel**: Looks for vulnerabilities (SQLi, XSS, insecure deps).
-2.  **PerformanceOracle**: Checks for O(n^2) loops, N+1 queries, inefficient resource usage.
-3.  **ArchitectureStrategist**: Validates design patterns, SOLID principles, and modularity.
-4.  **DataIntegrityGuardian**: Checks validation logic, transaction boundaries, and schema consistency.
-5.  **MaintainabilitySage**: Reviews naming conventions, complexity, and documentation.
-6.  **TestCoverageWarden**: Ensures new code has appropriate tests.
+1.  **SecuritySentinel**: Looks for vulnerabilities and creates a Risk Matrix.
+2.  **PerformanceOracle**: Checks for O(n^2) loops, N+1 queries, and suggests optimizations.
+3.  **ArchitectureStrategist**: Validates design patterns and SOLID principles.
+4.  **DataIntegrityGuardian**: Checks validation logic, privacy compliance, and migration safety.
+5.  **DhhRailsReviewer**: Enforces standard Rails conventions and DHH-style simplicity.
+6.  **CodeSimplicityReviewer**: Focuses on reducing necessary complexity.
+7.  **PatternRecognitionSpecialist**: Identifies design patterns and anti-patterns.
+8.  **Kieran Reviewers**: Specialized agents (Rails, Python, TS) enforcing team-specific standards.
 
 ## Knowledge Base Integration
 
 Every agent automatically receives context from the Knowledge Base.
--   *Example*: If you previously codified "Always use `logger.error` instead of `print`", the `MaintainabilitySage` will catch violations in future reviews.
+-   *Example*: If you previously codified "Always use `logger.error` instead of `print`", the `KieranPythonReviewer` will catch violations in future reviews.
 
 ## Output
 
-The findings are saved as structured JSON files in the `todos/` directory. You use the `triage` command to process them.
+The findings are saved as structured **Markdown Todo files** in the `todos/` directory. 
+Each file contains:
+- Executive Summary & Technical Analysis
+- Detailed Findings with Severity & Category
+- Unique Agent Metrics (e.g., Risk Matrix, Typesafety Score)
+- Proposed Solutions & Effort Estimates
+
+You use the `triage` command to process them.
