@@ -3,11 +3,44 @@ name = "dspy-compounding-engineering"
 version = "0.1.0"
 description = "DSPy implementation of the Compounding Engineering Plugin"
 readme = "README.md"
+authors = [
+    {name = "Strategic Automation", email = "contact@strategic-automation.dev"}
+]
+license = {text = "MIT"}
+keywords = ["ai", "llm", "dspy", "compounding", "engineering", "cli", "agent"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 requires-python = ">=3.10"
 dependencies = [
     "dspy-ai",
-    "typer",
-    "rich",
+    "typer>=0.9.0",
+    "rich>=13.0.0",
+    "prompt-toolkit>=3.0.0",
+    "python-dotenv",
+    "openai",
+    "python-frontmatter",
+    "jsonschema",
+    "pyyaml>=6.0",
+    "filelock>=3.15.4",
+    "pytest-cov>=7.0.0",
+]
+
+
+# Optional dependencies for full agent functionality
+[project.optional-dependencies]
+full = [
+    "dspy-ai",
     "python-dotenv",
     "openai",
     "python-frontmatter",
@@ -15,16 +48,16 @@ dependencies = [
     "pyyaml>=6.0",
     "filelock>=3.15.4",
 ]
-
 [project.scripts]
 compounding = "cli:app"
+friday = "friday.app:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["agents", "workflows", "utils", "cli.py", "config.py"]
+packages = ["agents", "workflows", "utils", "friday", "cli.py", "config.py"]
 
 [dependency-groups]
 dev = [
@@ -43,4 +76,13 @@ profile = "black"
 line_length = 100
 known_first_party = ["agents", "workflows", "utils"]
 skip_gitignore = true
+
+[tool.uv]
+# UV configuration for global tool installation
+dev-dependencies = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+]
 

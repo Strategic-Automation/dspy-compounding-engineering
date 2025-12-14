@@ -1,0 +1,20 @@
+
+#!/usr/bin/env bash
+set -euo pipefail
+# Temporary runner for the Compounding CLI using `uv run`.
+# Supports either:
+#   ./uvx generate-command ...
+#   ./uvx compounding generate-command ...
+# It will strip a leading `compounding` if present and invoke the
+# package entrypoint via `uv run compounding` so behaviour matches
+# `uv tool install compounding` usage.
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+# If first argument is the package name `compounding`, drop it.
+if [[ $# -gt 0 && "$1" == "compounding" ]]; then
+	shift
+fi
+
+exec uv run compounding "$@"

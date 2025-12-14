@@ -80,6 +80,46 @@ cp .env.example .env
 uv sync
 ```
 
+### Temporary runner: `uvx`
+
+The repository includes a small wrapper script `uvx` that runs the CLI via `uv run` without doing a global install. It's useful for quickly trying commands locally:
+
+```bash
+./uvx -h
+./uvx generate-command "create a command to list large files"
+```
+
+The script is in the repository root and is executable; run it from the repo directory.
+
+You can also prefix commands with `compounding`, for example `./uvx compounding generate-command`.
+
+## Example run
+
+Quick example using the temporary runner `uvx` to see the `generate-command` help:
+
+```bash
+./uvx generate-command -h
+```
+
+Expected excerpt:
+
+```
+Usage: cli.py generate-command [OPTIONS] DESCRIPTION
+
+Generate a new CLI command from a natural language description.
+
+Options:
+  --dry-run  -n   Show what would be created without writing files
+  --help     -h   Show this message and exit.
+```
+
+You can run other commands similarly, for example:
+
+```bash
+./uvx -h
+./uvx review --project
+```
+
 ## The Compounding Engineering Loop
 
 This implementation embodies the core philosophy: **each unit of work makes subsequent work easier**.
