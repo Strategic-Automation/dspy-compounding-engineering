@@ -1,5 +1,6 @@
 """Tests for knowledge base functionality."""
 
+import os
 import pytest
 
 from utils.knowledge_base import KnowledgeBase
@@ -10,7 +11,7 @@ def test_knowledge_base_init(temp_dir, monkeypatch):
     """Test knowledge base initialization."""
     monkeypatch.chdir(temp_dir)
     kb = KnowledgeBase()  # No base_dir parameter
-    assert kb.knowledge_dir.exists()
+    assert os.path.exists(kb.knowledge_dir)
 
 
 @pytest.mark.unit
@@ -19,7 +20,7 @@ def test_save_learning(temp_dir, sample_learning, monkeypatch):
     monkeypatch.chdir(temp_dir)
     kb = KnowledgeBase()
     
-    learning_id = kb.save(sample_learning)
+    learning_id = kb.add_learning(sample_learning)
     
     assert learning_id is not None
 
@@ -31,9 +32,9 @@ def test_retrieve_learning(temp_dir, sample_learning, monkeypatch):
     kb = KnowledgeBase()
     
     # Save a learning
-    kb.save(sample_learning)
+    kb.add_learning(sample_learning)
     
     # Retrieve it
-    results = kb.retrieve("test")
+    results = kb.search_knowledge("test")
     
     assert len(results) >= 0  # May or may not find results depending on implementation

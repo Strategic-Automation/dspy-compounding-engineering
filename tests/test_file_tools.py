@@ -1,5 +1,6 @@
 """Tests for file tools."""
 
+import os
 from pathlib import Path
 
 import pytest
@@ -21,7 +22,9 @@ def test_list_directory(temp_dir):
     (temp_dir / "file1.txt").touch()
     (temp_dir / "subdir").mkdir()
     
-    result = list_directory(str(temp_dir), base_dir=str(temp_dir.parent))
+    # Use relative path since validate_path disallows absolute paths
+    rel_path = os.path.relpath(str(temp_dir), str(temp_dir.parent))
+    result = list_directory(rel_path, base_dir=str(temp_dir.parent))
     assert "file1.txt" in result or "file1" in result
 
 
@@ -33,5 +36,7 @@ def test_read_file_range(temp_dir):
     test_file = temp_dir / "test.txt"
     test_file.write_text("Line 1\nLine 2\nLine 3\n")
     
-    result = read_file_range(str(test_file), start_line=1, end_line=2, base_dir=str(temp_dir.parent))
+    # Use relative path since validate_path disallows absolute paths
+    rel_path = os.path.relpath(str(test_file), str(temp_dir.parent))
+    result = read_file_range(rel_path, start_line=1, end_line=2, base_dir=str(temp_dir.parent))
     assert "Line 1" in result or "Error" in result  # May fail due to base_dir validation
