@@ -1,4 +1,4 @@
-"""Friday CLI - Main conversational interface with compounding support"""
+"Friday CLI - Main conversational interface with compounding support"
 
 import os
 import signal
@@ -17,9 +17,32 @@ from friday.tools import ToolExecutor
 from friday.context import ConversationContext
 from friday.agent import FridayAgent
 
+# Compounding Engineering Imports
+try:
+    from config import configure_dspy
+    from workflows.codify import run_codify
+    from workflows.generate_command import run_generate_command
+    from workflows.plan import run_plan
+    from workflows.review import run_review
+    from workflows.triage import run_triage
+    from workflows.work import run_unified_work
+    from utils.knowledge_base import KnowledgeBase
+except ImportError:
+    # Handle case where dependencies aren't available
+    configure_dspy = None
+
 
 class FridayCLI:
     """Main Friday CLI application"""
+
+    def __init__(self):
+        # Configure DSPy for compounding commands
+        if configure_dspy:
+            try:
+                configure_dspy()
+            except Exception as e:
+                # Use a temporary console since self.console isn't init'd yet
+                Console().print(f"[yellow]Warning: Failed to configure DSPy: {e}[/]")
 
         self.workflows = {}  # Store compound workflows: {workflow_name: [commands]}
         self.console = Console(theme=FRIDAY_THEME, force_terminal=True)
@@ -32,12 +55,21 @@ class FridayCLI:
         os.makedirs(history_dir, exist_ok=True)
         history_file = os.path.join(history_dir, "history")
         
-        command_completer = WordCompleter([
+        commands = [
             '/help', '/clear', '/context', '/history', '/compact',
             '/exit', '/quit', '/model', '/diff', '/status', '/files',
             '/compound', '/compound init', '/compound add', '/compound list',
             '/compound run', '/compound remove', '/compound clear'
-        ], ignore_case=True)
+        ]
+        
+        # Add compounding commands if available
+        if configure_dspy:
+            commands.extend([
+                '/triage', '/plan', '/work', '/review', 
+                '/generate', '/codify', '/compress'
+            ])
+            
+        command_completer = WordCompleter(commands, ignore_case=True)
         
         self.session = PromptSession(
             history=FileHistory(history_file),
@@ -83,8 +115,7 @@ class FridayCLI:
 [bold blue]│[/]    [green]/help[/]    [dim]Show available commands[/]                       [bold blue]│[/]
 [bold blue]│[/]    [green]/clear[/]   [dim]Clear conversation[/]                            [bold blue]│[/]
 [bold blue]│[/]    [green]/exit[/]    [dim]Exit Friday[/]                                   [bold blue]│[/]
-[bold blue]╰─────────────────────────────────────────────────────────────╯[/]
-"""
+[bold blue]╰─────────────────────────────────────────────────────────────╯[/] """
         self.console.print(banner)
         
         cwd = os.getcwd()
@@ -104,7 +135,17 @@ class FridayCLI:
   [green]/diff[/]              Show git diff
   [green]/status[/]            Show git status
   [green]/files[/] [pattern]    List files matching pattern
+  [green]/compound[/]          Manage compound workflows
   [green]/exit[/], [green]/quit[/]       Exit Friday
+
+[bold]Compounding Commands:[/]
+  [green]/triage[/]            Triage and categorize findings
+  [green]/plan[/] <desc>       Transform description into project plan
+  [green]/work[/] <pattern>    Execute work (ID, plan file, or pattern)
+  [green]/review[/] [target]   Review PR or local changes
+  [green]/generate[/] <desc>   Generate a new CLI command
+  [green]/codify[/] <feedback> Codify feedback into knowledge base
+  [green]/compress[/]          Compress knowledge base (AI.md)
 
 [bold]Capabilities:[/]
   [cyan]•[/] Read and edit files with syntax highlighting
@@ -117,10 +158,10 @@ class FridayCLI:
 
 [bold]Examples:[/]
   [dim]›[/] "Read the main.py file and explain what it does"
-  [dim]›[/] "Find all TODO comments in the codebase"
-  [dim]›[/] "Add error handling to the process_data function"
-  [dim]›[/] "What changed in the last 5 commits?"
-  [dim]›[/] "Create a unit test for the User class"
+  [dim]›[/] "/plan Add a new user authentication system"
+  [dim]›[/] "/work p1"
+  [dim]›[/] "/codify Always use type hints in Python functions"
+  [dim]›[/] "/compound run my-workflow"
 
 [bold]Tips:[/]
   [dim]•[/] Be specific about file paths and function names
@@ -189,6 +230,7 @@ class FridayCLI:
         cmd = parts[0].lower()
         args = parts[1] if len(parts) > 1 else ""
         
+        # Standard Commands
         if cmd in ["/exit", "/quit", "/q"]:
             self.console.print("\n[bold blue]Goodbye! Happy coding![/]")
             return False
@@ -211,32 +253,81 @@ class FridayCLI:
         elif cmd == "/status":
             self.tools.git_status()
         elif cmd == "/files":
+            pattern = args or "*"
+            self.tools.list_directory(".", pattern)
         elif cmd == "/compound":
             self._handle_compound_command(args)
-        elif cmd.startswith("/compound "):
-            self._handle_compound_command(command)
-    def _handle_compound_command(self, command: str):
+        
+        # Compounding Commands
+        elif cmd == "/triage":
+            self._run_safe(run_triage)
+        elif cmd == "/plan":
+            if not args:
+                self.console.print("[yellow]Usage: /plan <feature description>[/]")
+            else:
+                self._run_safe(run_plan, args)
+        elif cmd == "/work":
+            self._run_safe(run_unified_work, pattern=args if args else None)
+        elif cmd == "/review":
+            self._run_safe(run_review, args if args else "latest")
+        elif cmd in ["/generate", "/generate-command"]:
+            if not args:
+                self.console.print("[yellow]Usage: /generate <description>[/]")
+            else:
+                self._run_safe(run_generate_command, description=args)
+        elif cmd == "/codify":
+            if not args:
+                self.console.print("[yellow]Usage: /codify <feedback>[/]")
+            else:
+                self._run_safe(run_codify, feedback=args)
+        elif cmd in ["/compress", "/compress-kb"]:
+            kb = KnowledgeBase()
+            self._run_safe(kb.compress_ai_md)
+            
+        else:
+            self.console.print(f"[yellow]Unknown command: {command}[/]")
+            self.console.print("[dim]Type /help for available commands[/dim]")
+        
+        return True
+
+    def _run_safe(self, func, *args, **kwargs):
+        """Run a workflow function safely"""
+        if not configure_dspy:
+             self.console.print("[red]Error: Compounding commands are not available (imports failed).[/]")
+             return
+             
+        try:
+            func(*args, **kwargs)
+        except Exception as e:
+            self.console.print(f"[red]Error executing workflow: {e}[/]")
+
+    def _handle_compound_command(self, args: str):
         """Handle compound workflow commands"""
-        parts = command.strip().split(maxsplit=2)
-        if len(parts) < 2:
+        parts = args.strip().split(maxsplit=1)
+        if not parts:
             self.console.print("[yellow]Usage: /compound <subcommand> [args][/]")
             self.console.print("[dim]Subcommands: init, add, list, run, remove, clear[/dim]")
             return
         
-        subcommand = parts[1].lower()
-        args = parts[2] if len(parts) > 2 else ""
+        subcommand = parts[0].lower()
+        sub_args = parts[1] if len(parts) > 1 else ""
         
         if subcommand == "init":
-            self._compound_init(args)
+            self._compound_init(sub_args)
         elif subcommand == "add":
-            self._compound_add(args)
+            self._compound_add(sub_args)
         elif subcommand == "list":
-            self._compound_list(args)
+            self._compound_list(sub_args)
         elif subcommand == "run":
-            self._compound_run(args)
-         elif subcommand == "remove":
-             self._compound_remove(args)
-             self._compound_remove(args)
+            self._compound_run(sub_args)
+        elif subcommand == "remove":
+             self._compound_remove(sub_args)
+        elif subcommand == "clear":
+             self._compound_clear(sub_args)
+        else:
+            self.console.print(f"[yellow]Unknown compound subcommand: {subcommand}[/]")
+            self.console.print("[dim]Available: init, add, list, run, remove, clear[/dim]")
+
     def _compound_init(self, workflow_name: str):
         """Initialize a new compound workflow"""
         if not workflow_name:
@@ -346,7 +437,7 @@ class FridayCLI:
         
         commands = self.workflows[workflow_name]
         if index < 0 or index >= len(commands):
-            self.console.print(f"[yellow]Error: Invalid command index[/]")
+            self.console.print("[yellow]Error: Invalid command index[/]")
             return
         
         removed_cmd = commands.pop(index)
@@ -365,16 +456,6 @@ class FridayCLI:
         
         self.workflows[workflow_name] = []
         self.console.print(f"[green]Workflow '{workflow_name}' cleared[/]")
-         elif subcommand == "clear":
-             self._compound_clear(args)
-        else:
-            self.console.print(f"[yellow]Unknown compound subcommand: {subcommand}[/]")
-            self.console.print("[dim]Available: init, add, list, run, remove, clear[/dim]")
-        else:
-            self.console.print(f"[yellow]Unknown command: {command}[/]")
-            self.console.print("[dim]Type /help for available commands[/dim]")
-        
-        return True
 
     def _show_model_info(self):
         """Show current LLM model information"""

@@ -45,7 +45,7 @@ When responding:
 
 To use a tool, output a JSON block like this:
 ```tool
-{"name": "read_file", "args": {"filepath": "src/main.py"}}
+{{"name": "read_file", "args": {{"filepath": "src/main.py"}}}}
 ```
 
 You can use multiple tools in sequence. After each tool result, continue your response.
