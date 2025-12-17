@@ -3,7 +3,7 @@ from typing import Optional
 import typer
 
 from config import configure_dspy
-from utils.knowledge_base import KnowledgeBase
+from utils.knowledge import KnowledgeBase
 from workflows.codify import run_codify
 from workflows.generate_command import run_generate_command
 from workflows.plan import run_plan

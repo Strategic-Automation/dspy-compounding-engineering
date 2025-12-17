@@ -8,8 +8,7 @@ from agents.research import (
     RepoResearchAnalyst,
 )
 from agents.workflow import PlanGenerator, SpecFlowAnalyzer
-from utils.kb_module import KBPredict
-from utils.knowledge_base import KnowledgeBase
+from utils.knowledge import KBPredict, KnowledgeBase
 
 console = Console()
 

@@ -6,7 +6,7 @@ import pytest
 @pytest.mark.unit
 def test_file_tools_module_exists():
     """Test that file_tools module exists."""
-    from utils import file_tools
+    from utils.io import files as file_tools
 
     assert file_tools is not None
 
@@ -14,7 +14,7 @@ def test_file_tools_module_exists():
 @pytest.mark.unit
 def test_list_directory(temp_dir):
     """Test directory listing."""
-    from utils.file_tools import list_directory
+    from utils.io import list_directory
 
     # Create test files
     (temp_dir / "file1.txt").touch()
@@ -29,7 +29,7 @@ def test_list_directory(temp_dir):
 @pytest.mark.unit
 def test_read_file_range(temp_dir):
     """Test file range reading."""
-    from utils.file_tools import read_file_range
+    from utils.io import read_file_range
 
     test_file = temp_dir / "test.txt"
     test_file.write_text("Line 1\nLine 2\nLine 3\n")
@@ -45,7 +45,7 @@ def test_safe_write_overwrite(temp_dir):
     """Test safe_write overwrite behavior."""
     import pytest
 
-    from utils.safe_io import safe_write
+    from utils.io import safe_write
 
     test_file = temp_dir / "test.txt"
     test_file.write_text("Original", encoding="utf-8")
@@ -64,7 +64,7 @@ def test_safe_write_overwrite(temp_dir):
 @pytest.mark.unit
 def test_create_file(temp_dir):
     """Test create_file function."""
-    from utils.file_tools import create_file
+    from utils.io import create_file
 
     test_file = temp_dir / "new_file.txt"
 
@@ -82,7 +82,7 @@ def test_create_file(temp_dir):
 @pytest.mark.unit
 def test_edit_file_lines_validation(temp_dir):
     """Test validation in edit_file_lines."""
-    from utils.file_tools import edit_file_lines
+    from utils.io import edit_file_lines
 
     # Create dummy file
     (temp_dir / "test.txt").write_text("Line 1\nLine 2")

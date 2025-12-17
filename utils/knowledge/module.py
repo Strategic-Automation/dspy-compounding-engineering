@@ -13,7 +13,7 @@ from typing import Any, List, Optional
 
 import dspy
 
-from utils.knowledge_base import KnowledgeBase
+from .core import KnowledgeBase
 
 
 class KBPredict(dspy.Module):

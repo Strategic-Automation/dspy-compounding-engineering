@@ -2,15 +2,19 @@
 
 Utilities provide cross-cutting functionality used by workflows and agents.
 
-## git_service.py
+## utils.git
 
-**Class**: `GitService`
+**Package**: `utils.git`
+
+The `utils.git` package provides the `GitService` class for interacting with git repositories and GitHub.
+
+### `GitService`
 
 Handles Git and GitHub CLI operations.
 
-### Methods
+#### Methods
 
-#### `is_git_repo() -> bool`
+##### `is_git_repo() -> bool`
 Check if current directory is a Git repository.
 
 ```python
@@ -18,7 +22,7 @@ if GitService.is_git_repo():
     print("In a git repo")
 ```
 
-#### `get_diff(target: str = "HEAD") -> str`
+##### `get_diff(target: str = "HEAD") -> str`
 Get git diff for a target commit, branch, or PR.
 
 **Parameters**:
@@ -35,10 +39,10 @@ diff = GitService.get_diff("HEAD")
 diff = GitService.get_diff("https://github.com/owner/repo/pull/123")
 ```
 
-#### `get_current_branch() -> str`
+##### `get_current_branch() -> str`
 Get the current branch name.
 
-#### `create_feature_worktree(branch_name: str, worktree_path: str) -> None`
+##### `create_feature_worktree(branch_name: str, worktree_path: str) -> None`
 Create a git worktree for a feature branch.
 
 **Example**:
@@ -54,25 +58,29 @@ GitService.create_feature_worktree(
 - If branch exists: Checks it out in worktree
 - If new: Creates branch and worktree from HEAD
 
-#### `checkout_pr_worktree(pr_id_or_url: str, worktree_path: str) -> None`
+##### `checkout_pr_worktree(pr_id_or_url: str, worktree_path: str) -> None`
 Checkout a PR into an isolated worktree (requires `gh` CLI).
 
 **Limitations**: Struggles with PRs from forks (known issue)
 
 ---
 
-## project_context.py
+## utils.context
 
-**Class**: `ProjectContext`
+**Package**: `utils.context`
+
+The `utils.context` package provides project context analysis.
+
+### `ProjectContext`
 
 Gathers project information for AI context.
 
-### Methods
+#### Methods
 
-#### `__init__(base_dir: str = ".")`
+##### `__init__(base_dir: str = ".")`
 Initialize with a base directory.
 
-#### `get_context() -> str`
+##### `get_context() -> str`
 Get basic project context (README, configs, file list).
 
 **Returns**: Concatenated string of key files (first 1000 chars each)
@@ -83,7 +91,7 @@ context = ProjectContext().get_context()
 # Use in agent prompts for project awareness
 ```
 
-#### `gather_project_files(max_file_size: int = 50000) -> str`
+##### `gather_project_files(max_file_size: int = 50000) -> str`
 Gather all relevant code files for full project review.
 
 **Parameters**:
@@ -103,18 +111,20 @@ agent.review(code=project_code)
 
 ---
 
-## knowledge_base.py
+## utils.knowledge
 
-**Class**: `KnowledgeBase`
+**Package**: `utils.knowledge`
 
 Core of the compounding engineering system.
 
-### Methods
+### `KnowledgeBase`
 
-#### `__init__(knowledge_dir: str = ".knowledge")`
+#### Methods
+
+##### `__init__(knowledge_dir: str = ".knowledge")`
 Initialize KB storage.
 
-#### `save_learning(learning: dict) -> str`
+##### `save_learning(learning: dict) -> str`
 Save a structured learning to disk.
 
 **Learning Schema**:
@@ -133,7 +143,7 @@ Save a structured learning to disk.
 
 **Returns**: Learning ID
 
-#### `retrieve_relevant(query: str, tags: List[str] = None, max_results: int = 5) -> List[dict]`
+##### `retrieve_relevant(query: str, tags: List[str] = None, max_results: int = 5) -> List[dict]`
 Retrieve learnings relevant to a query.
 
 **Current Implementation**: Keyword matching
@@ -153,16 +163,37 @@ for l in learnings:
     print(f"{l['action']} - {l['rationale']}")
 ```
 
-#### `update_ai_md() -> None`
+##### `update_ai_md() -> None`
 Regenerate the human-readable `AI.md` summary from all learnings.
 
 **Called automatically** after `save_learning()`.
 
+### `KBPredict`
+
+DSPy wrapper that auto-injects Knowledge Base context.
+
+#### Usage
+
+```python
+from utils.knowledge import KnowledgeBase, KBPredict
+
+kb = KnowledgeBase()
+
+# Instead of dspy.Predict
+predictor = KBPredict("code, context -> review", kb=kb)
+
+# KB context is automatically injected
+result = predictor(code="def foo(): pass")
+# 'context' field is auto-populated from kb.retrieve_relevant()
+```
+
 ---
 
-## todo_service.py
+## utils.todo
 
-**Functions for todo file management**
+**Package**: `utils.todo`
+
+Manages the file-based todo system.
 
 ### `create_finding_todo(finding: dict, todos_dir: str = "todos") -> str`
 Create a `*-pending-*.md` file from a review finding.
@@ -192,138 +223,25 @@ Mark a todo as complete.
 ### `add_work_log_entry(entry: str, log_path: str = ".work_log") -> None`
 Append an entry to the work log.
 
-**Example**:
-```python
-add_work_log_entry(
-    "[2025-12-07] Fixed SQL injection in auth.py via prepared statements"
-)
-```
-
 ---
 
-## kb_module.py
+## utils.io
 
-**Class**: `KBPredict`
+**Package**: `utils.io`
 
-DSPy wrapper that auto-injects Knowledge Base context.
+Functions for safe file operations.
 
-### Usage
+### `read_file_range(file_path: str, start_line: int, end_line: int) -> str`
+Read specific lines from a file.
 
-```python
-from utils.kb_module import KBPredict
-from utils.knowledge_base import KnowledgeBase
+### `safe_write(path: str, content: str, base_dir: str = ".") -> None`
+Safely write content to a file, preventing path traversal.
 
-kb = KnowledgeBase()
+### `edit_file_lines(file_path: str, edits: List[Dict]) -> str`
+Edit specific lines in a file.
 
-# Instead of dspy.Predict
-predictor = KBPredict("code, context -> review", kb=kb)
-
-# KB context is automatically injected
-result = predictor(code="def foo(): pass")
-# 'context' field is auto-populated from kb.retrieve_relevant()
-```
-
-**How It Works**:
-1. Intercepts `forward()` call
-2. Generates KB query from input kwargs
-3. Retrieves relevant learnings
-4. Injects as `context` parameter
-5. Calls parent `dspy.Predict`
-
----
-
-## file_tools.py
-
-**Functions for safe file operations**
-
-### `safe_read(path: str) -> str`
-Read a file with error handling.
-
-**Returns**: File contents or empty string on error
-
-### `safe_write(path: str, content: str, backup: bool = True) -> bool`
-Write to a file with optional backup.
-
-**Parameters**:
-- `path`: File to write
-- `content`: Content to write
-- `backup`: Create `.bak` backup before writing
-
-**Returns**: True if successful
-
-### `apply_line_edit(file_path: str, start_line: int, end_line: int, new_content: str) -> bool`
-Apply a line-based edit to a file.
-
-**Parameters**:
-- `file_path`: File to edit
-- `start_line`: 1-indexed start line
-- `end_line`: 1-indexed end line (inclusive)
-- `new_content`: Replacement content
-
-**Returns**: True if successful
-
-**Example**:
-```python
-# Replace lines 10-12 with new function
-apply_line_edit(
-    "src/utils.py",
-    start_line=10,
-    end_line=12,
-    new_content="def new_function():\n    pass\n"
-)
-```
-
----
-
-## learning_extractor.py
-
-**Class**: `LearningExtractor`
-
-Automatically extracts learnings from completed work.
-
-### Methods
-
-#### `extract_from_todo(todo_path: str, git_diff: str, test_results: str = None) -> List[dict]`
-Analyze a completed todo and extract learnings.
-
-**Process**:
-1. Read todo description and context
-2. Parse git diff to see what changed
-3. Use AI to identify patterns/lessons
-4. Structure as learnings
-
-**Returns**: List of learning dicts
-
-**Example**:
-```python
-extractor = LearningExtractor(kb=kb)
-learnings = extractor.extract_from_todo(
-    todo_path="todos/001-complete-fix-sql-injection.md",
-    git_diff=diff,
-    test_results="All tests passed"
-)
-
-for learning in learnings:
-    kb.save_learning(learning)
-```
-
----
-
-## safe_io.py
-
-**Context managers for safe I/O**
-
-### `atomic_write(path: str, mode: str = "w")`
-Context manager for atomic file writes (write to temp, then move).
-
-**Example**:
-```python
-from utils.safe_io import atomic_write
-
-with atomic_write("important.json") as f:
-    json.dump(data, f)
-# File only replaced if no exception occurred
-```
+### `list_directory(path: str, base_dir: str = ".") -> str`
+List files in a directory.
 
 ---
 
@@ -331,9 +249,9 @@ with atomic_write("important.json") as f:
 
 ### Workflow Initialization
 ```python
-from utils.knowledge_base import KnowledgeBase
-from utils.project_context import ProjectContext
-from utils.git_service import GitService
+from utils.knowledge import KnowledgeBase
+from utils.context import ProjectContext
+from utils.git import GitService
 
 kb = KnowledgeBase()
 context = ProjectContext().get_context()
@@ -344,17 +262,4 @@ diff = GitService.get_diff("HEAD")
 ```python
 learnings = kb.retrieve_relevant("security review")
 result = agent.review(code=code, context=learnings)
-```
-
-### Safe Worktree Workflow
-```python
-worktree = f"worktrees/{task_id}"
-try:
-    GitService.create_feature_worktree(f"task/{task_id}", worktree)
-    # Do work in worktree
-    os.chdir(worktree)
-    execute_task()
-finally:
-    os.chdir(original_dir)
-    subprocess.run(["git", "worktree", "remove", worktree])
 ```

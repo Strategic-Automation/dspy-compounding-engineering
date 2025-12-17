@@ -22,7 +22,7 @@ from qdrant_client.models import (
 )
 from rich.console import Console
 
-from utils.embeddings import EmbeddingProvider
+from .embeddings import EmbeddingProvider
 
 console = Console()
 

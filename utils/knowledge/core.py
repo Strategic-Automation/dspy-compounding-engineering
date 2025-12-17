@@ -26,9 +26,9 @@ from qdrant_client.models import (
 )
 from rich.console import Console
 
-from utils.codebase_indexer import CodebaseIndexer
-from utils.embeddings import EmbeddingProvider
-from utils.knowledge_docs import KnowledgeDocumentation
+from .docs import KnowledgeDocumentation
+from .embeddings import EmbeddingProvider
+from .indexer import CodebaseIndexer
 
 console = Console()
 

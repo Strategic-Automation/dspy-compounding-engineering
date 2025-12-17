@@ -2,7 +2,7 @@
 
 import pytest
 
-from utils.knowledge_base import KnowledgeBase
+from utils.knowledge import KnowledgeBase
 
 
 @pytest.mark.unit

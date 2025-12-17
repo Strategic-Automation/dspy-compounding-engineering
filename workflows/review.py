@@ -21,9 +21,9 @@ from agents.review import (
     PerformanceOracle,
     SecuritySentinel,
 )
-from utils.kb_module import KBPredict
-from utils.project_context import ProjectContext
-from utils.todo_service import create_finding_todo
+from utils.context import ProjectContext
+from utils.knowledge import KBPredict
+from utils.todo import create_finding_todo
 
 console = Console()
 
@@ -99,7 +99,7 @@ def run_review(pr_url_or_id: str, project: bool = False):  # noqa: C901
 
     import concurrent.futures
 
-    from utils.git_service import GitService
+    from utils.git import GitService
 
     if project:
         console.print("[bold]Starting Full Project Review[/bold]\n")
@@ -124,11 +124,19 @@ def run_review(pr_url_or_id: str, project: bool = False):  # noqa: C901
             # Default to checking current staged/unstaged changes or HEAD
             console.print("[cyan]Fetching local changes...[/cyan]")
             code_diff = GitService.get_diff("HEAD")
+            summary = GitService.get_file_status_summary("HEAD")
+
             if not code_diff:
                 console.print(
                     "[yellow]No changes found in HEAD. Checking staged changes...[/yellow]"
                 )
                 code_diff = GitService.get_diff("--staged")
+                summary = GitService.get_file_status_summary("--staged")
+
+            if summary and code_diff:
+                code_diff = (
+                    f"FILE STATUS SUMMARY (Renames Detected):\n{summary}\n\nGIT DIFF:\n{code_diff}"
+                )
         else:
             # Fetch PR diff
             console.print(f"[cyan]Fetching diff for {pr_url_or_id}...[/cyan]")
@@ -474,7 +482,7 @@ def run_review(pr_url_or_id: str, project: bool = False):  # noqa: C901
 
     # Extract and codify learnings from the review
     if findings:
-        from utils.learning_extractor import codify_review_findings
+        from utils.knowledge import codify_review_findings
 
         try:
             codify_review_findings(findings, len(created_todos))
