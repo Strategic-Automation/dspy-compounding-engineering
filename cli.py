@@ -3,7 +3,7 @@ from typing import Optional
 import typer
 
 from config import configure_dspy
-from utils.knowledge_base import KnowledgeBase
+from utils.knowledge import KnowledgeBase
 from workflows.codify import run_codify
 from workflows.generate_command import run_generate_command
 from workflows.plan import run_plan
@@ -180,6 +180,19 @@ def compress_kb(
 
     kb = KnowledgeBase()
     kb.compress_ai_md(ratio=ratio, dry_run=dry_run)
+
+
+@app.command()
+def index(
+    root_dir: str = typer.Option(".", "--dir", "-d", help="Root directory to index"),
+):
+    """
+    Index the codebase for semantic search using Vector Embeddings.
+    Use this to enable agents to find relevant code snippets.
+    Performs smart incremental indexing (skips unchanged files).
+    """
+    kb = KnowledgeBase()
+    kb.index_codebase(root_dir=root_dir)
 
 
 if __name__ == "__main__":

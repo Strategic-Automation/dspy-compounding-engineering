@@ -10,7 +10,7 @@ from rich.console import Console
 from rich.panel import Panel
 
 from agents.workflow.feedback_codifier import FeedbackCodifier
-from utils.knowledge_base import KnowledgeBase
+from utils.knowledge import KnowledgeBase
 
 console = Console()
 

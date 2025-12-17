@@ -8,6 +8,8 @@ for analysis.
 
 import os
 
+from utils.io.safe import validate_path
+
 
 class ProjectContext:
     """
@@ -15,7 +17,14 @@ class ProjectContext:
     """
 
     def __init__(self, base_dir: str = "."):
-        self.base_dir = base_dir
+        try:
+            # Ensure base_dir is within current working directory to prevent traversal
+            self.base_dir = validate_path(base_dir, base_dir=os.getcwd())
+        except ValueError as e:
+            # Re-raise with clear context
+            raise ValueError(
+                f"Security Error: ProjectContext restricted to {os.getcwd()}. {e}"
+            ) from e
 
     def get_context(self) -> str:
         """

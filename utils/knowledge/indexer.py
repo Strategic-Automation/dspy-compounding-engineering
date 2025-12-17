@@ -1,0 +1,296 @@
+"""
+Codebase Indexer module for Compounding Engineering.
+
+This module manages the indexing of the codebase into Qdrant for semantic search.
+It handles file crawling, chunking, embedding generation, and incremental updates.
+"""
+
+import glob
+import os
+import subprocess
+import uuid
+from typing import Any, Dict, List
+
+from qdrant_client import QdrantClient
+from qdrant_client.models import (
+    Distance,
+    FieldCondition,
+    Filter,
+    MatchValue,
+    PointStruct,
+    VectorParams,
+)
+from rich.console import Console
+
+from .embeddings import EmbeddingProvider
+
+console = Console()
+
+
+class CodebaseIndexer:
+    """
+    Manages indexing of the codebase using vector embeddings.
+    """
+
+    CODE_COLLECTION_NAME = "codebase"
+
+    def __init__(self, qdrant_client: QdrantClient, embedding_provider: EmbeddingProvider):
+        self.client = qdrant_client
+        self.embedding_provider = embedding_provider
+        self.vector_db_available = self.client is not None
+
+        self._ensure_collection()
+
+    def _ensure_collection(self):
+        """Ensure the Qdrant collection exists."""
+        if not self.vector_db_available:
+            return
+
+        try:
+            if not self.client.collection_exists(self.CODE_COLLECTION_NAME):
+                self.client.create_collection(
+                    collection_name=self.CODE_COLLECTION_NAME,
+                    vectors_config=VectorParams(
+                        size=self.embedding_provider.vector_size, distance=Distance.COSINE
+                    ),
+                )
+        except Exception as e:
+            console.print(f"[red]Failed to ensure Qdrant collection for codebase: {e}[/red]")
+            # Don't disable availability here, retry might work later or user might fix connection
+            # But technically if this fails, indexing will fail.
+
+    def _get_indexed_files_metadata(self) -> Dict[str, float]:
+        """
+        Retrieve metadata for all indexed files to enable smart incremental indexing.
+        Returns: Dict[file_path, last_modified_timestamp]
+        """
+        if not self.vector_db_available:
+            return {}
+
+        indexed_files = {}
+        offset = None
+
+        while True:
+            # Scroll through points to get paths and mtimes
+            # We filter for points that are the 'first chunk' (chunk_index=0) to avoid duplicates
+            # or we could just aggregate. Iterating chunk 0 is efficient.
+            try:
+                scroll_result = self.client.scroll(
+                    collection_name=self.CODE_COLLECTION_NAME,
+                    scroll_filter=Filter(
+                        must=[FieldCondition(key="chunk_index", match=MatchValue(value=0))]
+                    ),
+                    limit=1000,
+                    with_payload=["path", "last_modified"],
+                    offset=offset,
+                )
+                points, offset = scroll_result
+
+                for point in points:
+                    if point.payload and "path" in point.payload:
+                        # Default to 0 if not present
+                        mtime = point.payload.get("last_modified", 0.0)
+                        indexed_files[point.payload["path"]] = mtime
+
+                if offset is None:
+                    break
+            except Exception:
+                # If collection doesn't exist or other error
+                break
+
+        return indexed_files
+
+    def _chunk_text(self, text: str, size: int = 2000, overlap: int = 200) -> List[str]:
+        """Split text into chunks with overlap."""
+        if not text:
+            return []
+
+        chunks = []
+        start = 0
+        text_len = len(text)
+
+        while start < text_len:
+            end = start + size
+            chunk = text[start:end]
+            chunks.append(chunk)
+            start += size - overlap
+
+        return chunks
+
+    def index_codebase(self, root_dir: str = "."):
+        """
+        Index the codebase using vector embeddings.
+        Uses smart indexing to skip unchanged files.
+        """
+        if not self.vector_db_available:
+            console.print("[red]Vector DB not available. Cannot index codebase.[/red]")
+            return
+
+        try:
+            # 1. Get list of tracked files
+            cmd = ["git", "ls-files"]
+            result = subprocess.run(cmd, cwd=root_dir, capture_output=True, text=True, check=True)
+            files = result.stdout.splitlines()
+        except subprocess.CalledProcessError:
+            console.print("[yellow]Not a git repository. Indexing all files...[/yellow]")
+            # Fallback to glob
+            files = [
+                os.path.relpath(f, root_dir)
+                for f in glob.glob(os.path.join(root_dir, "**/*"), recursive=True)
+                if os.path.isfile(f)
+            ]
+        except Exception as e:
+            console.print(f"[red]Failed to list files: {e}[/red]")
+            return
+
+        # 2. Get current index state
+        console.print("[cyan]Fetching existing index state...[/cyan]")
+        indexed_files = self._get_indexed_files_metadata()
+
+        # 3. Process files
+        updated_count = 0
+        skipped_count = 0
+
+        # extensions to ignore
+        ignore_exts = {
+            ".pyc",
+            ".png",
+            ".jpg",
+            ".jpeg",
+            ".gif",
+            ".ico",
+            ".svg",
+            ".woff",
+            ".woff2",
+            ".ttf",
+            ".eot",
+            ".mp4",
+            ".mov",
+            ".zip",
+            ".tar",
+            ".gz",
+            ".pkl",
+            ".bin",
+            ".exe",
+            ".dll",
+            ".so",
+            ".lock",
+            ".pdf",
+        }
+
+        with console.status(f"Indexing {len(files)} files...") as status:
+            for filepath in files:
+                # Skip ignored extensions
+                _, ext = os.path.splitext(filepath)
+                if ext.lower() in ignore_exts:
+                    continue
+
+                full_path = os.path.join(root_dir, filepath)
+                if not os.path.exists(full_path):
+                    continue
+
+                try:
+                    if self._index_single_file(filepath, full_path, indexed_files):
+                        updated_count += 1
+                    else:
+                        skipped_count += 1
+
+                    status.update(f"Indexed: {filepath}")
+
+                except Exception as e:
+                    console.print(f"[dim red]Failed to index {filepath}: {e}[/dim red]")
+
+        console.print(
+            f"[green]Indexing complete. Updated: {updated_count}, Skipped: {skipped_count}[/green]"
+        )
+
+    def _index_single_file(
+        self, filepath: str, full_path: str, indexed_files: Dict[str, float]
+    ) -> bool:
+        """
+        Index a single file if it has changed.
+        Returns True if updated, False if skipped.
+        """
+        mtime = os.path.getmtime(full_path)
+
+        # Check if needs update
+        if filepath in indexed_files and indexed_files[filepath] >= mtime:
+            return False
+
+        # Read content
+        try:
+            with open(full_path, "r", encoding="utf-8") as f:
+                content = f.read()
+        except UnicodeDecodeError:
+            # likely binary
+            return False
+
+        # Chunk content
+        chunks = self._chunk_text(content)
+
+        points = []
+        for i, chunk in enumerate(chunks):
+            # Create embedding
+            vector = self.embedding_provider.get_embedding(chunk)
+
+            # ID: uuid5(NAMESPACE_URL, file_path + chunk_index)
+            # We include chunk index in ID to make it unique per chunk
+            unique_str = f"{filepath}::{i}"
+            point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, unique_str))
+
+            payload = {
+                "path": filepath,
+                "content": chunk,
+                "chunk_index": i,
+                "total_chunks": len(chunks),
+                "last_modified": mtime,
+            }
+
+            points.append(PointStruct(id=point_id, vector=vector, payload=payload))
+
+        # Delete old points for this file to handle shrinkage/changes
+        # (Simple approach: delete all points for this path before upsert)
+        # For efficiency, we only do this if we knew it was there,
+        # but upsert overwrites IDs. If file got smaller (fewer chunks), old chunks remain.
+        # So we should delete.
+        self.client.delete(
+            collection_name=self.CODE_COLLECTION_NAME,
+            points_selector=Filter(
+                must=[FieldCondition(key="path", match=MatchValue(value=filepath))]
+            ),
+        )
+
+        if points:
+            self.client.upsert(collection_name=self.CODE_COLLECTION_NAME, points=points)
+            return True
+
+        return False
+
+    def search_codebase(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
+        """
+        Search for relevant code snippets.
+        """
+        if not self.vector_db_available:
+            return []
+
+        try:
+            query_vector = self.embedding_provider.get_embedding(query)
+
+            search_result = self.client.query_points(
+                collection_name=self.CODE_COLLECTION_NAME, query=query_vector, limit=limit
+            ).points
+
+            # Deduplicate by file path (if desired) or return chunks?
+            # Returning chunks is usually better for specific context.
+            results = []
+            for hit in search_result:
+                payload = hit.payload
+                # Add score for context
+                payload["score"] = hit.score
+                results.append(payload)
+
+            return results
+
+        except Exception as e:
+            console.print(f"[red]Codebase search failed: {e}[/red]")
+            return []

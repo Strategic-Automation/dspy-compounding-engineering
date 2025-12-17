@@ -8,8 +8,8 @@ from rich.prompt import Prompt
 from rich.table import Table
 
 from agents.workflow import TriageAgent
-from utils.kb_module import KBPredict
-from utils.todo_service import add_work_log_entry, complete_todo
+from utils.knowledge import KBPredict
+from utils.todo import add_work_log_entry, complete_todo
 
 console = Console()
 
@@ -171,7 +171,7 @@ def run_triage():  # noqa: C901
                 approved_todos.append(new_filename)
 
                 # Codify triage decision
-                from utils.learning_extractor import codify_triage_decision
+                from utils.knowledge import codify_triage_decision
 
                 try:
                     codify_triage_decision(
@@ -313,7 +313,7 @@ def run_triage():  # noqa: C901
 
     # Codify batch triage session learnings
     if approved_count > 0 or skipped_count > 0:
-        from utils.learning_extractor import codify_batch_triage_session
+        from utils.knowledge import codify_batch_triage_session
 
         try:
             codify_batch_triage_session(

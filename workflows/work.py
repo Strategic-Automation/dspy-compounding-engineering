@@ -7,8 +7,8 @@ from rich.panel import Panel
 
 from agents.workflow.react_todo_resolver import ReActTodoResolver
 from agents.workflow.work_agent import ReActPlanExecutor
-from utils.git_service import GitService
-from utils.todo_service import (
+from utils.git import GitService
+from utils.todo import (
     analyze_dependencies,
     complete_todo,
     get_ready_todos,
@@ -161,7 +161,7 @@ def _run_react_todo(  # noqa: C901
             )
 
             # Codify learnings from successful resolution
-            from utils.learning_extractor import codify_work_outcome
+            from utils.knowledge import codify_work_outcome
 
             try:
                 codify_work_outcome(

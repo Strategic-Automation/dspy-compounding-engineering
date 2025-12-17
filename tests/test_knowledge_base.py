@@ -1,16 +1,20 @@
 """Tests for knowledge base functionality."""
 
+import os
+
 import pytest
 
-from utils.knowledge_base import KnowledgeBase
+from utils.knowledge import KnowledgeBase
 
 
 @pytest.mark.unit
 def test_knowledge_base_init(temp_dir, monkeypatch):
     """Test knowledge base initialization."""
     monkeypatch.chdir(temp_dir)
-    kb = KnowledgeBase()  # No base_dir parameter
-    assert kb.knowledge_dir.exists()
+    kb = KnowledgeBase()
+    # knowledge_dir is a string, check existence with os.path
+    assert os.path.exists(kb.knowledge_dir)
+    assert os.path.exists(os.path.join(kb.knowledge_dir, "backups"))
 
 
 @pytest.mark.unit
@@ -19,9 +23,14 @@ def test_save_learning(temp_dir, sample_learning, monkeypatch):
     monkeypatch.chdir(temp_dir)
     kb = KnowledgeBase()
 
-    learning_id = kb.save(sample_learning)
+    # Provide category which is required for filename generation
+    sample_learning["category"] = "test"
 
-    assert learning_id is not None
+    # Use correct method name: save_learning
+    learning_path = kb.save_learning(sample_learning)
+
+    assert learning_path is not None
+    assert os.path.exists(learning_path)
 
 
 @pytest.mark.unit
@@ -30,10 +39,15 @@ def test_retrieve_learning(temp_dir, sample_learning, monkeypatch):
     monkeypatch.chdir(temp_dir)
     kb = KnowledgeBase()
 
-    # Save a learning
-    kb.save(sample_learning)
+    sample_learning["category"] = "test"
+    sample_learning["tags"] = ["test-tag"]
+    kb.save_learning(sample_learning)
 
-    # Retrieve it
-    results = kb.retrieve("test")
+    # Use correct method name: retrieve_relevant
+    # Note: Vector search requires Qdrant, this will likely fallback to legacy search
+    results = kb.retrieve_relevant("test", tags=["test-tag"])
 
-    assert len(results) >= 0  # May or may not find results depending on implementation
+    # Depending on search implementation (legacy vs vector) result might vary,
+    # but strictly checking we don't crash and get a list back.
+    # Legacy search should find it if query matches content.
+    assert isinstance(results, list)

@@ -26,8 +26,9 @@ from qdrant_client.models import (
 )
 from rich.console import Console
 
-from utils.embeddings import EmbeddingProvider
-from utils.knowledge_docs import KnowledgeDocumentation
+from .docs import KnowledgeDocumentation
+from .embeddings import EmbeddingProvider
+from .indexer import CodebaseIndexer
 
 console = Console()
 
@@ -75,6 +76,9 @@ class KnowledgeBase:
         # Initialize Embedding Provider
         self.embedding_provider = EmbeddingProvider()
 
+        # Initialize Codebase Indexer
+        self.codebase_indexer = CodebaseIndexer(self.client, self.embedding_provider)
+
         # Ensure collection exists
         self._ensure_collection()
 
@@ -115,6 +119,8 @@ class KnowledgeBase:
         if not self.vector_db_available:
             return
 
+        from qdrant_client.models import SparseIndexParams, SparseVectorParams
+
         try:
             if not self.client.collection_exists(self.COLLECTION_NAME):
                 self.client.create_collection(
@@ -122,6 +128,13 @@ class KnowledgeBase:
                     vectors_config=VectorParams(
                         size=self.embedding_provider.vector_size, distance=Distance.COSINE
                     ),
+                    sparse_vectors_config={
+                        "text-sparse": SparseVectorParams(
+                            index=SparseIndexParams(
+                                on_disk=False,
+                            )
+                        )
+                    },
                 )
         except Exception as e:
             console.print(f"[red]Failed to ensure Qdrant collection: {e}[/red]")
@@ -154,11 +167,18 @@ class KnowledgeBase:
                         # Prepare point
                         text_to_embed = self._prepare_embedding_text(learning)
                         vector = self.embedding_provider.get_embedding(text_to_embed)
+                        sparse_vector = self.embedding_provider.get_sparse_embedding(text_to_embed)
 
                         learning_id = learning.get("id") or str(uuid.uuid4())
                         point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, str(learning_id)))
 
-                        points.append(PointStruct(id=point_id, vector=vector, payload=learning))
+                        points.append(
+                            PointStruct(
+                                id=point_id,
+                                vector={"": vector, "text-sparse": sparse_vector},
+                                payload=learning,
+                            )
+                        )
                     except Exception as e:
                         console.print(f"[red]Failed to prepare {filepath}: {e}[/red]")
 
@@ -196,6 +216,7 @@ class KnowledgeBase:
         try:
             text_to_embed = self._prepare_embedding_text(learning)
             vector = self.embedding_provider.get_embedding(text_to_embed)
+            sparse_vector = self.embedding_provider.get_sparse_embedding(text_to_embed)
 
             learning_id = learning.get("id")
             if not learning_id:
@@ -205,14 +226,20 @@ class KnowledgeBase:
 
             self.client.upsert(
                 collection_name=self.COLLECTION_NAME,
-                points=[PointStruct(id=point_id, vector=vector, payload=learning)],
+                points=[
+                    PointStruct(
+                        id=point_id,
+                        vector={"": vector, "text-sparse": sparse_vector},
+                        payload=learning,
+                    )
+                ],
             )
         except Exception as e:
             console.print(
                 f"[red]Error indexing learning {learning.get('id', 'unknown')}: {e}[/red]"
             )
 
-    def add_learning(self, learning: Dict[str, Any]) -> str:
+    def save_learning(self, learning: Dict[str, Any]) -> str:
         """
         Add a new learning item to the knowledge base.
 
@@ -258,11 +285,11 @@ class KnowledgeBase:
             console.print(f"[red]Failed to save learning: {e}[/red]")
             raise
 
-    def search_knowledge(
+    def retrieve_relevant(
         self, query: str = "", tags: List[str] = None, limit: int = 5
     ) -> List[Dict[str, Any]]:
         """
-        Search for relevant learnings using Vector Search.
+        Search for relevant learnings using Hybrid Search (Dense + Sparse).
 
         Args:
             query: Text to search for.
@@ -299,21 +326,37 @@ class KnowledgeBase:
                 # Check if ANY tag matches
                 query_filter = Filter(should=should_conditions)
 
-            # Vector Search
-            query_vector = self.embedding_provider.get_embedding(query)
+            # Vector Search Inputs
+            from qdrant_client.models import Fusion, FusionQuery, Prefetch
+
+            dense_vector = self.embedding_provider.get_embedding(query)
+            sparse_vector = self.embedding_provider.get_sparse_embedding(query)
 
             search_result = self.client.query_points(
                 collection_name=self.COLLECTION_NAME,
-                query=query_vector,
+                prefetch=[
+                    Prefetch(
+                        query=dense_vector,
+                        using=None,  # Default dense
+                        limit=limit * 2,
+                        filter=query_filter,
+                    ),
+                    Prefetch(
+                        query=sparse_vector,
+                        using="text-sparse",
+                        limit=limit * 2,
+                        filter=query_filter,
+                    ),
+                ],
+                query=FusionQuery(fusion=Fusion.RRF),
                 limit=limit,
-                query_filter=query_filter,
             ).points
 
             results = [hit.payload for hit in search_result]
             return results
 
         except Exception as e:
-            console.print(f"[red]Vector search failed: {e}. Falling back to disk search.[/red]")
+            console.print(f"[red]Hybrid search failed: {e}. Falling back to disk search.[/red]")
             return self._legacy_search(query, tags, limit)
 
     def _legacy_search(
@@ -358,7 +401,7 @@ class KnowledgeBase:
         """
         Get a formatted string of relevant learnings for context injection.
         """
-        learnings = self.search_knowledge(query, tags)
+        learnings = self.retrieve_relevant(query, tags)
         if not learnings:
             return "No relevant past learnings found."
 
@@ -429,10 +472,18 @@ class KnowledgeBase:
         """
         Search for similar patterns using vector embeddings.
         """
-        learnings = self.search_knowledge(query=description, limit=limit)
+        learnings = self.retrieve_relevant(query=description, limit=limit)
 
         results = []
         for learning in learnings:
             results.append({"learning": learning, "similarity": 0.9})
 
         return results
+
+    def index_codebase(self, root_dir: str = "."):
+        """Delegate to CodebaseIndexer."""
+        self.codebase_indexer.index_codebase(root_dir)
+
+    def search_codebase(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
+        """Delegate to CodebaseIndexer."""
+        return self.codebase_indexer.search_codebase(query, limit)

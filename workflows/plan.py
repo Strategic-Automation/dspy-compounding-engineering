@@ -8,7 +8,7 @@ from agents.research import (
     RepoResearchAnalyst,
 )
 from agents.workflow import PlanGenerator, SpecFlowAnalyzer
-from utils.kb_module import KBPredict
+from utils.knowledge import KBPredict, KnowledgeBase
 
 console = Console()
 
@@ -118,6 +118,25 @@ def run_plan(feature_description: str):
     console.print("[cyan]Scanning project structure...[/cyan]")
     file_listing = _get_file_listing()
     relevant_contents = _get_relevant_file_contents()
+
+    # Semantic Code Search
+    console.print("[cyan]Searching for relevant code context (Semantic Search)...[/cyan]")
+    kb = KnowledgeBase()
+    # Search for code relevant to the feature description
+    semantic_results = kb.search_codebase(feature_description, limit=5)
+
+    if semantic_results:
+        console.print(f"[dim]Found {len(semantic_results)} semantic code matches[/dim]")
+        semantic_context = "\n\n## Relevant Code Snippets (Semantic Search)\n"
+        for res in semantic_results:
+            semantic_context += (
+                f"\n### {res.get('path')} (score: {res.get('score', 0):.2f})\n"
+                f"```\n{res.get('content')}\n```\n"
+            )
+        relevant_contents += semantic_context
+    else:
+        console.print("[dim]No semantic code matches found (or Vector DB not available)[/dim]")
+
     console.print(f"[dim]Found {len(file_listing.splitlines())} files/directories[/dim]")
 
     with console.status("Running Research Agents..."):

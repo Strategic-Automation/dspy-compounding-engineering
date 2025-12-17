@@ -4,7 +4,7 @@ from typing import Dict, List, Union
 
 from rich.console import Console
 
-from utils.safe_io import safe_write, validate_path
+from .safe import safe_write, validate_path
 
 console = Console()
 

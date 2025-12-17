@@ -71,7 +71,8 @@ class GitService:
                 return GitService.get_pr_diff(target)
 
             # Otherwise treat as local ref
-            cmd = ["git", "diff", target, "--", "."]
+            # Added -M for rename detection
+            cmd = ["git", "diff", "-M", target, "--", "."]
             for ignore in GitService.IGNORE_FILES:
                 cmd.append(f":!{ignore}")
 
@@ -79,6 +80,22 @@ class GitService:
             return result.stdout
         except subprocess.CalledProcessError:
             return ""
+
+    @staticmethod
+    def get_file_status_summary(target: str = "HEAD") -> str:
+        """
+        Get a summary of file statuses (Added, Modified, Deleted, Renamed).
+        Useful for providing high-level context to LLMs before the full diff.
+        """
+        try:
+            cmd = ["git", "diff", "--name-status", "-M", target, "--", "."]
+            for ignore in GitService.IGNORE_FILES:
+                cmd.append(f":!{ignore}")
+
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            return result.stdout
+        except subprocess.CalledProcessError:
+            return "Could not retrieve file status summary."
 
     @staticmethod
     def get_pr_diff(pr_id_or_url: str) -> str:

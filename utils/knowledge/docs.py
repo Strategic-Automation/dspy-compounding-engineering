@@ -13,7 +13,7 @@ from typing import Any, Dict, List
 
 from rich.console import Console
 
-from utils.kb_compression import LLMKBCompressor
+from .compression import LLMKBCompressor
 
 console = Console()
 

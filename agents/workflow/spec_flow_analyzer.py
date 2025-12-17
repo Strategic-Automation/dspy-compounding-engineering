@@ -39,6 +39,6 @@ class SpecFlowAnalyzer(dspy.Signature):
 
     feature_description = dspy.InputField(desc="The feature description, plan, or specification")
     research_findings = dspy.InputField(
-        desc="Findings from research agents (optional)", optional=True
+        desc="Findings from research agents (optional)", default=None
     )
     flow_analysis = dspy.OutputField(desc="The comprehensive flow analysis and gap identification")

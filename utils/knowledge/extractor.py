@@ -9,7 +9,8 @@ import dspy
 from rich.console import Console
 
 from agents.workflow.feedback_codifier import FeedbackCodifier
-from utils.knowledge_base import KnowledgeBase
+
+from .core import KnowledgeBase
 
 console = Console()
 
