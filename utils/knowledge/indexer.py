@@ -285,11 +285,12 @@ class CodebaseIndexer(CollectionManagerMixin):
         try:
             query_vector = self.embedding_provider.get_embedding(query)
 
-            search_result = self.client.search(
-                collection_name=self.collection_name, query_vector=query_vector, limit=limit
+            search_result = self.client.query_points(
+                collection_name=self.collection_name,
+                query=query_vector,
+                limit=limit
             ).points
 
-            # Deduplicate by file path (if desired) or return chunks?
             # Returning chunks is usually better for specific context.
             results = []
             for hit in search_result:
