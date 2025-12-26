@@ -149,7 +149,6 @@ def _run_react_todo(  # noqa: C901
 
         try:
             # Use ReAct resolver
-            # Use ReAct resolver
             resolver = ReActTodoResolver(base_dir=worktree_path or ".")
             result = resolver(todo_content=todo["content"], todo_id=todo["id"])
 
@@ -278,7 +277,6 @@ def _run_react_plan(plan_path: str, dry_run: bool, in_place: bool = True):
         console.print(f"[red]Plan file not found: {plan_path}[/red]")
         return
 
-    # Setup execution mode
     # Setup execution mode
     worktree_path = None
     git_service = GitService()

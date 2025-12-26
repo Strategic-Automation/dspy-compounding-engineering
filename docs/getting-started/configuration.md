@@ -2,13 +2,35 @@
 
 ## Environment Setup
 
-The tool uses environment variables to configure the LLM provider. Copy the example file:
+Then edit `.env` with your preferred LLM provider configuration.
+
+## Command Line Configuration
+
+You can explicitly specify which configuration file to use for any command:
 
 ```bash
-cp .env.example .env
+uv run python cli.py --env-file custom.env work p1
 ```
 
-Then edit `.env` with your preferred LLM provider configuration.
+Or set the `COMPOUNDING_ENV` environment variable:
+
+```bash
+export COMPOUNDING_ENV=~/my-configs/.env.prod
+uv run python cli.py review
+```
+
+## Configuration Priority
+
+The tool resolves configuration from multiple locations in a prioritized sequence:
+
+1. **`--env-file` Flag**: Highest priority.
+2. **`COMPOUNDING_ENV` Variable**: Environment-level override.
+3. **Local `.env`**: Found in the current working directory.
+4. **Tool Global Config**: `~/.config/compounding/.env`.
+5. **User Home `.env`**: Final fallback.
+
+!!! advice "Multi-Repo Best Practice"
+    Store your secret API keys in the **Tool Global Config** (`~/.config/compounding/.env`) and use **Local `.env`** files in each project to specify the `DSPY_LM_MODEL` that works best for that repository's language or complexity.
 
 ## LLM Provider Options
 

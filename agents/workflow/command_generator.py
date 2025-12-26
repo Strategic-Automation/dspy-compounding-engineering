@@ -47,7 +47,7 @@ class CommandSpec(BaseModel):
 class CommandGenerator(dspy.Signature):
     """
     You are a CLI Command Generation Specialist. Your role is to create new CLI commands
-    for the Compounding Engineering plugin based on natural language descriptions.
+    for the Compounding Engineering based on natural language descriptions.
 
     ## Command Generation Protocol
     1. Analyze Request (inputs, outputs, patterns).

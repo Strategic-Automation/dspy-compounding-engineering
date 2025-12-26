@@ -14,38 +14,42 @@ from datetime import datetime
 from typing import Any, Dict, List
 from urllib.parse import urlparse
 
-from filelock import FileLock
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
-    Distance,
     FieldCondition,
     Filter,
     MatchValue,
     PointStruct,
-    VectorParams,
 )
 from rich.console import Console
 
 from .docs import KnowledgeDocumentation
 from .embeddings import EmbeddingProvider
 from .indexer import CodebaseIndexer
+from .utils import CollectionManagerMixin
 
 console = Console()
 
 
-class KnowledgeBase:
+class KnowledgeBase(CollectionManagerMixin):
     """
     Manages a collection of learnings stored as JSON files and indexed in Qdrant.
     """
 
-    COLLECTION_NAME = "learnings"
+    MAX_COLLECTION_NAME_LENGTH = 60
 
     def __init__(self, knowledge_dir: str = ".knowledge"):
+        from config import get_project_hash, registry
+
         self.knowledge_dir = knowledge_dir
         self._ensure_knowledge_dir()
         backups_dir = os.path.join(self.knowledge_dir, "backups")
         os.makedirs(backups_dir, exist_ok=True)
         self.lock_path = os.path.join(self.knowledge_dir, "kb.lock")
+
+        # Generate unique collection names based on project root hash
+        project_hash = get_project_hash()
+        self.collection_name = f"learnings_{project_hash}"
 
         # Docs Service
         self.docs_service = KnowledgeDocumentation(self.knowledge_dir)
@@ -62,29 +66,30 @@ class KnowledgeBase:
             self.client = None
         else:
             try:
-                self.client = QdrantClient(url=qdrant_url, timeout=2.0)
-                # Test connection
-                self.client.get_collections()
-                self.vector_db_available = True
+                # Use registry to check/cache availability
+                self.vector_db_available = registry.check_qdrant()
+                if self.vector_db_available:
+                    self.client = QdrantClient(url=qdrant_url, timeout=2.0)
+                else:
+                    self.client = None
             except Exception:
-                console.print(
-                    "[dim yellow]Qdrant not available. Falling back to simple keyword search."
-                    "[/dim yellow]"
-                )
                 self.client = None
 
         # Initialize Embedding Provider
         self.embedding_provider = EmbeddingProvider()
 
-        # Initialize Codebase Indexer
-        self.codebase_indexer = CodebaseIndexer(self.client, self.embedding_provider)
+        # Use a unique collection name for this codebase
+        codebase_collection_name = f"codebase_{project_hash}"
+        self.codebase_indexer = CodebaseIndexer(
+            self.client, self.embedding_provider, collection_name=codebase_collection_name
+        )
 
-        # Ensure collection exists
+        # Ensure 'learnings' collection exists (if DB available)
         self._ensure_collection()
 
         # Sync if empty
         try:
-            if self.vector_db_available and self.client.count(self.COLLECTION_NAME).count == 0:
+            if self.vector_db_available and self.client.count(self.collection_name).count == 0:
                 console.print("[yellow]Vector store empty. Syncing from disk...[/yellow]")
                 self._sync_to_qdrant()
         except Exception as e:
@@ -114,36 +119,22 @@ class KnowledgeBase:
         if not os.path.exists(self.knowledge_dir):
             os.makedirs(self.knowledge_dir)
 
-    def _ensure_collection(self):
+    def _ensure_collection(self, force_recreate: bool = False):
         """Ensure the Qdrant collection exists."""
-        if not self.vector_db_available:
-            return
-
-        from qdrant_client.models import SparseIndexParams, SparseVectorParams
-
-        try:
-            if not self.client.collection_exists(self.COLLECTION_NAME):
-                self.client.create_collection(
-                    collection_name=self.COLLECTION_NAME,
-                    vectors_config=VectorParams(
-                        size=self.embedding_provider.vector_size, distance=Distance.COSINE
-                    ),
-                    sparse_vectors_config={
-                        "text-sparse": SparseVectorParams(
-                            index=SparseIndexParams(
-                                on_disk=False,
-                            )
-                        )
-                    },
-                )
-        except Exception as e:
-            console.print(f"[red]Failed to ensure Qdrant collection: {e}[/red]")
-            self.vector_db_available = False
+        self.vector_db_available = self._safe_ensure_collection(
+            collection_name=self.collection_name,
+            vector_size=self.embedding_provider.vector_size,
+            force_recreate=force_recreate,
+            enable_sparse=True,
+            registry_flag="learnings_ensured",
+        )
 
     def _sync_to_qdrant(self, batch_size: int = 50):
         """Sync all local JSON files to Qdrant with batching."""
         if not self.vector_db_available:
             return
+
+        from filelock import FileLock
 
         lock = FileLock(self.lock_path)
         with lock:
@@ -184,7 +175,7 @@ class KnowledgeBase:
 
                 if points:
                     try:
-                        self.client.upsert(collection_name=self.COLLECTION_NAME, points=points)
+                        self.client.upsert(collection_name=self.collection_name, points=points)
                         synced_count += len(points)
                         console.print(f"[dim]Synced batch: {synced_count}/{total_files}[/dim]")
                     except Exception as e:
@@ -225,7 +216,7 @@ class KnowledgeBase:
             point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, str(learning_id)))
 
             self.client.upsert(
-                collection_name=self.COLLECTION_NAME,
+                collection_name=self.collection_name,
                 points=[
                     PointStruct(
                         id=point_id,
@@ -239,13 +230,14 @@ class KnowledgeBase:
                 f"[red]Error indexing learning {learning.get('id', 'unknown')}: {e}[/red]"
             )
 
-    def save_learning(self, learning: Dict[str, Any]) -> str:
+    def save_learning(self, learning: Dict[str, Any], silent: bool = False) -> str:
         """
         Add a new learning item to the knowledge base.
 
         Args:
             learning: Dictionary containing learning details.
                       Should include 'category', 'title', 'description', etc.
+            silent: If True, suppress verbose output messages.
 
         Returns:
             Path to the saved learning file.
@@ -260,6 +252,8 @@ class KnowledgeBase:
         learning["created_at"] = datetime.now().isoformat()
         learning["id"] = timestamp
 
+        from filelock import FileLock
+
         lock = FileLock(self.lock_path)
         try:
             with lock:
@@ -272,17 +266,19 @@ class KnowledgeBase:
                 # 2. Index in Qdrant
                 self._index_learning(learning)
 
-                console.print(
-                    f"[green]✓ Learning saved to {filepath} and indexed in Qdrant[/green]"
-                )
+                if not silent:
+                    console.print(
+                        f"[green]✓ Learning saved to {filepath} and indexed in Qdrant[/green]"
+                    )
 
                 # 3. Update Docs
-                self.docs_service.update_ai_md(self.get_all_learnings())
-                self.docs_service.review_and_compress()
+                self.docs_service.update_ai_md(self.get_all_learnings(), silent=silent)
+                self.docs_service.review_and_compress(silent=silent)
 
             return filepath
         except Exception as e:
-            console.print(f"[red]Failed to save learning: {e}[/red]")
+            if not silent:
+                console.print(f"[red]Failed to save learning: {e}[/red]")
             raise
 
     def retrieve_relevant(
@@ -333,7 +329,7 @@ class KnowledgeBase:
             sparse_vector = self.embedding_provider.get_sparse_embedding(query)
 
             search_result = self.client.query_points(
-                collection_name=self.COLLECTION_NAME,
+                collection_name=self.collection_name,
                 prefetch=[
                     Prefetch(
                         query=dense_vector,
@@ -480,10 +476,14 @@ class KnowledgeBase:
 
         return results
 
-    def index_codebase(self, root_dir: str = "."):
+    def index_codebase(self, root_dir: str = ".", force_recreate: bool = False) -> None:
         """Delegate to CodebaseIndexer."""
-        self.codebase_indexer.index_codebase(root_dir)
+        self.codebase_indexer.index_codebase(root_dir, force_recreate=force_recreate)
 
     def search_codebase(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
         """Delegate to CodebaseIndexer."""
         return self.codebase_indexer.search_codebase(query, limit)
+
+    def compress_ai_md(self, ratio: float = 0.5, dry_run: bool = False) -> None:
+        """Compress the AI.md knowledge base."""
+        self.docs_service.compress_ai_md(ratio=ratio, dry_run=dry_run)

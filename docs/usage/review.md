@@ -61,11 +61,18 @@ Every agent automatically receives context from the Knowledge Base.
 
 ## Output
 
-The findings are saved as structured **Markdown Todo files** in the `todos/` directory. 
+The review provides real-time feedback in the console using a clean, parallel progress interface. 
+
+### Local Storage
+Findings are saved as structured **Markdown Todo files** in the `todos/` directory (e.g., `001-pending-p1-security-sentinel-finding.md`). 
+
 Each file contains:
 - Executive Summary & Technical Analysis
-- Detailed Findings with Severity & Category
+- Detailed Findings with Severity (P1/P2/P3) & Category
 - Unique Agent Metrics (e.g., Risk Matrix, Typesafety Score)
 - Proposed Solutions & Effort Estimates
 
-You use the `triage` command to process them.
+### Knowledge Base
+Key patterns and architectural insights are automatically extracted and codified into the Knowledge Base at the end of every review, ensuring the system gets smarter with every run.
+
+You use the `triage` command to process the pending todos.

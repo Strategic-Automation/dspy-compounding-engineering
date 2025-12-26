@@ -1,4 +1,4 @@
-# Compounding Engineering Plugin (DSPy Edition)
+# Compounding Engineering (DSPy Edition)
 
 ![Python](https://img.shields.io/badge/python-3.10+-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
@@ -33,14 +33,13 @@ This CLI tool provides AI-powered development tools for code review, planning, a
   - And many more...
 
 - **🤖 ReAct File Editing**: Intelligent file operations with reasoning
-  - **Smart Tools**: List, search, read ranges, and edit specific lines
+  - **Smart Context Gathering**: Relevance-scored file selection and token budget management
   - **Iterative Reasoning**: Think → Act → Observe → Iterate pattern
   - **Zero Hallucination**: Direct file manipulation, not text generation
 
 - **🛡️ Secure Work Execution**: Safely execute AI-generated plans
-  - **Isolated Worktrees**: Optional `--worktree` mode for safe parallel execution
+  - **Isolated Worktrees**: High-level isolation for safe parallel execution via `--worktree`
   - **Parallel Processing**: Multi-threaded todo resolution with `--workers`
-  - **Flexible Modes**: In-place (default) or isolated worktree execution
   - **Auto-Codification**: Every resolution creates learnings for future use
 
 - **📋 Smart Planning**: Transform feature descriptions into detailed plans
@@ -133,7 +132,28 @@ You can run other commands similarly, for example:
 ```bash
 ./uvx -h
 ./uvx review --project
+./uvx work p1 --env-file test.env
 ```
+
+## Global Options
+
+The tool supports several global options that can be used with any command:
+
+- `-e, --env-file PATH`: Explicitly specify a `.env` file to load.
+- `-h, --help`: Show help for any command.
+
+## Configuration Priority
+
+The tool loads configuration from multiple sources in the following priority order:
+
+1. **Explicit Flag**: `--env-file` / `-e` on the command line.
+2. **Environment Variable**: `COMPOUNDING_ENV` pointing to a `.env` file path.
+3. **Local Override**: `.env` in the current working directory (CWD).
+4. **Tool-Specific Global**: `~/.config/compounding/.env`.
+5. **System Fallback**: `~/.env` in the user's home directory.
+
+> [!TIP]
+> This priority allows you to have a global `~/.config/compounding/.env` with your API keys while using local `.env` files for project-specific model selections.
 
 ## The Compounding Engineering Loop
 
@@ -168,14 +188,14 @@ graph LR
 - **Auto-Documentation**: `AI.md` automatically updated with consolidated learnings
 - **Tagged Search**: Filter learnings by category, source, or topic
 
-## Roadmap
+### Roadmap
 
 See our [detailed Roadmap](https://strategic-automation.github.io/dspy-compounding-engineering/roadmap/) for upcoming features.
 
 Key focus areas:
-- **GitHub Integration**: Create Issues, post PR comments, manage Projects
-- ~~**Vector Embeddings**: Upgrade from keyword matching to semantic similarity~~ (Completed)
-- **Auto-Triage**: Pattern-based auto-approval/rejection of similar findings
+- **GitHub Integration**: Create Issues, post PR comments, manage Projects (Partially Completed)
+- **Vector Embeddings**: Upgrade from keyword matching to semantic similarity (Completed)
+- **Smart Context**: Intelligent relevance-scored gathering (Completed)
 - **Learning Analytics**: Dashboard showing knowledge growth and reuse
 
 ## Configuration
@@ -201,7 +221,21 @@ DSPY_LM_MODEL=qwen3
 DSPY_LM_PROVIDER=openrouter
 DSPY_LM_MODEL=x-ai/grok-4.1-fast:free
 OPENROUTER_API_KEY=sk-or-...
+
+# Context Limits (Optional)
+CONTEXT_WINDOW_LIMIT=128000
+CONTEXT_OUTPUT_RESERVE=4096
 ```
+
+## Multi-Source Configuration
+
+As a tool meant to be used across multiple repositories, configuration can be managed at different levels:
+
+- **Global**: Store your API keys in `~/.config/compounding/.env` so they are available everywhere.
+- **Local**: Add a `.env` in your project root to override models or settings for that specific project.
+- **On-the-fly**: Use `--env-file path/to/.env` to quickly switch between different environments (e.g., testing vs. production models).
+
+The tool will warn you if multiple conflicting configuration files are detected.
 
 ## Usage
 

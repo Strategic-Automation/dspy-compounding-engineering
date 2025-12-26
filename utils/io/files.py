@@ -201,3 +201,17 @@ def create_file(file_path: str, content: str, base_dir: str = ".") -> str:
         return f"Error: File already exists: {file_path}"
     except Exception as e:
         return f"Error creating file: {str(e)}"
+
+
+def get_project_context(task: str = "", base_dir: str = ".") -> str:
+    """
+    Gather relevant project context (file contents) based on a task description.
+    Uses smart relevance scoring and lazy loading.
+    """
+    try:
+        from ..context.project import ProjectContext
+
+        ctx = ProjectContext(base_dir=base_dir)
+        return ctx.gather_smart_context(task=task)
+    except Exception as e:
+        return f"Error gathering project context: {str(e)}"

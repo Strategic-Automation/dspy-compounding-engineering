@@ -43,10 +43,13 @@ class KnowledgeDocumentation:
         except Exception:
             return 0
 
-    def update_ai_md(self, learnings: List[Dict[str, Any]]):
-        """
-        Regenerate AI.md from the provided list of learnings.
-        """
+    def _log(self, message: str, color: str = "dim", silent: bool = False):
+        """Helper to log messages if not in silent mode."""
+        if not silent:
+            console.print(f"[{color}]{message}[/{color}]")
+
+    def _generate_markdown(self, learnings: List[Dict[str, Any]]) -> str:
+        """Generate the AI.md content from learnings."""
         by_category = {}
         for learning in learnings:
             cat = learning.get("category", "General").title()
@@ -72,23 +75,56 @@ class KnowledgeDocumentation:
                     content += "**Improvements:**\n"
                     for imp in item["codified_improvements"]:
                         type_badge = f"[{imp.get('type', 'item').upper()}]"
-                        content += (
-                            f"- {type_badge} {imp.get('title', '')}: {imp.get('description', '')}\n"
-                        )
+                        title_str = imp.get("title", "")
+                        desc_str = imp.get("description", "")
+                        content += f"- {type_badge} {title_str}: {desc_str}\n"
                     content += "\n"
                 content += "\n"
             content += "\n"
+        return content
+
+    def update_ai_md(self, learnings: List[Dict[str, Any]], silent: bool = False):
+        """
+        Regenerate AI.md from the provided list of learnings.
+        """
+        content = self._generate_markdown(learnings)
 
         try:
             tmp_path = self.ai_md_path + ".tmp"
             with open(tmp_path, "w") as f:
                 f.write(content)
             os.replace(tmp_path, self.ai_md_path)
-            console.print(f"[dim]Updated {self.ai_md_path}[/dim]")
+            self._log(f"Updated {self.ai_md_path}", silent=silent)
         except Exception as e:
-            console.print(f"[yellow]Failed to update AI.md: {e}[/yellow]")
+            self._log(f"Failed to update AI.md: {e}", color="yellow", silent=silent)
 
-    def compress_ai_md(self, ratio: float = 0.5, dry_run: bool = False) -> None:
+    def _create_backup(self, silent: bool = False):
+        """Create a backup of AI.md."""
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        backups_dir = os.path.join(self.knowledge_dir, "backups")
+        os.makedirs(backups_dir, exist_ok=True)
+        backup_path = os.path.join(backups_dir, f"AI.md.backup.{timestamp}")
+        shutil.copy2(self.ai_md_path, backup_path)
+        self._log(f"Backup created at {backup_path}", silent=silent)
+
+    def _run_compression(self, content: str, ratio: float, silent: bool = False) -> str:
+        """Run the LLM-based compression with caching."""
+        content_hash = hashlib.md5(content.encode("utf-8")).hexdigest()
+        cache_key = f"{content_hash}_{ratio}"
+
+        if cache_key in self._compression_cache:
+            self._log("Using cached compression result...", color="blue", silent=silent)
+            return self._compression_cache[cache_key]
+
+        self._log("Performing LLM compression...", color="dim", silent=silent)
+        compressor = LLMKBCompressor()
+        compressed_content = compressor(content=content, ratio=ratio)
+        self._compression_cache[cache_key] = compressed_content
+        return compressed_content
+
+    def compress_ai_md(
+        self, ratio: float = 0.5, dry_run: bool = False, silent: bool = False
+    ) -> None:
         """
         Compress AI.md using LLM-based semantic compression.
         """
@@ -99,38 +135,26 @@ class KnowledgeDocumentation:
             return
 
         try:
-            console.print(f"[cyan]Compressing AI.md (LLM-powered, target ratio {ratio})...[/cyan]")
+            self._log(
+                f"Compressing AI.md (LLM-powered, target ratio {ratio})...",
+                color="cyan",
+                silent=silent,
+            )
 
             if not dry_run:
-                timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-                backups_dir = os.path.join(self.knowledge_dir, "backups")
-                os.makedirs(backups_dir, exist_ok=True)
-                backup_path = os.path.join(backups_dir, f"AI.md.backup.{timestamp}")
-                shutil.copy2(self.ai_md_path, backup_path)
-                console.print(f"[dim]Backup created at {backup_path}[/dim]")
+                self._create_backup(silent=silent)
 
             current_size = self.get_ai_md_size()
-
             with open(self.ai_md_path, "r") as f:
                 content = f.read()
 
-            content_hash = hashlib.md5(content.encode("utf-8")).hexdigest()
-            cache_key = f"{content_hash}_{ratio}"
-
-            if cache_key in self._compression_cache:
-                console.print("[blue]Using cached compression result...[/blue]")
-                compressed_content = self._compression_cache[cache_key]
-            else:
-                console.print("[cyan]Performing LLM compression...[/cyan]")
-                compressor = LLMKBCompressor()
-                compressed_content = compressor(content=content, ratio=ratio)
-                self._compression_cache[cache_key] = compressed_content
+            compressed_content = self._run_compression(content, ratio, silent=silent)
 
             if not compressed_content or len(compressed_content) > len(content) * 1.2:
                 raise ValueError("Compression produced invalid result")
 
             if dry_run:
-                console.print("[yellow]Dry run: Skipping write to file.[/yellow]")
+                self._log("Dry run: Skipping write to file.", color="yellow", silent=silent)
             else:
                 tmp_path = self.ai_md_path + ".tmp"
                 with open(tmp_path, "w") as f:
@@ -139,23 +163,25 @@ class KnowledgeDocumentation:
 
             new_size = len(compressed_content)
             reduction = (1 - new_size / current_size) * 100
-            console.print(
-                f"[green]✓ AI.md compressed: {current_size:,} → {new_size:,} chars "
-                f"({reduction:.1f}% reduction)[/green]"
+            msg = (
+                f"✓ AI.md compressed: {current_size:,} → {new_size:,} chars "
+                f"({reduction:.1f}% reduction)"
             )
+            self._log(msg, color="green", silent=silent)
 
         except Exception as e:
-            console.print(f"[red]LLM compression failed: {e}[/red]")
+            self._log(f"LLM compression failed: {e}", color="red", silent=silent)
             raise
 
-    def review_and_compress(self) -> None:
+    def review_and_compress(self, silent: bool = False) -> None:
         """
         Auto-review AI.md quality and compress if needed.
         """
         size = self.get_ai_md_size()
-        console.print(
-            f"[dim]AI.md size: {size:,} chars (threshold: {self.COMPRESSION_THRESHOLD:,})[/dim]"
+        self._log(
+            f"AI.md size: {size:,} chars (threshold: {self.COMPRESSION_THRESHOLD:,})",
+            silent=silent,
         )
 
         if size > self.COMPRESSION_THRESHOLD:
-            self.compress_ai_md()
+            self.compress_ai_md(silent=silent)

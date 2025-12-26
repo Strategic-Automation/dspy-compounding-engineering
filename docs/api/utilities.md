@@ -91,8 +91,26 @@ context = ProjectContext().get_context()
 # Use in agent prompts for project awareness
 ```
 
+##### `gather_smart_context(task: str = "", budget: int = 124000) -> str`
+Gather project files intelligently, prioritizing relevance to a task and respecting a token budget.
+
+**Parameters**:
+- `task`: Task description for relevance scoring
+- `budget`: Token limit (default configured by `CONTEXT_WINDOW_LIMIT`)
+
+**Features**:
+- **Relevance Scoring**: Prioritizes files relevant to `task` (keywords, semantics) + Tier 1 files (README, config).
+- **Token Budgeting**: Stops adding files when budget is reached.
+
+**Example**:
+```python
+ctx = ProjectContext()
+# Get context for fixing a bug in auth
+context = ctx.gather_smart_context(task="Fix authentication bug", budget=50000)
+```
+
 ##### `gather_project_files(max_file_size: int = 50000) -> str`
-Gather all relevant code files for full project review.
+*Legacy alias* for `gather_smart_context(task="", ...)`
 
 **Parameters**:
 - `max_file_size`: Max characters per file (truncates if larger)
@@ -100,14 +118,9 @@ Gather all relevant code files for full project review.
 **Supported Extensions**:
 - Code: `.py`, `.js`, `.ts`, `.tsx`, `.jsx`, `.rb`, `.go`, `.rs`, `.java`, `.kt`
 - Config: `.toml`, `.yaml`, `.yml`, `.json`
+- **Tier 1**: `README.md`, `pyproject.toml`, etc. are always considered.
 
 **Returns**: Concatenated file contents with headers
-
-**Example**:
-```python
-project_code = ProjectContext().gather_project_files(max_file_size=10000)
-agent.review(code=project_code)
-```
 
 ---
 

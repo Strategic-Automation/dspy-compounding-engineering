@@ -3,8 +3,6 @@ from typing import List, Optional
 import dspy
 from pydantic import BaseModel, Field
 
-# Models for TodoResolver
-
 
 class FileOperation(BaseModel):
     action: str = Field(..., description="create|modify|delete")
@@ -44,9 +42,6 @@ class TodoResolver(dspy.Signature):
     affected_files_content: str = dspy.InputField(desc="Content of files mentioned in the todo")
     project_context: str = dspy.InputField(desc="General project context and conventions")
     resolution_plan: TodoResolution = dspy.OutputField(desc="Structured resolution plan")
-
-
-# Models for TodoDependencyAnalyzer
 
 
 class ExecutionBatch(BaseModel):

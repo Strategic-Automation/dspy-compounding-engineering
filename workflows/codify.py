@@ -58,7 +58,7 @@ def run_codify(feedback: str, source: str = "manual_input"):
         codified_data["source"] = source
 
         # Save to Knowledge Base
-        filepath = kb.add_learning(codified_data)
+        filepath = kb.save_learning(codified_data)
 
         console.print("\n[bold green]Successfully codified feedback![/bold green]")
         console.print(f"Saved to: {filepath}")
