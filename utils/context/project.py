@@ -13,9 +13,10 @@ from rich.console import Console
 
 from config import CONTEXT_OUTPUT_RESERVE, CONTEXT_WINDOW_LIMIT, TIER_1_FILES, get_project_root
 from utils.context.scorer import RelevanceScorer
-from utils.context.scrubber import scrubber
+from utils.security.scrubber import scrubber
 from utils.io.safe import validate_path
 from utils.token.counter import TokenCounter
+from utils.io.logger import logger
 
 console = Console()
 
@@ -146,7 +147,7 @@ class ProjectContext:
                 else:
                     skipped_count += 1
             except Exception as e:
-                print(f"[yellow]Warning: Failed to process {filepath}: {e}[/yellow]")
+                logger.warning(f"Failed to process {filepath}: {e}")
                 skipped_count += 1
 
         # Summary footer (not scored, usually fits)
@@ -189,7 +190,7 @@ class ProjectContext:
                         score = self.scorer.score_path(rel_path, task)
                         candidates.append((filepath, score, stat.st_mtime, stat.st_size))
                     except Exception as e:
-                        print(f"[yellow]Warning: Failed to stat {filepath}: {e}[/yellow]")
+                        logger.warning(f"Failed to stat {filepath}: {e}")
         return candidates
 
     def _is_safe_path(self, filepath: str) -> bool:

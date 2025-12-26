@@ -11,6 +11,8 @@ import subprocess
 import uuid
 from typing import Any, Dict, List
 
+from ..io.safe import run_safe_command
+
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     FieldCondition,
@@ -22,6 +24,7 @@ from rich.console import Console
 
 from .embeddings import EmbeddingProvider
 from .utils import CollectionManagerMixin
+from ..io.logger import logger
 
 console = Console()
 
@@ -127,16 +130,16 @@ class CodebaseIndexer(CollectionManagerMixin):
             self._ensure_collection(force_recreate=True)
 
         if not self.vector_db_available:
-            console.print("[red]Vector DB not available. Cannot index codebase.[/red]")
+            logger.error("Vector DB not available. Cannot index codebase.")
             return
 
         try:
             # 1. Get list of tracked files
             cmd = ["git", "ls-files"]
-            result = subprocess.run(cmd, cwd=root_dir, capture_output=True, text=True, check=True)
+            result = run_safe_command(cmd, cwd=root_dir, capture_output=True, text=True, check=True)
             files = result.stdout.splitlines()
         except subprocess.CalledProcessError:
-            console.print("[yellow]Not a git repository. Indexing all files...[/yellow]")
+            logger.warning("Not a git repository. Indexing all files...")
             # Fallback to glob
             files = [
                 os.path.relpath(f, root_dir)
@@ -148,7 +151,7 @@ class CodebaseIndexer(CollectionManagerMixin):
             return
 
         # 2. Get current index state
-        console.print("[cyan]Fetching existing index state...[/cyan]")
+        logger.info("Fetching existing index state...")
         indexed_files = self._get_indexed_files_metadata()
 
         # 3. Process files
@@ -204,8 +207,8 @@ class CodebaseIndexer(CollectionManagerMixin):
                 except Exception as e:
                     console.print(f"[dim red]Failed to index {filepath}: {e}[/dim red]")
 
-        console.print(
-            f"[green]Indexing complete. Updated: {updated_count}, Skipped: {skipped_count}[/green]"
+        logger.success(
+            f"Indexing complete. Updated: {updated_count}, Skipped: {skipped_count}"
         )
 
     def _index_single_file(
@@ -298,5 +301,5 @@ class CodebaseIndexer(CollectionManagerMixin):
             return results
 
         except Exception as e:
-            console.print(f"[red]Codebase search failed: {e}[/red]")
+            logger.error("Codebase search failed", str(e))
             return []

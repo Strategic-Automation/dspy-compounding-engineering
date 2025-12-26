@@ -8,6 +8,7 @@ from pathlib import Path
 import dspy
 from dotenv import load_dotenv
 from rich.console import Console
+from utils.io.logger import logger
 
 console = Console()
 
@@ -17,11 +18,13 @@ def get_project_root() -> Path:
     Get the project root directory, preferably the Git root.
     """
     try:
-        git_root = subprocess.check_output(
+        from utils.io.safe import run_safe_command
+
+        result = run_safe_command(
             ["git", "rev-parse", "--show-toplevel"], stderr=subprocess.STDOUT, text=True
-        ).strip()
-        return Path(git_root)
-    except (subprocess.CalledProcessError, FileNotFoundError):
+        )
+        return Path(result.stdout.strip())
+    except (subprocess.CalledProcessError, FileNotFoundError, ValueError):
         return Path(os.getcwd())
 
 
@@ -99,11 +102,9 @@ class ServiceRegistry:
             self._status["qdrant_available"] = False
             # Only print if we are not in a quiet mode or explicitly checking
             if not os.getenv("COMPOUNDING_QUIET"):
-                msg = (
-                    "[dim yellow]Qdrant not available. "
-                    "Falling back to simple keyword search.[/dim yellow]"
+                logger.warning(
+                    "Qdrant not available. Falling back to simple keyword search."
                 )
-                console.print(msg)
         return self._status["qdrant_available"]
 
     def check_api_keys(self, force: bool = False) -> bool:  # noqa: C901
@@ -144,13 +145,11 @@ class ServiceRegistry:
         elif emb_provider == "openrouter":
             emb_available = bool(os.getenv("OPENROUTER_API_KEY"))
 
-        if not available and not os.getenv("COMPOUNDING_QUIET"):
-            msg = f"[yellow]No API key found for LM provider '{provider}'.[/yellow]"
-            console.print(msg)
+        if not available:
+            logger.warning(f"No API key found for LM provider '{provider}'.")
 
-        if not emb_available and emb_provider != "fastembed" and not os.getenv("COMPOUNDING_QUIET"):
-            msg = f"[yellow]No API key found for embedding provider '{emb_provider}'.[/yellow]"
-            console.print(msg)
+        if not emb_available and emb_provider != "fastembed":
+            logger.warning(f"No API key found for embedding provider '{emb_provider}'.")
 
         final_available = available and (emb_available or emb_provider == "fastembed")
         self._status["openai_key_available"] = final_available

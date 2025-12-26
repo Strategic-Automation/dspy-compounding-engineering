@@ -34,9 +34,9 @@ class SecretScrubber:
                 r"[a-zA-Z0-9.-]+(?::\d+)?/[a-zA-Z0-9_.~-]*"
             ),
             "generic_api_key": (
-                r"(?:api[_-]?key|secret|token|"
-                r"password|auth|passwd|credential)(?:\s*[:=]\s*|['\"]?[:=]['\"]?\s*)"
-                r"['\"]?([a-zA-Z0-9_\-\.\/]{16,})['\"]?"
+                r"(?i)(?:api[_-]?key|secret|token|password|auth|passwd|credential|pwd)"
+                r"(?:\s*[:=]\s*|['\"]?[:=]['\"]?\s*)"
+                r"['\"]?([a-zA-Z0-9_\-\.\/]{8,})['\"]?"
             ),
         }
 
