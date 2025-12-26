@@ -1,4 +1,6 @@
+import concurrent.futures
 import os
+import re
 import subprocess
 
 from pydantic import BaseModel
@@ -22,10 +24,79 @@ from agents.review import (
     SecuritySentinel,
 )
 from utils.context import ProjectContext
+from utils.git import GitService
 from utils.knowledge import KBPredict
 from utils.todo import create_finding_todo
 
 console = Console()
+
+
+def detect_languages(code_content: str) -> set[str]:
+    """
+    Detect programming languages from file paths in code content.
+    Returns a set of detected language identifiers.
+    """
+    # Match file paths like "diff --git a/path/to/file.py" or "+++ b/file.ts"
+    file_patterns = [
+        r"diff --git a/([^\s]+)",
+        r"\+\+\+ [ab]/([^\s]+)",
+        r"--- [ab]/([^\s]+)",
+        r"File: ([^\s]+)",
+    ]
+
+    extensions = set()
+    for pattern in file_patterns:
+        for match in re.findall(pattern, code_content):
+            if "." in match:
+                ext = match.rsplit(".", 1)[-1].lower()
+                extensions.add(ext)
+
+    # Map extensions to language identifiers
+    lang_map = {
+        "py": "python",
+        "rb": "ruby",
+        "ts": "typescript",
+        "tsx": "typescript",
+        "js": "javascript",
+        "jsx": "javascript",
+        "rs": "rust",
+        "go": "go",
+        "java": "java",
+        "kt": "kotlin",
+        "swift": "swift",
+        "cs": "csharp",
+        "cpp": "cpp",
+        "c": "c",
+        "h": "c",
+        "hpp": "cpp",
+    }
+
+    languages = set()
+    for ext in extensions:
+        if ext in lang_map:
+            languages.add(lang_map[ext])
+        else:
+            languages.add(ext)  # Keep unknown extensions as-is
+
+    return languages
+
+
+# Reviewer configuration: (name, class, applicable_languages)
+# None for applicable_languages means universal (runs for all code)
+REVIEWER_CONFIG = [
+    ("Kieran Python Reviewer", KieranPythonReviewer, {"python"}),
+    ("Kieran Rails Reviewer", KieranRailsReviewer, {"ruby"}),
+    ("DHH Rails Reviewer", DhhRailsReviewer, {"ruby"}),
+    ("Kieran TypeScript Reviewer", KieranTypescriptReviewer, {"typescript", "javascript"}),
+    ("Julik Frontend Races Reviewer", JulikFrontendRacesReviewer, {"typescript", "javascript"}),
+    ("Security Sentinel", SecuritySentinel, None),  # Universal
+    ("Performance Oracle", PerformanceOracle, None),  # Universal
+    ("Data Integrity Guardian", DataIntegrityGuardian, None),  # Universal
+    ("Architecture Strategist", ArchitectureStrategist, None),  # Universal
+    ("Pattern Recognition Specialist", PatternRecognitionSpecialist, None),  # Universal
+    ("Code Simplicity Reviewer", CodeSimplicityReviewer, None),  # Universal
+    ("Agent Native Reviewer", AgentNativeReviewer, None),  # Universal
+]
 
 
 def convert_pydantic_to_markdown(model: BaseModel) -> str:  # noqa: C901
@@ -97,10 +168,6 @@ def run_review(pr_url_or_id: str, project: bool = False):  # noqa: C901
         project: If True, review entire project instead of just changes
     """
 
-    import concurrent.futures
-
-    from utils.git import GitService
-
     if project:
         console.print("[bold]Starting Full Project Review[/bold]\n")
     else:
@@ -113,7 +180,14 @@ def run_review(pr_url_or_id: str, project: bool = False):  # noqa: C901
             # Full project review - gather all source files
             console.print("[cyan]Gathering project files...[/cyan]")
             context_service = ProjectContext()
-            code_diff = context_service.gather_project_files()
+
+            # Use a descriptive task for semantic prioritization
+            audit_task = (
+                "Perform a comprehensive architectural, security, and code quality audit "
+                "of the entire project. Prioritize core logic, configuration, and "
+                "entry points."
+            )
+            code_diff = context_service.gather_smart_context(task=audit_task)
             if not code_diff:
                 console.print("[red]No source files found to review![/red]")
                 return
@@ -166,15 +240,6 @@ def run_review(pr_url_or_id: str, project: bool = False):  # noqa: C901
             console.print("[red]No diff found to review![/red]")
             return
 
-        # Truncate if too large (simple safety check)
-        MAX_DIFF_SIZE = 50000
-        if len(code_diff) > MAX_DIFF_SIZE:
-            console.print(
-                f"[yellow]Warning: Content is very large ({len(code_diff)} chars). "
-                f"Truncating to {MAX_DIFF_SIZE}...[/yellow]"
-            )
-            code_diff = code_diff[:MAX_DIFF_SIZE] + "\n...[truncated]..."
-
     except Exception as e:
         console.print(f"[red]Error fetching content: {e}[/red]")
         # Fallback for demo purposes if git fails
@@ -186,21 +251,36 @@ def run_review(pr_url_or_id: str, project: bool = False):  # noqa: C901
 
     console.rule("Running Review Agents")
 
-    # Define all review agents
-    review_agents = [
-        ("Kieran Rails Reviewer", KieranRailsReviewer),
-        ("Kieran TypeScript Reviewer", KieranTypescriptReviewer),
-        ("Kieran Python Reviewer", KieranPythonReviewer),
-        ("Security Sentinel", SecuritySentinel),
-        ("Performance Oracle", PerformanceOracle),
-        ("Data Integrity Guardian", DataIntegrityGuardian),
-        ("Architecture Strategist", ArchitectureStrategist),
-        ("Pattern Recognition Specialist", PatternRecognitionSpecialist),
-        ("Code Simplicity Reviewer", CodeSimplicityReviewer),
-        ("DHH Rails Reviewer", DhhRailsReviewer),
-        ("Agent Native Reviewer", AgentNativeReviewer),
-        ("Julik Frontend Races Reviewer", JulikFrontendRacesReviewer),
-    ]
+    # Detect languages in the code
+    detected_langs = detect_languages(code_diff)
+    if detected_langs:
+        console.print(f"[cyan]Detected languages:[/cyan] {', '.join(sorted(detected_langs))}")
+    else:
+        console.print(
+            "[yellow]No specific languages detected, running universal reviewers[/yellow]"
+        )
+
+    # Filter reviewers based on detected languages
+    review_agents = []
+    skipped_reviewers = []
+    for name, cls, applicable_langs in REVIEWER_CONFIG:
+        if applicable_langs is None:
+            # Universal reviewer - always include
+            review_agents.append((name, cls))
+        elif applicable_langs & detected_langs:
+            # Language-specific reviewer with matching language
+            review_agents.append((name, cls))
+        else:
+            # Not applicable for this codebase
+            skipped_reviewers.append(name)
+
+    if skipped_reviewers:
+        console.print(
+            f"[dim]Skipping {len(skipped_reviewers)} reviewers "
+            f"(not applicable for detected languages)[/dim]"
+        )
+
+    console.print(f"[green]Running {len(review_agents)} applicable reviewers...[/green]\n")
 
     findings = []
 
@@ -217,7 +297,7 @@ def run_review(pr_url_or_id: str, project: bool = False):  # noqa: C901
             return name, f"Error: {e}"
 
     with Progress() as progress:
-        task = progress.add_task("[cyan]Running agents in parallel...", total=len(review_agents))
+        task = progress.add_task("[cyan]Running agents...", total=len(review_agents))
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             # Submit all tasks
@@ -351,9 +431,8 @@ def run_review(pr_url_or_id: str, project: bool = False):  # noqa: C901
                 except Exception as e:
                     findings.append({"agent": agent_name, "review": f"Execution failed: {e}"})
 
+    # Display findings (outside Progress context)
     console.rule("Review Complete")
-
-    # Display findings
     console.print("\n[bold green]All review agents completed![/bold green]\n")
 
     for finding in findings:
@@ -402,11 +481,8 @@ def run_review(pr_url_or_id: str, project: bool = False):  # noqa: C901
         # Check action_required field from agent
         action_required = finding.get("action_required")
 
-        # If agent explicitly says no action required, skip it
+        # If agent explicitly says no action required, skip it silently
         if action_required is False:
-            console.print(
-                f"  [dim]Skipped {agent_name}: No actionable findings (action_required=False)[/dim]"
-            )
             continue
 
         # Get category and severity from agent
@@ -477,15 +553,27 @@ def run_review(pr_url_or_id: str, project: bool = False):  # noqa: C901
             console.print(f"  [yellow]🟡 IMPORTANT (P2): {p2_count} - Should Fix[/yellow]")
         if p3_count:
             console.print(f"  [blue]🔵 NICE-TO-HAVE (P3): {p3_count} - Enhancements[/blue]")
+
+        # Show next steps only when there are todos to work on
+        console.print("\n[bold]Next Steps:[/bold]")
+        console.print("1. Triage findings: [cyan]compounding triage[/cyan]")
+        console.print("2. Work on approved items: [cyan]compounding work p1[/cyan]")
     else:
-        console.print("[green]No actionable findings to create todos for.[/green]")
+        console.print(
+            f"[green]✓ {len(review_agents)} reviewers completed - "
+            f"no issues requiring action[/green]"
+        )
 
     # Extract and codify learnings from the review
     if findings:
+        console.rule("Knowledge Base Update")
         from utils.knowledge import codify_review_findings
 
         try:
-            codify_review_findings(findings, len(created_todos))
+            codify_review_findings(findings, len(created_todos), silent=True)
+            console.print(
+                f"[green]✓ Patterns from {len(findings)} reviews saved to .knowledge/[/green]"
+            )
         except Exception as e:
             console.print(f"[yellow]⚠ Could not codify review learnings: {e}[/yellow]")
 
@@ -502,7 +590,4 @@ def run_review(pr_url_or_id: str, project: bool = False):  # noqa: C901
         except subprocess.CalledProcessError as e:
             console.print(f"[red]Failed to remove worktree: {e}[/red]")
 
-    console.print("\n[bold]Next Steps:[/bold]")
-    console.print("1. View pending todos: [cyan]ls todos/*-pending-*.md[/cyan]")
-    console.print("2. Triage findings: [cyan]python cli.py triage[/cyan]")
-    console.print("3. Work on approved items: [cyan]python cli.py work <plan_file>[/cyan]")
+    console.print("\n[bold green]✓ Review complete[/bold green]")

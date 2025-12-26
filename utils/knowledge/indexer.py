@@ -13,51 +13,47 @@ from typing import Any, Dict, List
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
-    Distance,
     FieldCondition,
     Filter,
     MatchValue,
     PointStruct,
-    VectorParams,
 )
 from rich.console import Console
 
 from .embeddings import EmbeddingProvider
+from .utils import CollectionManagerMixin
 
 console = Console()
 
 
-class CodebaseIndexer:
+class CodebaseIndexer(CollectionManagerMixin):
     """
     Manages indexing of the codebase using vector embeddings.
     """
 
-    CODE_COLLECTION_NAME = "codebase"
-
-    def __init__(self, qdrant_client: QdrantClient, embedding_provider: EmbeddingProvider):
+    def __init__(
+        self,
+        qdrant_client: QdrantClient,
+        embedding_provider: EmbeddingProvider,
+        collection_name: str = "codebase",
+    ):
         self.client = qdrant_client
         self.embedding_provider = embedding_provider
+        self.collection_name = collection_name
         self.vector_db_available = self.client is not None
 
-        self._ensure_collection()
+        if self.vector_db_available:
+            self._ensure_collection()
 
-    def _ensure_collection(self):
+    def _ensure_collection(self, force_recreate: bool = False):
         """Ensure the Qdrant collection exists."""
-        if not self.vector_db_available:
-            return
-
-        try:
-            if not self.client.collection_exists(self.CODE_COLLECTION_NAME):
-                self.client.create_collection(
-                    collection_name=self.CODE_COLLECTION_NAME,
-                    vectors_config=VectorParams(
-                        size=self.embedding_provider.vector_size, distance=Distance.COSINE
-                    ),
-                )
-        except Exception as e:
-            console.print(f"[red]Failed to ensure Qdrant collection for codebase: {e}[/red]")
-            # Don't disable availability here, retry might work later or user might fix connection
-            # But technically if this fails, indexing will fail.
+        self.vector_db_available = self._safe_ensure_collection(
+            collection_name=self.collection_name,
+            vector_size=self.embedding_provider.vector_size,
+            force_recreate=force_recreate,
+            enable_sparse=False,  # Codebase currently only uses dense
+            registry_flag="codebase_ensured",
+        )
 
     def _get_indexed_files_metadata(self) -> Dict[str, float]:
         """
@@ -76,19 +72,24 @@ class CodebaseIndexer:
             # or we could just aggregate. Iterating chunk 0 is efficient.
             try:
                 scroll_result = self.client.scroll(
-                    collection_name=self.CODE_COLLECTION_NAME,
+                    collection_name=self.collection_name,
                     scroll_filter=Filter(
-                        must=[FieldCondition(key="chunk_index", match=MatchValue(value=0))]
+                        must=[
+                            FieldCondition(
+                                key="type",
+                                match=MatchValue(value="code_file"),
+                            )
+                        ]
                     ),
-                    limit=1000,
-                    with_payload=["path", "last_modified"],
+                    limit=10000,  # Should be enough for most repos
+                    with_payload=True,
+                    with_vectors=False,
                     offset=offset,
                 )
                 points, offset = scroll_result
 
                 for point in points:
                     if point.payload and "path" in point.payload:
-                        # Default to 0 if not present
                         mtime = point.payload.get("last_modified", 0.0)
                         indexed_files[point.payload["path"]] = mtime
 
@@ -117,11 +118,14 @@ class CodebaseIndexer:
 
         return chunks
 
-    def index_codebase(self, root_dir: str = "."):
+    def index_codebase(self, root_dir: str = ".", force_recreate: bool = False) -> None:
         """
         Index the codebase using vector embeddings.
         Uses smart indexing to skip unchanged files.
         """
+        if force_recreate:
+            self._ensure_collection(force_recreate=True)
+
         if not self.vector_db_available:
             console.print("[red]Vector DB not available. Cannot index codebase.[/red]")
             return
@@ -244,24 +248,26 @@ class CodebaseIndexer:
                 "chunk_index": i,
                 "total_chunks": len(chunks),
                 "last_modified": mtime,
+                "type": "code_file",  # Add type for filtering
             }
 
             points.append(PointStruct(id=point_id, vector=vector, payload=payload))
 
-        # Delete old points for this file to handle shrinkage/changes
-        # (Simple approach: delete all points for this path before upsert)
-        # For efficiency, we only do this if we knew it was there,
-        # but upsert overwrites IDs. If file got smaller (fewer chunks), old chunks remain.
-        # So we should delete.
-        self.client.delete(
-            collection_name=self.CODE_COLLECTION_NAME,
-            points_selector=Filter(
-                must=[FieldCondition(key="path", match=MatchValue(value=filepath))]
-            ),
-        )
-
         if points:
-            self.client.upsert(collection_name=self.CODE_COLLECTION_NAME, points=points)
+            # Upsert new chunks (overwrites same IDs, handles expansion)
+            self.client.upsert(collection_name=self.collection_name, points=points)
+
+            # Clean up stale chunks (if file shrunk)
+            # We delete points for this path where chunk_index >= current total_chunks
+            self.client.delete(
+                collection_name=self.collection_name,
+                points_selector=Filter(
+                    must=[
+                        FieldCondition(key="path", match=MatchValue(value=filepath)),
+                        FieldCondition(key="chunk_index", range={"gte": len(chunks)}),
+                    ]
+                ),
+            )
             return True
 
         return False
@@ -276,8 +282,8 @@ class CodebaseIndexer:
         try:
             query_vector = self.embedding_provider.get_embedding(query)
 
-            search_result = self.client.query_points(
-                collection_name=self.CODE_COLLECTION_NAME, query=query_vector, limit=limit
+            search_result = self.client.search(
+                collection_name=self.collection_name, query_vector=query_vector, limit=limit
             ).points
 
             # Deduplicate by file path (if desired) or return chunks?

@@ -60,13 +60,14 @@ uv run python cli.py work 001 --dry-run
 ## How It Works
 
 1.  **Selection**: Finds todos or plan items matching your pattern.
-2.  **Context Loading**: Uses `ProjectContext` to gather relevant files and `KnowledgeBase` to fetch past learnings.
-3.  **Agent Execution**:
+2.  **Knowledge Injection**: Automatically fetches relevant past learnings from the `KnowledgeBase` and injects them into the agent's context.
+3.  **Smart Context**: Uses `ProjectContext` and `RelevanceScorer` to gather the most relevant files while strictly adhering to the LLM's token budget.
+4.  **Agent Execution**:
     -   **ReAct Loop**: The agent "Thinks", "Acts" (uses tools), and "Observes" results.
     -   **Tools**: It can `search`, `read_file`, `edit_file`, and `run_test`.
     -   **Self-Correction**: If an edit fails or a test breaks, it iterates to fix it.
-4.  **Completion**: Updates the mapping file (e.g., `todos/001.md` -> `todos/001-complete.md`).
-5.  **Codification**: Automatically extracts learnings from the session and saves them to the Knowledge Base.
+5.  **Completion**: Updates the mapping file (e.g., `todos/123-ready-*.md` -> `todos/123-complete-*.md`).
+6.  **Codification**: Automatically extracts new learnings from the session and saves them to the Knowledge Base, compounding the system's intelligence.
 
 ## Parallel Execution
 

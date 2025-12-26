@@ -8,8 +8,9 @@ console = Console()
 
 def validate_path(path: str, base_dir: str = ".") -> str:
     """Validate path is relative and within base_dir, preventing traversal."""
-    if os.path.isabs(path):
-        raise ValueError(f"Absolute paths not allowed: {path}")
+    # We allow absolute paths as long as they resolve to a location within base_dir.
+    # This is necessary for internal services that use absolute paths (like ProjectContext).
+    # If it is absolute, we don't need to join it with base_dir.
 
     # Check for path traversal attempts
     if ".." in path.split(os.sep):

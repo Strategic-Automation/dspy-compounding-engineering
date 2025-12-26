@@ -1,6 +1,7 @@
 """Tests for knowledge base functionality."""
 
 import os
+from unittest.mock import patch
 
 import pytest
 
@@ -51,3 +52,27 @@ def test_retrieve_learning(temp_dir, sample_learning, monkeypatch):
     # but strictly checking we don't crash and get a list back.
     # Legacy search should find it if query matches content.
     assert isinstance(results, list)
+
+
+@pytest.mark.unit
+def test_index_codebase(temp_dir, monkeypatch):
+    """Test indexing the codebase."""
+    monkeypatch.chdir(temp_dir)
+    kb = KnowledgeBase()
+
+    # Mock the indexer to avoid actual vector DB interaction
+    with patch.object(kb.codebase_indexer, "index_codebase") as m_index:
+        kb.index_codebase(root_dir=".", force_recreate=True)
+        m_index.assert_called_once_with(".", force_recreate=True)
+
+
+@pytest.mark.unit
+def test_compress_ai_md(temp_dir, monkeypatch):
+    """Test compressing the AI knowledge base."""
+    monkeypatch.chdir(temp_dir)
+    kb = KnowledgeBase()
+
+    # Mock docs_service to avoid actual LLM calls
+    with patch.object(kb.docs_service, "compress_ai_md") as m_compress:
+        kb.compress_ai_md(ratio=0.3, dry_run=True)
+        m_compress.assert_called_once_with(ratio=0.3, dry_run=True)

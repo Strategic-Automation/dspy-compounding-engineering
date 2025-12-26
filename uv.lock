@@ -592,7 +592,7 @@ wheels = [
 
 [[package]]
 name = "dspy-compounding-engineering"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "." }
 dependencies = [
     { name = "dspy-ai" },
@@ -606,6 +606,7 @@ dependencies = [
     { name = "pyyaml" },
     { name = "qdrant-client" },
     { name = "rich" },
+    { name = "tiktoken" },
     { name = "typer" },
 ]
 
@@ -651,6 +652,7 @@ requires-dist = [
     { name = "pyyaml", marker = "extra == 'full'", specifier = ">=6.0" },
     { name = "qdrant-client", specifier = ">=1.7.0" },
     { name = "rich", specifier = ">=13.0.0" },
+    { name = "tiktoken", specifier = ">=0.7.0" },
     { name = "typer", specifier = ">=0.9.0" },
 ]
 provides-extras = ["full"]

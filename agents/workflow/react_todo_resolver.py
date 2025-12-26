@@ -3,6 +3,8 @@ import dspy
 from utils.io import (
     create_file,
     edit_file_lines,
+    get_project_context,
+    get_system_status,
     list_directory,
     read_file_range,
     search_files,
@@ -42,6 +44,9 @@ class TodoResolutionSignature(dspy.Signature):
     - edit_file_lines(file_path, edits): Edit specific lines. 'edits' is a list of dicts with
       'start_line', 'end_line', 'content'.
     - create_file(file_path, content): Create a new file with content.
+    - get_project_context(task): Gather relevant file contents based on a task description.
+      Use this if you need to find where a specific logic is implemented.
+    - get_system_status(): Check if Qdrant and API keys are available.
 
     CRITICAL: When using edit_file_lines, the 'content' MUST NOT include the surrounding lines
     (context) unless you INTEND to duplicate them.
@@ -91,6 +96,8 @@ class ReActTodoResolver(dspy.Module):
             bind_tool(read_file_range),
             bind_tool(edit_file_lines),
             bind_tool(create_file),
+            bind_tool(get_project_context),
+            get_system_status,
         ]
 
         # Create ReAct agent

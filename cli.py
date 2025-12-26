@@ -1,8 +1,11 @@
-from typing import Optional
+from pathlib import Path
+from typing import Annotated, Optional
 
 import typer
+from rich.console import Console
 
 from config import configure_dspy
+from utils.io import get_system_status
 from utils.knowledge import KnowledgeBase
 from workflows.codify import run_codify
 from workflows.generate_command import run_generate_command
@@ -11,15 +14,30 @@ from workflows.review import run_review
 from workflows.triage import run_triage
 from workflows.work import run_unified_work
 
+console = Console()
 app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
 
 
 @app.callback()
-def main():
+def main(
+    env_file: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--env-file",
+            "-e",
+            help="Explicit path to a .env file",
+            exists=True,
+            file_okay=True,
+            dir_okay=False,
+            readable=True,
+            resolve_path=True,
+        ),
+    ] = None,
+):
     """
-    Compounding Engineering Plugin (DSPy Edition)
+    Compounding Engineering (DSPy Edition)
     """
-    configure_dspy()
+    configure_dspy(env_file=str(env_file) if env_file else None)
 
 
 @app.command()
@@ -184,7 +202,10 @@ def compress_kb(
 
 @app.command()
 def index(
-    root_dir: str = typer.Option(".", "--dir", "-d", help="Root directory to index"),
+    root_dir: Annotated[str, typer.Option("--dir", "-d", help="Root directory to index")] = ".",
+    recreate: Annotated[
+        bool, typer.Option("--recreate", "-r", help="Force recreation of the vector collection")
+    ] = False,
 ):
     """
     Index the codebase for semantic search using Vector Embeddings.
@@ -192,7 +213,18 @@ def index(
     Performs smart incremental indexing (skips unchanged files).
     """
     kb = KnowledgeBase()
-    kb.index_codebase(root_dir=root_dir)
+    kb.index_codebase(root_dir=root_dir, force_recreate=recreate)
+
+
+@app.command()
+def status():
+    """
+    Check the current status of external services (Qdrant, API keys).
+    """
+    from rich.panel import Panel
+
+    status_text = get_system_status()
+    console.print(Panel(status_text, title="System Diagnostics", border_style="cyan"))
 
 
 if __name__ == "__main__":

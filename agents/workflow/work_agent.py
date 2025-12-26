@@ -2,6 +2,8 @@ import dspy
 
 from utils.io import (
     edit_file_lines,
+    get_project_context,
+    get_system_status,
     list_directory,
     read_file_range,
     search_files,
@@ -39,6 +41,9 @@ class PlanExecutionSignature(dspy.Signature):
     - read_file_range(file_path, start_line, end_line): Read specific lines.
     - edit_file_lines(file_path, edits): Edit specific lines. 'edits' is a list of dicts with
       'start_line', 'end_line', 'content'.
+    - get_project_context(task): Gather relevant file contents based on a task description.
+      Use this at the start of a task to get an overview of relevant code.
+    - get_system_status(): Check if Qdrant and API keys are available.
 
     CRITICAL: When using edit_file_lines, the 'content' MUST NOT include the surrounding lines
     (context) unless you INTEND to duplicate them.
@@ -81,6 +86,8 @@ class ReActPlanExecutor(dspy.Module):
             partial(search_files, base_dir=base_dir),
             partial(read_file_range, base_dir=base_dir),
             partial(edit_file_lines, base_dir=base_dir),
+            partial(get_project_context, base_dir=base_dir),
+            get_system_status,
         ]
 
         # Update tool names and docstrings to match originals (needed for dspy)

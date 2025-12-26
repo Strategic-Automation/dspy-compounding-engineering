@@ -71,7 +71,7 @@ def codify_learning(
 
         # Save to Knowledge Base
         kb = KnowledgeBase()
-        kb.add_learning(codified_data)
+        kb.save_learning(codified_data, silent=silent)
 
         if not silent:
             console.print(f"[dim green]✓ Codified {category} learnings[/dim green]")
@@ -84,7 +84,49 @@ def codify_learning(
         return False
 
 
-def codify_review_findings(findings: list, todos_created: int) -> None:  # noqa: C901
+def _group_findings_by_agent(findings: list) -> dict[str, list]:
+    """Group findings by agent name."""
+    by_agent = {}
+    for finding in findings:
+        agent = finding.get("agent", "Unknown")
+        if agent not in by_agent:
+            by_agent[agent] = []
+        by_agent[agent].append(finding)
+    return by_agent
+
+
+def _build_review_context(findings: list, todos_created: int, by_agent: dict) -> str:
+    """Build the markdown context for learning extraction."""
+    summary_parts = [
+        "# Code Review Analysis\n",
+        f"Total findings: {len(findings)} from {len(by_agent)} agents",
+        f"Actionable items created: {todos_created}\n",
+    ]
+
+    summary_parts.append("\n## Findings by Agent Category:\n")
+    for agent, agent_findings in sorted(by_agent.items()):
+        summary_parts.append(f"\n### {agent} ({len(agent_findings)} findings)")
+        for finding in agent_findings:
+            review_text = str(finding.get("review", ""))
+            if review_text:
+                summary_parts.append(f"\n{review_text[:800]}...")
+
+    summary_parts.append("\n\n## Pattern Extraction Focus:")
+    summary_parts.extend(
+        [
+            "- Code quality patterns identified (naming, structure, organization)",
+            "- Architectural decisions and principles",
+            "- Security vulnerabilities or concerns",
+            "- Performance optimization opportunities",
+            "- Best practices violations or confirmations",
+            "- Common anti-patterns to avoid",
+            "- Reusable solutions or approaches",
+        ]
+    )
+    return "\n".join(summary_parts)
+
+
+def codify_review_findings(findings: list, todos_created: int, silent: bool = False) -> None:
     """
     Extract learnings from code review findings.
 
@@ -94,51 +136,13 @@ def codify_review_findings(findings: list, todos_created: int) -> None:  # noqa:
     Args:
         findings: List of findings from review agents
         todos_created: Number of todos created from the review
+        silent: If True, suppress verbose output messages
     """
     if not findings:
         return
 
-    # Aggregate findings with full details for pattern extraction
-    summary_parts = [
-        "# Code Review Analysis\n",
-        f"Total findings: {len(findings)} from "
-        f"{len({f.get('agent', 'Unknown') for f in findings})} agents",
-        f"Actionable items created: {todos_created}\n",
-    ]
-
-    # Group findings by category for better pattern recognition
-    by_agent = {}
-    for finding in findings:
-        agent = finding.get("agent", "Unknown")
-        if agent not in by_agent:
-            by_agent[agent] = []
-        by_agent[agent].append(finding)
-
-    # Build comprehensive context including actual findings
-    summary_parts.append("\n## Findings by Agent Category:\n")
-
-    for agent, agent_findings in sorted(by_agent.items()):
-        summary_parts.append(f"\n### {agent} ({len(agent_findings)} findings)")
-
-        for finding in agent_findings:
-            review_text = str(finding.get("review", ""))
-
-            # Extract key insights (first 800 chars to capture patterns)
-            if review_text:
-                truncated = review_text[:800]
-                summary_parts.append(f"\n{truncated}...")
-
-    # Add explicit prompts for pattern extraction
-    summary_parts.append("\n\n## Pattern Extraction Focus:")
-    summary_parts.append("- Code quality patterns identified (naming, structure, organization)")
-    summary_parts.append("- Architectural decisions and principles")
-    summary_parts.append("- Security vulnerabilities or concerns")
-    summary_parts.append("- Performance optimization opportunities")
-    summary_parts.append("- Best practices violations or confirmations")
-    summary_parts.append("- Common anti-patterns to avoid")
-    summary_parts.append("- Reusable solutions or approaches")
-
-    context = "\n".join(summary_parts)
+    by_agent = _group_findings_by_agent(findings)
+    context = _build_review_context(findings, todos_created, by_agent)
 
     # Codify with emphasis on extracting reusable patterns
     success = codify_learning(
@@ -150,9 +154,10 @@ def codify_review_findings(findings: list, todos_created: int) -> None:  # noqa:
             "todos_created": todos_created,
             "agents_involved": list(by_agent.keys()),
         },
+        silent=silent,
     )
 
-    if success:
+    if success and not silent:
         console.print(
             f"[dim green]✓ Codified code review patterns from {len(findings)} findings[/dim green]"
         )

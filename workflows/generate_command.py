@@ -1,7 +1,7 @@
 """
 Generate Command Workflow
 
-This workflow generates new CLI commands for the Compounding Engineering plugin
+This workflow generates new CLI commands for the Compounding Engineering
 based on natural language descriptions.
 """
 

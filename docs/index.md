@@ -17,11 +17,13 @@ Compounding Engineering is a philosophy where every task you complete makes the 
 
 This CLI tool implements that philosophy using [DSPy](https://github.com/stanfordnlp/dspy), providing AI-powered development tools for:
 
+- 🧠 **Knowledge Accumulation** - Every action automatically strengthens the system
 - 🔍 **Multi-Agent Code Review** - 10+ specialized reviewers working in parallel
 - 🤖 **Intelligent Work Execution** - ReAct-based file editing with reasoning
 - 📋 **Smart Planning** - Repository-aware feature planning
 - ✅ **Interactive Triage** - Manage and prioritize findings
-- 🧠 **Knowledge Accumulation** - Every action strengthens the system
+- 🛡️ **Secure Configuration** - Multi-source handled `.env` logic with path traversal protection
+- ⚡ **Smart Context Gathering** - Relevance-scored file selection and token management
 
 ## Key Features
 
