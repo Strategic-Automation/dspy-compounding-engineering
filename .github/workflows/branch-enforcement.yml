@@ -1,0 +1,20 @@
+name: Branch Enforcement
+
+on:
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  check-source-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if PR is from dev
+        if: github.head_ref != 'dev'
+        run: |
+          echo "ERROR: Merges to 'master' are only allowed from the 'dev' branch."
+          echo "Current source branch: ${{ github.head_ref }}"
+          exit 1
+      - name: Success
+        if: github.head_ref == 'dev'
+        run: echo "Source branch is 'dev'. Merge allowed."
