@@ -1,6 +1,6 @@
 import pytest
 
-from utils.context.scrubber import SecretScrubber
+from utils.security.scrubber import SecretScrubber
 
 
 @pytest.fixture

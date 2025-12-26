@@ -8,7 +8,6 @@ from pathlib import Path
 import dspy
 from dotenv import load_dotenv
 from rich.console import Console
-from utils.io.logger import logger
 
 console = Console()
 
@@ -99,6 +98,8 @@ class ServiceRegistry:
             client.get_collections()
             self._status["qdrant_available"] = True
         except Exception:
+            from utils.io.logger import logger
+
             self._status["qdrant_available"] = False
             # Only print if we are not in a quiet mode or explicitly checking
             if not os.getenv("COMPOUNDING_QUIET"):
@@ -144,6 +145,8 @@ class ServiceRegistry:
             emb_available = bool(os.getenv("OPENAI_API_KEY"))
         elif emb_provider == "openrouter":
             emb_available = bool(os.getenv("OPENROUTER_API_KEY"))
+
+        from utils.io.logger import logger
 
         if not available:
             logger.warning(f"No API key found for LM provider '{provider}'.")

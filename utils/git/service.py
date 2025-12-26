@@ -1,7 +1,7 @@
 import shutil
 import subprocess
 
-from .io.safe import run_safe_command
+from ..io.safe import run_safe_command
 
 
 class GitService:
