@@ -56,8 +56,7 @@ class ProjectContext:
                 f"Project files: {', '.join(f for f in files if not f.startswith('.'))}"
             )
         except Exception as e:
-            # Best-effort: if we cannot list project files, continue without failing.
-            console.log(f"Warning: unable to list project files in {self.base_dir!r}: {e}")
+            console.log(f"[warning]Failed to list project files in '{self.base_dir}': {e}")
 
         key_files = ["README.md", "pyproject.toml", "package.json", "requirements.txt"]
         for kf in key_files:
@@ -67,8 +66,8 @@ class ProjectContext:
                     with open(kf_path, "r") as f:
                         content = f.read()[:1000]
                     context_parts.append(f"\n--- {kf} ---\n{content}")
-                except Exception:
-                    pass
+                except Exception as e:
+                    console.log(f"[warning]Failed to read key project file '{kf_path}': {e}")
 
         return "\n".join(context_parts) if context_parts else "No project context available"
 
