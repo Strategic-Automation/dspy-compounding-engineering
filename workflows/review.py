@@ -27,6 +27,7 @@ from utils.context import ProjectContext
 from utils.git import GitService
 from utils.knowledge import KBPredict
 from utils.todo import create_finding_todo
+from utils.io.logger import logger
 
 console = Console()
 
@@ -169,16 +170,16 @@ def run_review(pr_url_or_id: str, project: bool = False):  # noqa: C901
     """
 
     if project:
-        console.print("[bold]Starting Full Project Review[/bold]\n")
+        logger.info("Starting Full Project Review")
     else:
-        console.print(f"[bold]Starting Code Review:[/bold] {pr_url_or_id}\n")
+        logger.info(f"Starting Code Review: {pr_url_or_id}")
 
     worktree_path = None
 
     try:
         if project:
             # Full project review - gather all source files
-            console.print("[cyan]Gathering project files...[/cyan]")
+            logger.info("Gathering project files...")
             context_service = ProjectContext()
 
             # Use a descriptive task for semantic prioritization
@@ -189,21 +190,17 @@ def run_review(pr_url_or_id: str, project: bool = False):  # noqa: C901
             )
             code_diff = context_service.gather_smart_context(task=audit_task)
             if not code_diff:
-                console.print("[red]No source files found to review![/red]")
+                logger.error("No source files found to review!")
                 return
-            console.print(
-                f"[green]✓ Gathered {len(code_diff):,} characters of project code[/green]"
-            )
+            logger.success(f"Gathered {len(code_diff):,} characters of project code")
         elif pr_url_or_id == "latest":
             # Default to checking current staged/unstaged changes or HEAD
-            console.print("[cyan]Fetching local changes...[/cyan]")
+            logger.info("Fetching local changes...")
             code_diff = GitService.get_diff("HEAD")
             summary = GitService.get_file_status_summary("HEAD")
 
             if not code_diff:
-                console.print(
-                    "[yellow]No changes found in HEAD. Checking staged changes...[/yellow]"
-                )
+                logger.warning("No changes found in HEAD. Checking staged changes...")
                 code_diff = GitService.get_diff("--staged")
                 summary = GitService.get_file_status_summary("--staged")
 
@@ -213,7 +210,7 @@ def run_review(pr_url_or_id: str, project: bool = False):  # noqa: C901
                 )
         else:
             # Fetch PR diff
-            console.print(f"[cyan]Fetching diff for {pr_url_or_id}...[/cyan]")
+            logger.info(f"Fetching diff for {pr_url_or_id}...")
             code_diff = GitService.get_pr_diff(pr_url_or_id)
 
             # Create isolated worktree for PR
@@ -237,11 +234,11 @@ def run_review(pr_url_or_id: str, project: bool = False):  # noqa: C901
                 )
 
         if not code_diff:
-            console.print("[red]No diff found to review![/red]")
+            logger.error("No diff found to review!")
             return
 
     except Exception as e:
-        console.print(f"[red]Error fetching content: {e}[/red]")
+        logger.error("Error fetching content", str(e))
         # Fallback for demo purposes if git fails
         console.print("[yellow]Falling back to placeholder diff for demonstration...[/yellow]")
         code_diff = """

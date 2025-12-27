@@ -25,10 +25,13 @@ def project_context(tmp_path):
 
 
 def test_project_context_security(tmp_path):
-    # If cwd is tmp_path, then passing "/" (root) should fail
-    with patch("os.getcwd", return_value=str(tmp_path)):
-        with pytest.raises(ValueError, match="Security Error"):
-            ProjectContext(base_dir="/")
+    # Crossing above the base_dir should fail
+    # tmp_path / "project" is the base. tmp_path / "outside.py" is outside.
+    d = tmp_path / "project"
+    d.mkdir()
+    with patch("os.getcwd", return_value=str(d)):
+        with pytest.raises(ValueError, match="Path outside base directory"):
+            ProjectContext(base_dir="../")
 
 
 def test_gather_context_basic(project_context):

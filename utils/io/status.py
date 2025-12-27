@@ -1,5 +1,3 @@
-from config import registry
-
 
 def get_system_status() -> str:
     """
@@ -7,6 +5,7 @@ def get_system_status() -> str:
     Returns a formatted description of the system status.
     """
     try:
+        from config import registry
         qdrant_ok = registry.check_qdrant()
         keys_ok = registry.check_api_keys()
 

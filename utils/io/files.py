@@ -4,7 +4,7 @@ from typing import Dict, List, Union
 
 from rich.console import Console
 
-from .safe import safe_write, validate_path
+from .safe import run_safe_command, safe_write, validate_path
 
 console = Console()
 
@@ -52,7 +52,7 @@ def search_files(query: str, path: str = ".", regex: bool = False, base_dir: str
         cmd.append(safe_path)
 
         # Run grep
-        process = subprocess.run(
+        process = run_safe_command(
             cmd,
             capture_output=True,
             text=True,

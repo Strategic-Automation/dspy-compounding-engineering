@@ -1,5 +1,7 @@
 import os
 import shutil
+import subprocess
+from typing import List, Optional, Union
 
 from rich.console import Console
 
@@ -8,23 +10,58 @@ console = Console()
 
 def validate_path(path: str, base_dir: str = ".") -> str:
     """Validate path is relative and within base_dir, preventing traversal."""
-    # We allow absolute paths as long as they resolve to a location within base_dir.
-    # This is necessary for internal services that use absolute paths (like ProjectContext).
-    # If it is absolute, we don't need to join it with base_dir.
+    # Ensure base_dir is absolute and symlinks are resolved
+    base_abs = os.path.realpath(os.path.abspath(base_dir))
+    
+    # Check for path traversal attempts in the raw string
+    if ".." in path.split(os.sep) or path.startswith("/") or "://" in path:
+        # We allow absolute paths if they are within base_dir, handled by resolution below.
+        # But we block external schemes.
+        if "://" in path:
+            raise ValueError(f"External schemes/URLs not allowed for file operations: {path}")
 
-    # Check for path traversal attempts
-    if ".." in path.split(os.sep):
-        raise ValueError(f"Path traversal detected: {path}")
-
-    # Resolve both to absolute paths for comparison
-    base_abs = os.path.abspath(base_dir)
-    full_path = os.path.abspath(os.path.join(base_dir, path))
+    # Resolve to absolute path and resolve symlinks
+    try:
+        full_path = os.path.realpath(os.path.abspath(os.path.join(base_abs, path)))
+    except Exception as e:
+        raise ValueError(f"Invalid path format: {path}") from e
 
     # Ensure the resolved path is within the base directory
     if not full_path.startswith(base_abs + os.sep) and full_path != base_abs:
         raise ValueError(f"Path outside base directory (traversal detected): {path} -> {full_path}")
 
     return full_path
+
+
+COMMAND_ALLOWLIST = {"git", "gh", "grep", "ruff", "uv", "python"}
+
+
+def run_safe_command(
+    cmd: List[str],
+    cwd: Optional[str] = None,
+    capture_output: bool = True,
+    text: bool = True,
+    check: bool = True,
+    **kwargs,
+) -> subprocess.CompletedProcess:
+    """
+    Safely execute a command from an allowlist.
+    Disallows shell=True and validates the executable.
+    """
+    if kwargs.get("shell"):
+        raise ValueError("Running commands with shell=True is disallowed for security.")
+
+    if not cmd:
+        raise ValueError("Empty command list.")
+
+    # Get the base executable name (handle paths if necessary)
+    executable = os.path.basename(cmd[0])
+    if executable not in COMMAND_ALLOWLIST:
+        raise ValueError(f"Command '{executable}' is not in the security allowlist.")
+
+    return subprocess.run(
+        cmd, cwd=cwd, capture_output=capture_output, text=text, check=check, **kwargs
+    )
 
 
 def safe_write(file_path: str, content: str, base_dir: str = ".", overwrite: bool = True) -> None:

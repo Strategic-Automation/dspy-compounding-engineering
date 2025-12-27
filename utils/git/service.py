@@ -1,6 +1,8 @@
 import shutil
 import subprocess
 
+from ..io.safe import run_safe_command
+
 
 class GitService:
     """Helper service for Git and GitHub CLI operations."""
@@ -56,7 +58,7 @@ class GitService:
     def is_git_repo() -> bool:
         """Check if current directory is a git repo."""
         return (
-            subprocess.run(
+            run_safe_command(
                 ["git", "rev-parse", "--is-inside-work-tree"], capture_output=True
             ).returncode
             == 0
@@ -76,7 +78,7 @@ class GitService:
             for ignore in GitService.IGNORE_FILES:
                 cmd.append(f":!{ignore}")
 
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            result = run_safe_command(cmd, capture_output=True, text=True, check=True)
             return result.stdout
         except subprocess.CalledProcessError:
             return ""
@@ -92,7 +94,7 @@ class GitService:
             for ignore in GitService.IGNORE_FILES:
                 cmd.append(f":!{ignore}")
 
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            result = run_safe_command(cmd, capture_output=True, text=True, check=True)
             return result.stdout
         except subprocess.CalledProcessError:
             return "Could not retrieve file status summary."
@@ -105,7 +107,7 @@ class GitService:
 
         try:
             cmd = ["gh", "pr", "diff", pr_id_or_url]
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            result = run_safe_command(cmd, capture_output=True, text=True, check=True)
             return GitService.filter_diff(result.stdout)
         except subprocess.CalledProcessError as e:
             raise RuntimeError(f"Failed to fetch PR diff: {e.stderr}") from e
@@ -129,7 +131,7 @@ class GitService:
             # For simplicity returning raw stdout for now, caller can parse
             import json
 
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            result = run_safe_command(cmd, capture_output=True, text=True, check=True)
             return json.loads(result.stdout)
         except subprocess.CalledProcessError as e:
             raise RuntimeError(f"Failed to fetch PR details: {e.stderr}") from e
@@ -138,7 +140,7 @@ class GitService:
     def get_current_branch() -> str:
         """Get current branch name."""
         try:
-            result = subprocess.run(
+            result = run_safe_command(
                 ["git", "rev-parse", "--abbrev-ref", "HEAD"],
                 capture_output=True,
                 text=True,
@@ -159,7 +161,7 @@ class GitService:
             cmd = ["gh", "pr", "view", pr_id_or_url, "--json", "headRefName"]
             import json
 
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            result = run_safe_command(cmd, capture_output=True, text=True, check=True)
             data = json.loads(result.stdout)
             return data.get("headRefName", "")
         except subprocess.CalledProcessError as e:
@@ -173,7 +175,7 @@ class GitService:
 
         try:
             # First, fetch the PR branch locally
-            subprocess.run(["gh", "pr", "checkout", pr_id_or_url], check=True)
+            run_safe_command(["gh", "pr", "checkout", pr_id_or_url], check=True)
 
             # Get the branch name
             branch_name = GitService.get_pr_branch(pr_id_or_url)
@@ -246,11 +248,11 @@ class GitService:
             # Let's assume for now we just want to review LOCAL branches or fetch them if missing.
             # We'll implement a simple fetch:
             branch = GitService.get_pr_branch(pr_id_or_url)
-            subprocess.run(["git", "fetch", "origin", branch], check=True)
+            run_safe_command(["git", "fetch", "origin", branch], check=True)
 
             # Now create worktree
             cmd = ["git", "worktree", "add", worktree_path, branch]
-            subprocess.run(cmd, check=True)
+            run_safe_command(cmd, check=True)
 
         except subprocess.CalledProcessError as e:
             raise RuntimeError(f"Failed to checkout PR worktree: {e.stderr}") from e
@@ -261,7 +263,7 @@ class GitService:
         try:
             # Check if branch exists
             branch_exists = (
-                subprocess.run(
+                run_safe_command(
                     ["git", "rev-parse", "--verify", branch_name], capture_output=True
                 ).returncode
                 == 0
@@ -278,7 +280,7 @@ class GitService:
                 # Syntax: git worktree add <path> <branch>
                 cmd.extend([worktree_path, branch_name])
 
-            subprocess.run(cmd, check=True, capture_output=True)
+            run_safe_command(cmd, check=True, capture_output=True)
 
         except subprocess.CalledProcessError as e:
             raise RuntimeError(f"Failed to create feature worktree: {e.stderr}") from e

@@ -88,10 +88,10 @@ def test_compress_kb_command(mock_knowledge_base_class):
 def test_index_command(mock_knowledge_base_class):
     import os
 
-    result = runner.invoke(app, ["index", "--dir", "src", "--force-recreate"])
+    result = runner.invoke(app, ["index", "--dir", "src", "--recreate"])
     assert result.exit_code == 0
     mock_knowledge_base_class.index_codebase.assert_called_once_with(
-        root_dir=os.path.abspath("src"), force_recreate=True
+        root_dir="src", force_recreate=True
     )
 
 

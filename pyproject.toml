@@ -1,6 +1,6 @@
 [project]
 name = "dspy-compounding-engineering"
-version = "0.1.1"
+version = "0.1.2"
 description = "DSPy implementation of the Compounding Engineering"
 readme = "README.md"
 authors = [

@@ -5,7 +5,7 @@ import pytest
 
 # Inject mocks before ANY internal imports
 from utils.context.project import ProjectContext
-from utils.context.scrubber import scrubber
+from utils.security.scrubber import SecretScrubber
 
 # from .mock_modules import patch_all ... already happens on import
 from utils.knowledge.core import KnowledgeBase
@@ -89,7 +89,7 @@ def test_indexer_shrinkage_cleanup(mock_qdrant):
 
 def test_pii_scrubbing():
     text = "My key is sk-12345678901234567890123456789012 and email is test@example.com"
-    scrubbed = scrubber.scrub(text)
+    scrubbed = SecretScrubber().scrub(text)
     assert "sk-" not in scrubbed
     assert "test@example.com" not in scrubbed
     assert "[REDACTED_OPENAI_API_KEY]" in scrubbed
