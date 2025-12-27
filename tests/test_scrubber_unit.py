@@ -70,3 +70,29 @@ def test_scrub_no_match(scrubber):
 def test_scrub_empty(scrubber):
     assert scrubber.scrub("") == ""
     assert scrubber.scrub(None) == ""
+
+
+def test_scrub_aws_access_key(scrubber):
+    text = "AKIAIOSFODNN7EXAMPLE"
+    assert "[REDACTED_AWS_ACCESS_KEY]" in scrubber.scrub(text)
+
+
+def test_scrub_aws_secret_key(scrubber):
+    # Pattern requires boundaries now
+    text = "secret_key: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY" 
+    assert "[REDACTED_AWS_SECRET_KEY]" in scrubber.scrub(text)
+
+
+def test_scrub_slack_token(scrubber):
+    text = "xoxb-1234567890-1234567890-1234567890"
+    assert "[REDACTED_SLACK_TOKEN]" in scrubber.scrub(text)
+
+
+def test_scrub_complex_pem(scrubber):
+    text = """
+-----BEGIN ENCRYPTED PRIVATE KEY-----
+MIIFDjBABgkqhkiG9w0BBQ0wMzAbBgkqhkiG9w0BBQwwDgQIzn
+...
+-----END ENCRYPTED PRIVATE KEY-----
+"""
+    assert "[REDACTED_SSH_PRIVATE_KEY]" in scrubber.scrub(text)

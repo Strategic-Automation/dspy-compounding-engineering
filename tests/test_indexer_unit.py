@@ -76,3 +76,19 @@ def test_index_single_file_unicode_error_skips(indexer):
             "utf-8", b"", 0, 1, ""
         )
         assert indexer._index_single_file(filepath, full_path, indexed_files) is False
+
+
+def test_search_codebase_uses_query_points(indexer, mock_client):
+    indexer.vector_db_available = True
+    mock_hit = MagicMock()
+    mock_hit.payload = {"path": "test.py"}
+    mock_hit.score = 0.99
+    
+    mock_client.query_points.return_value.points = [mock_hit]
+    
+    results = indexer.search_codebase("find tests")
+    
+    assert len(results) == 1
+    assert results[0]["path"] == "test.py"
+    assert results[0]["score"] == 0.99
+    mock_client.query_points.assert_called_once()
