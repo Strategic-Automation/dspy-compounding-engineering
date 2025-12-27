@@ -54,8 +54,9 @@ class ProjectContext:
             context_parts.append(
                 f"Project files: {', '.join(f for f in files if not f.startswith('.'))}"
             )
-        except Exception:
-            pass
+        except Exception as e:
+            # Best-effort: if we cannot list project files, continue without failing.
+            console.log(f"Warning: unable to list project files in {self.base_dir!r}: {e}")
 
         key_files = ["README.md", "pyproject.toml", "package.json", "requirements.txt"]
         for kf in key_files:
