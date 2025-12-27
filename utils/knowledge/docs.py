@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import Any, Dict, List
 
 from rich.console import Console
+from ..io.logger import logger
 
 from .compression import LLMKBCompressor
 
@@ -46,7 +47,14 @@ class KnowledgeDocumentation:
     def _log(self, message: str, color: str = "dim", silent: bool = False):
         """Helper to log messages if not in silent mode."""
         if not silent:
-            console.print(f"[{color}]{message}[/{color}]")
+            if color == "red":
+                logger.error(message)
+            elif color == "yellow":
+                logger.warning(message)
+            elif color == "green":
+                logger.success(message)
+            else:
+                logger.info(message)
 
     def _generate_markdown(self, learnings: List[Dict[str, Any]]) -> str:
         """Generate the AI.md content from learnings."""
