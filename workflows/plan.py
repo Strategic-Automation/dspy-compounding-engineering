@@ -98,8 +98,9 @@ def _get_relevant_file_contents(max_chars: int = 10000) -> str:
                         file_content = file_content[:max_per_file] + "\n...[truncated]..."
                     content_parts.append(f"--- {filename} ---\n{file_content}")
                     total_chars += len(file_content)
-            except Exception:
-                pass
+            except Exception as e:
+                # Intentionally skip unreadable files, but log for debugging.
+                console.log(f"[yellow]Warning:[/yellow] Failed to read {filename}: {e}")
 
     return "\n\n".join(content_parts) if content_parts else "No key files found."
 
