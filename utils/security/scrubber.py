@@ -22,10 +22,11 @@ class SecretScrubber:
             "google_api_key": r"AIza[0-9A-Za-z-_]{35}",
             "stripe_api_key": r"(?:sk|pk)_(?:test|live)_[0-9a-zA-Z]{24,}",
             "aws_access_key": r"(?:AKIA|ASIA)[0-9A-Z]{16}",
-            "aws_secret_key": r"([a-zA-Z0-9/+=]{40})",
+            "aws_secret_key": r"(?<=[:=\s])([a-zA-Z0-9/+=]{40})(?=\s|$)",
+            "slack_token": r"xox[baprs]-[0-9a-zA-Z]{10,48}",
             "ssh_private_key": (
-                r"-----BEGIN (?:RSA|OPENSSH|DSA|EC|PGP) PRIVATE KEY BLOCK-----[\s\S]+?"
-                r"-----END (?:RSA|OPENSSH|DSA|EC|PGP) PRIVATE KEY BLOCK-----"
+                r"-----BEGIN (?:RSA|OPENSSH|DSA|EC|PGP|ENCRYPTED)? ?PRIVATE KEY(?: BLOCK)?-----[\s\S]+?"
+                r"-----END (?:RSA|OPENSSH|DSA|EC|PGP|ENCRYPTED)? ?PRIVATE KEY(?: BLOCK)?-----"
             ),
             "email": r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}",
             "ipv4": r"\b(?:\d{1,3}\.){3}\d{1,3}\b",

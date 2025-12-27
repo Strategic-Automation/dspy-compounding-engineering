@@ -10,8 +10,8 @@ console = Console()
 
 def validate_path(path: str, base_dir: str = ".") -> str:
     """Validate path is relative and within base_dir, preventing traversal."""
-    # Ensure base_dir is absolute
-    base_abs = os.path.abspath(base_dir)
+    # Ensure base_dir is absolute and symlinks are resolved
+    base_abs = os.path.realpath(os.path.abspath(base_dir))
     
     # Check for path traversal attempts in the raw string
     if ".." in path.split(os.sep) or path.startswith("/") or "://" in path:
@@ -20,9 +20,9 @@ def validate_path(path: str, base_dir: str = ".") -> str:
         if "://" in path:
             raise ValueError(f"External schemes/URLs not allowed for file operations: {path}")
 
-    # Resolve to absolute path
+    # Resolve to absolute path and resolve symlinks
     try:
-        full_path = os.path.abspath(os.path.join(base_abs, path))
+        full_path = os.path.realpath(os.path.abspath(os.path.join(base_abs, path)))
     except Exception as e:
         raise ValueError(f"Invalid path format: {path}") from e
 

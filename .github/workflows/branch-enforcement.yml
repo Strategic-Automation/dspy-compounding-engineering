@@ -4,17 +4,29 @@ on:
   pull_request:
     branches:
       - master
+      - dev
 
 jobs:
   check-source-branch:
     runs-on: ubuntu-latest
     steps:
-      - name: Check if PR is from dev
-        if: github.head_ref != 'dev'
+      - name: Validate Source Branch
         run: |
-          echo "ERROR: Merges to 'master' are only allowed from the 'dev' branch."
-          echo "Current source branch: ${{ github.head_ref }}"
-          exit 1
-      - name: Success
-        if: github.head_ref == 'dev'
-        run: echo "Source branch is 'dev'. Merge allowed."
+          TARGET_BRANCH="${{ github.base_ref }}"
+          SOURCE_BRANCH="${{ github.head_ref }}"
+          
+          echo "Target Branch: $TARGET_BRANCH"
+          echo "Source Branch: $SOURCE_BRANCH"
+          
+          if [[ "$TARGET_BRANCH" == "master" ]]; then
+            if [[ "$SOURCE_BRANCH" != "dev" ]]; then
+              echo "ERROR: Only the 'dev' branch can be merged into 'master'."
+              exit 1
+            fi
+          elif [[ "$TARGET_BRANCH" == "dev" ]]; then
+            if [[ ! "$SOURCE_BRANCH" =~ ^(feature|fix|testing|chore)/ ]]; then
+              echo "ERROR: Development on 'dev' must come from feature/*, fix/*, testing/*, or chore/* branches via PR."
+              exit 1
+            fi
+          fi
+          echo "SUCCESS: Branch source is valid."
