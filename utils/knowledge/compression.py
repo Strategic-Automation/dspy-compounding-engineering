@@ -2,6 +2,7 @@ import os
 from typing import List
 
 import dspy
+import logging
 
 
 class CompressMarkdown(dspy.Signature):
@@ -68,7 +69,8 @@ class LLMKBCompressor(dspy.Module):
             with open(cache_path, "w") as f:
                 json.dump(cache, f, indent=2)
         except Exception:
-            pass
+            # Cache write failures are non-fatal; log and continue.
+            logging.debug("Failed to save LLM compression cache to %s", cache_path, exc_info=True)
 
     def forward(self, content: str, ratio: float = 0.5) -> str:
         """
