@@ -1,7 +1,7 @@
 import os
 import shutil
 import subprocess
-from typing import List, Optional, Union
+from typing import List, Optional
 
 from rich.console import Console
 
