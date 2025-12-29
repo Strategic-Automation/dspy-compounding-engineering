@@ -1,5 +1,9 @@
 import dspy
 
+from agents.research.schema import RepoResearchReport
+from utils.agent.tools import get_research_tools
+from utils.io.logger import logger
+
 
 class RepoResearchAnalyst(dspy.Signature):
     """
@@ -37,50 +41,40 @@ class RepoResearchAnalyst(dspy.Signature):
        - Identify common implementation patterns
        - Document naming conventions and code organization
 
+    **Available Tools:**
+    - `fetch_documentation(url)`: Fetch external documentation from a URL.
+    - `semantic_search(query, limit)`: Vector search for relevant code by meaning.
+      Use this FIRST to find files related to a concept or feature.
+    - `search_codebase(query, path)`: Grep-based keyword search in project files.
+    - `read_file(file_path, start_line, end_line)`: Read specific file sections.
+      Use this to get more context after finding files with semantic_search.
+
     **Output Format:**
 
-    Structure your findings as:
-
-    ```markdown
-    ## Repository Research Summary
-
-    ### Architecture & Structure
-    - Key findings about project organization
-    - Important architectural decisions
-    - Technology stack and dependencies
-
-    ### Issue Conventions
-    - Formatting patterns observed
-    - Label taxonomy and usage
-    - Common issue types and structures
-
-    ### Documentation Insights
-    - Contribution guidelines summary
-    - Coding standards and practices
-    - Testing and review requirements
-
-    ### Templates Found
-    - List of template files with purposes
-    - Required fields and formats
-    - Usage instructions
-
-    ### Implementation Patterns
-    - Common code patterns identified
-    - Naming conventions
-    - Project-specific practices
-
-    ### Recommendations
-    - How to best align with project conventions
-    - Areas needing clarification
-    - Next steps for deeper investigation
-    ```
+    Structure your findings into the provided RepoResearchReport schema.
+    Ensure you provide a high-level `summary`, a detailed `analysis` of the project's
+    architecture and conventions, and a list of granular `insights` for each
+    pattern, template, or guideline discovered.
     """
 
     feature_description = dspy.InputField(
         desc="The feature or task description to research context for"
     )
-    file_listings = dspy.InputField(desc="List of files in the repository (or relevant subset)")
-    relevant_file_contents = dspy.InputField(
-        desc="Contents of relevant documentation or code files"
-    )
-    research_summary = dspy.OutputField(desc="The repository research summary")
+    research_report: RepoResearchReport = dspy.OutputField(desc="The repository research report")
+
+
+class RepoResearchAnalystModule(dspy.Module):
+    """
+    Module that implements RepoResearchAnalyst using dspy.ReAct for
+    comprehensive repository analysis. Uses centralized tools from
+    utils/agent/tools.py for codebase exploration.
+    """
+
+    def __init__(self, base_dir: str = "."):
+        super().__init__()
+        self.tools = get_research_tools(base_dir)
+        self.agent = dspy.ReAct(RepoResearchAnalyst, tools=self.tools, max_iters=3)
+
+    def forward(self, feature_description: str):
+        logger.info(f"Starting Repo Research for: {feature_description}")
+        return self.agent(feature_description=feature_description)

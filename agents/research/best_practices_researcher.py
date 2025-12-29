@@ -1,5 +1,9 @@
 import dspy
 
+from agents.research.schema import BestPracticesReport
+from utils.agent.tools import get_research_tools
+from utils.io.logger import logger
+
 
 class BestPracticesResearcher(dspy.Signature):
     """
@@ -30,15 +34,38 @@ class BestPracticesResearcher(dspy.Signature):
        - Include code examples or templates
        - Provide links to authoritative sources
 
+    **Available Tools:**
+    - `fetch_documentation(url)`: Fetch external documentation from a URL.
+    - `semantic_search(query, limit)`: Vector search for relevant code by meaning.
+    - `search_codebase(query, path)`: Grep-based keyword search in project files.
+    - `read_file(file_path, start_line, end_line)`: Read specific file sections.
+
     **Output Format:**
 
-    Structure your findings as:
-
-    1. **Summary**: Brief overview
-    2. **Key Best Practices**: Categorized list
-    3. **Examples**: Code or structure examples
-    4. **References**: Links to sources
+    Structure your findings into the provided BestPracticesReport schema.
+    Provide a `summary` of the best practices found, a technical `analysis` of why they are
+    recommended, and granular `insights` for each specific practice.
+    Additionally, list specific `implementation_patterns` to follow and `anti_patterns` to avoid.
     """
 
     topic = dspy.InputField(desc="The topic or technology to research best practices for")
-    research_findings = dspy.OutputField(desc="The synthesized best practices findings")
+    research_report: BestPracticesReport = dspy.OutputField(
+        desc="The synthesized best practices report"
+    )
+
+
+class BestPracticesResearcherModule(dspy.Module):
+    """
+    Module that implements BestPracticesResearcher using dspy.ReAct for
+    sophisticated reasoning over best practices. Uses centralized tools
+    from utils/agent/tools.py.
+    """
+
+    def __init__(self, base_dir: str = "."):
+        super().__init__()
+        self.tools = get_research_tools(base_dir)
+        self.agent = dspy.ReAct(BestPracticesResearcher, tools=self.tools, max_iters=3)
+
+    def forward(self, topic: str):
+        logger.info(f"Starting Best Practices Research for: {topic}")
+        return self.agent(topic=topic)

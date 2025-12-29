@@ -24,7 +24,7 @@ class KBPredict(dspy.Module):
 
     def __init__(
         self,
-        signature: dspy.Signature | str,
+        signature: Any,
         kb_tags: Optional[List[str]] = None,
         kb_query: Optional[str] = None,
         inject_kb: bool = True,
@@ -34,7 +34,16 @@ class KBPredict(dspy.Module):
         self.kb_tags = kb_tags or []
         self.kb_query = kb_query
         self.inject_kb = inject_kb
-        self.predictor = dspy.Predict(signature, **kwargs)
+
+        # Support both signatures (wrapped in Predict) and direct Modules
+        if (
+            isinstance(signature, type)
+            and issubclass(signature, dspy.Module)
+            and not issubclass(signature, dspy.Signature)
+        ):
+            self.predictor = signature(**kwargs)
+        else:
+            self.predictor = dspy.Predict(signature, **kwargs)
 
     def forward(self, **kwargs):
         if not self.inject_kb:
@@ -43,7 +52,10 @@ class KBPredict(dspy.Module):
         return self.predictor(**augmented_kwargs)
 
     def _inject_kb(self, kwargs: dict[str, Any]) -> dict[str, Any]:
-        kb = KnowledgeBase()
+        # Cache KB instance to avoid repeated initialization
+        if not hasattr(self, "_kb"):
+            self._kb = KnowledgeBase()
+        kb = self._kb
 
         query = self.kb_query
         if not query:
