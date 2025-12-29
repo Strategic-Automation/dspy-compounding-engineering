@@ -11,7 +11,7 @@ import json
 import os
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
 from qdrant_client import QdrantClient
@@ -40,7 +40,9 @@ class KnowledgeBase(CollectionManagerMixin):
 
     MAX_COLLECTION_NAME_LENGTH = 60
 
-    def __init__(self, knowledge_dir: str = ".knowledge"):
+    def __init__(
+        self, knowledge_dir: str = ".knowledge", qdrant_client: Optional[QdrantClient] = None
+    ):
         from config import get_project_hash, registry
 
         self.knowledge_dir = knowledge_dir
@@ -56,26 +58,9 @@ class KnowledgeBase(CollectionManagerMixin):
         # Docs Service
         self.docs_service = KnowledgeDocumentation(self.knowledge_dir)
 
-        # Initialize Qdrant Client
-        qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
-        self.vector_db_available = False
-
-        # Validate URL
-        if not self._is_valid_url(qdrant_url):
-            console.print(
-                f"[red]Invalid QDRANT_URL: {qdrant_url}. Using keyword search only.[/red]"
-            )
-            self.client = None
-        else:
-            try:
-                # Use registry to check/cache availability
-                self.vector_db_available = registry.check_qdrant()
-                if self.vector_db_available:
-                    self.client = QdrantClient(url=qdrant_url, timeout=2.0)
-                else:
-                    self.client = None
-            except Exception:
-                self.client = None
+        # Initialize Qdrant Client (Decoupled)
+        self.client = qdrant_client or registry.get_qdrant_client()
+        self.vector_db_available = self.client is not None
 
         # Initialize Embedding Provider
         self.embedding_provider = EmbeddingProvider()

@@ -1,0 +1,107 @@
+from typing import Optional
+
+import ipaddress
+from urllib.parse import urlparse
+import httpx
+from bs4 import BeautifulSoup
+from markdownify import markdownify as md
+
+from ..io.logger import logger
+
+
+class DocumentationFetcher:
+    """
+    Utility for fetching and parsing official documentation from URLs.
+    Supports high-quality conversion via r.jina.ai and local fallback.
+    """
+
+    def __init__(self, use_jina: bool = True, timeout: int = 10):
+        self.use_jina = use_jina
+        self.timeout = timeout
+
+    def _is_safe_url(self, url: str) -> bool:
+        """
+        Check if the URL is safe to fetch (not a private or reserved IP).
+        """
+        try:
+            parsed = urlparse(url)
+            if not parsed.netloc:
+                return False
+            
+            # Resolve hostname if necessary (for now, check for literal IPs)
+            # and common local hostnames
+            hostname = parsed.hostname
+            if not hostname:
+                return False
+
+            if hostname.lower() in ["localhost", "127.0.0.1", "::1"]:
+                return False
+
+            try:
+                ip = ipaddress.ip_address(hostname)
+                if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_reserved:
+                    return False
+            except ValueError:
+                # Not an IP address, could be a domain name
+                pass
+            
+            return True
+        except Exception:
+            return False
+
+    def fetch(self, url: str) -> str:
+        """
+        Fetch documentation from a URL and return it as Markdown.
+        """
+        if not url.startswith("http"):
+            return f"Invalid URL: {url}"
+
+        if not self._is_safe_url(url):
+            logger.error(f"SSRF Protection: Blocked potentially unsafe URL: {url}")
+            return f"Error: URL is not permitted for security reasons."
+        if self.use_jina:
+            try:
+                content = self._fetch_via_jina(url)
+                if content:
+                    logger.success(f"Successfully fetched documentation via Jina for {url}")
+                    return content
+            except Exception as e:
+                logger.warning(f"Jina fetch failed for {url}: {e}. Falling back to local parsing.")
+
+        return self._fetch_locally(url)
+
+    def _fetch_via_jina(self, url: str) -> Optional[str]:
+        """
+        Fetch via r.jina.ai for high-quality markdown.
+        """
+        jina_url = f"https://r.jina.ai/{url}"
+        with httpx.Client(timeout=self.timeout) as client:
+            response = client.get(jina_url)
+            response.raise_for_status()
+            return response.text
+
+    def _fetch_locally(self, url: str) -> str:
+        """
+        Fallback fetch and parse locally using BeautifulSoup and markdownify.
+        """
+        try:
+            with httpx.Client(timeout=self.timeout, follow_redirects=True) as client:
+                response = client.get(url)
+                response.raise_for_status()
+
+                soup = BeautifulSoup(response.text, "html.parser")
+
+                # Remove non-content elements
+                for element in soup(["script", "style", "nav", "footer", "header", "aside"]):
+                    element.decompose()
+
+                # Convert to markdown
+                markdown_content = md(str(soup), heading_style="ATX")
+                logger.success(f"Successfully fetched and parsed documentation locally for {url}")
+                return markdown_content.strip()
+        except Exception as e:
+            logger.error(f"Local documentation fetch failed for {url}", detail=str(e))
+            return (
+                f"Error: Unable to fetch documentation from {url} locally: {e}. "
+                "Please check the URL or try again later."
+            )

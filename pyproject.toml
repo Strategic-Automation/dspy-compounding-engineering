@@ -36,6 +36,9 @@ dependencies = [
     "pygments<2.19.0",
     "fastembed>=0.2.0",
     "tiktoken>=0.7.0",
+    "beautifulsoup4>=4.14.3",
+    "markdownify>=1.2.2",
+    "httpx>=0.28.1",
 ]
 
 
