@@ -224,8 +224,8 @@ def _gather_review_context(pr_url_or_id: str, project: bool = False) -> tuple[st
             logger.error("No diff found to review!")
             return None, None
 
-    except Exception as e:
-        logger.error("Error fetching content", str(e))
+    except Exception:
+        logger.error("Error fetching PR content. Please check git and gh CLI status.")
         console.print("[yellow]Falling back to placeholder diff for demonstration...[/yellow]")
         code_diff = "# Placeholder diff (Git fetch failed)\n# Ensure git and gh CLI are installed"
 

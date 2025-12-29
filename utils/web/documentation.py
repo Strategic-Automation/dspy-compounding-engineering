@@ -1,5 +1,7 @@
 from typing import Optional
 
+import ipaddress
+from urllib.parse import urlparse
 import httpx
 from bs4 import BeautifulSoup
 from markdownify import markdownify as md
@@ -17,6 +19,36 @@ class DocumentationFetcher:
         self.use_jina = use_jina
         self.timeout = timeout
 
+    def _is_safe_url(self, url: str) -> bool:
+        """
+        Check if the URL is safe to fetch (not a private or reserved IP).
+        """
+        try:
+            parsed = urlparse(url)
+            if not parsed.netloc:
+                return False
+            
+            # Resolve hostname if necessary (for now, check for literal IPs)
+            # and common local hostnames
+            hostname = parsed.hostname
+            if not hostname:
+                return False
+
+            if hostname.lower() in ["localhost", "127.0.0.1", "::1"]:
+                return False
+
+            try:
+                ip = ipaddress.ip_address(hostname)
+                if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_reserved:
+                    return False
+            except ValueError:
+                # Not an IP address, could be a domain name
+                pass
+            
+            return True
+        except Exception:
+            return False
+
     def fetch(self, url: str) -> str:
         """
         Fetch documentation from a URL and return it as Markdown.
@@ -24,6 +56,9 @@ class DocumentationFetcher:
         if not url.startswith("http"):
             return f"Invalid URL: {url}"
 
+        if not self._is_safe_url(url):
+            logger.error(f"SSRF Protection: Blocked potentially unsafe URL: {url}")
+            return f"Error: URL is not permitted for security reasons."
         if self.use_jina:
             try:
                 content = self._fetch_via_jina(url)
