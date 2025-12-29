@@ -7,13 +7,14 @@ ensuring consistent codebase exploration capabilities across the system.
 
 import dspy
 
+from config import registry
 from utils.io import list_directory, read_file_range, search_files
 from utils.web.documentation import DocumentationFetcher
 
 # --- Documentation Tools ---
 
 
-def get_documentation_tool():
+def get_documentation_tool() -> dspy.Tool:
     """Returns a tool for fetching external documentation from URLs."""
     fetcher = DocumentationFetcher()
 
@@ -30,7 +31,7 @@ def get_documentation_tool():
 # --- Codebase Exploration Tools ---
 
 
-def get_codebase_search_tool(base_dir: str = "."):
+def get_codebase_search_tool(base_dir: str = ".") -> dspy.Tool:
     """Returns a tool for searching strings/patterns in project files."""
 
     def search_codebase(query: str, path: str = ".") -> str:
@@ -43,19 +44,8 @@ def get_codebase_search_tool(base_dir: str = "."):
     return dspy.Tool(search_codebase)
 
 
-# Cached KnowledgeBase instance for semantic search
-_kb_instance = None
-
-
-def get_semantic_search_tool():
+def get_semantic_search_tool() -> dspy.Tool:
     """Returns a tool for semantic/vector search over the indexed codebase."""
-    global _kb_instance
-    if _kb_instance is None:
-        from utils.knowledge import KnowledgeBase
-
-        _kb_instance = KnowledgeBase()
-
-    kb = _kb_instance
 
     def semantic_search(query: str, limit: int = 5) -> str:
         """
@@ -63,6 +53,7 @@ def get_semantic_search_tool():
         Returns the most relevant code snippets based on meaning, not just keywords.
         Use this to find files and code related to a concept or feature.
         """
+        kb = registry.get_kb()
         results = kb.search_codebase(query, limit=limit)
         if not results:
             return (
@@ -72,7 +63,7 @@ def get_semantic_search_tool():
 
         output = []
         for r in results:
-            file_path = r.get("file_path", "unknown")
+            file_path = r.get("path", "unknown")
             chunk = r.get("chunk_index", 0)
             content = r.get("content", "")[:500]  # Limit content preview
             score = r.get("score", 0)
@@ -85,7 +76,7 @@ def get_semantic_search_tool():
     return dspy.Tool(semantic_search)
 
 
-def get_file_reader_tool(base_dir: str = "."):
+def get_file_reader_tool(base_dir: str = ".") -> dspy.Tool:
     """Returns a tool for reading specific lines from a file."""
 
     def read_file(file_path: str, start_line: int = 1, end_line: int = 100) -> str:
@@ -103,7 +94,7 @@ def get_file_reader_tool(base_dir: str = "."):
     return dspy.Tool(read_file)
 
 
-def get_directory_tool(base_dir: str = "."):
+def get_directory_tool(base_dir: str = ".") -> dspy.Tool:
     """Returns a tool for listing directory contents."""
 
     def list_dir(path: str = ".") -> str:
@@ -116,10 +107,25 @@ def get_directory_tool(base_dir: str = "."):
     return dspy.Tool(list_dir)
 
 
+def get_gather_context_tool() -> dspy.Tool:
+    """Returns a tool for gathering smart project context."""
+    from utils.context import ProjectContext
+
+    def gather_context(task: str) -> str:
+        """
+        Gathers comprehensive project context related to a specific task.
+        Use this to quickly understand the current project state and relevant files.
+        """
+        ctx = ProjectContext()
+        return ctx.gather_smart_context(task)
+
+    return dspy.Tool(gather_context)
+
+
 # --- Tool Bundles ---
 
 
-def get_research_tools(base_dir: str = ".") -> list:
+def get_research_tools(base_dir: str = ".") -> list[dspy.Tool]:
     """
     Get the standard set of tools for research agents.
     Includes: documentation fetcher, semantic search, codebase grep, file reader.
@@ -132,10 +138,10 @@ def get_research_tools(base_dir: str = ".") -> list:
     ]
 
 
-def get_work_tools(base_dir: str = ".") -> list:
+def get_work_tools(base_dir: str = ".") -> list[dspy.Tool]:
     """
     Get the standard set of tools for work/execution agents.
-    Includes: codebase search, context gathering, file reader, directory listing.
+    Includes: codebase search, semantic search, file reader, directory listing.
     """
     return [
         get_codebase_search_tool(base_dir),
@@ -145,7 +151,7 @@ def get_work_tools(base_dir: str = ".") -> list:
     ]
 
 
-def get_file_editor_tool(base_dir: str = "."):
+def get_file_editor_tool(base_dir: str = ".") -> dspy.Tool:
     """Returns a tool for editing specific lines in a file."""
     from utils.io import edit_file_lines
 
@@ -162,7 +168,7 @@ def get_file_editor_tool(base_dir: str = "."):
     return dspy.Tool(edit_file)
 
 
-def get_file_creator_tool(base_dir: str = "."):
+def get_file_creator_tool(base_dir: str = ".") -> dspy.Tool:
     """Returns a tool for creating new files."""
     from utils.io import create_file
 
@@ -176,18 +182,18 @@ def get_file_creator_tool(base_dir: str = "."):
     return dspy.Tool(create_new_file)
 
 
-def get_system_status_tool():
+def get_system_status_tool() -> dspy.Tool:
     """Returns a tool for checking system status."""
     from utils.io import get_system_status
 
     return dspy.Tool(get_system_status)
 
 
-def get_todo_resolver_tools(base_dir: str = ".") -> list:
+def get_todo_resolver_tools(base_dir: str = ".") -> list[dspy.Tool]:
     """
     Get the full set of tools for todo resolution agents.
-    Includes: directory listing, codebase search, file reader, file editor,
-    file creator, context gathering, and system status.
+    Includes: directory listing, codebase search, semantic search, file reader,
+    file editor, file creator, gather context, and system status.
     """
     return [
         get_directory_tool(base_dir),
@@ -196,5 +202,6 @@ def get_todo_resolver_tools(base_dir: str = ".") -> list:
         get_file_reader_tool(base_dir),
         get_file_editor_tool(base_dir),
         get_file_creator_tool(base_dir),
+        get_gather_context_tool(),
         get_system_status_tool(),
     ]

@@ -49,3 +49,26 @@ def test_fetch_via_jina_success(mock_jina):
     result = fetcher.fetch("https://example.com/docs")
     assert result == "# Jina Content"
     mock_jina.assert_called_once()
+
+
+@patch("utils.web.documentation.DocumentationFetcher._fetch_via_jina")
+@patch("httpx.Client.get")
+def test_jina_failure_fallback_to_local(mock_get, mock_jina):
+    # Create fetcher with jina enabled
+    fetcher = DocumentationFetcher(use_jina=True)
+
+    # Mock Jina failure
+    mock_jina.side_effect = Exception("Jina service unavailable")
+
+    # Mock successful local HTML response
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.text = "<html><body><h1>Local Title</h1></body></html>"
+    mock_get.return_value = mock_response
+
+    # Should fall back to local parsing
+    result = fetcher.fetch("https://example.com/docs")
+
+    assert "# Local Title" in result
+    mock_jina.assert_called_once()
+    mock_get.assert_called_once()

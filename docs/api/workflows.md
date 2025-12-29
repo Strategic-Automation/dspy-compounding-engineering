@@ -191,7 +191,7 @@ All workflows use these common patterns:
 
 ### Knowledge Base Integration
 ```python
-from utils.knowledge_base import KnowledgeBase
+from utils.knowledge import KnowledgeBase
 
 kb = KnowledgeBase()
 learnings = kb.retrieve_relevant(query="security review", max_results=5)
@@ -200,7 +200,7 @@ learnings = kb.retrieve_relevant(query="security review", max_results=5)
 
 ### Git Operations
 ```python
-from utils.git_service import GitService
+from utils.git import GitService
 
 # Get diff
 diff = GitService.get_diff("HEAD")
@@ -211,7 +211,7 @@ GitService.create_feature_worktree("feature-x", "worktrees/feature-x")
 
 ### Project Context
 ```python
-from utils.project_context import ProjectContext
+from utils.context import ProjectContext
 
 context = ProjectContext(base_dir=".").get_context()
 # Returns: README + pyproject.toml + file tree
@@ -219,7 +219,7 @@ context = ProjectContext(base_dir=".").get_context()
 
 ### Todo Service
 ```python
-from utils.todo_service import create_finding_todo, complete_todo
+from utils.todo import create_finding_todo, complete_todo
 
 # Create
 todo_path = create_finding_todo(finding_dict, todos_dir="todos")
@@ -250,7 +250,7 @@ except Exception as e:
 Template:
 ```python
 from rich.console import Console
-from utils.knowledge_base import KnowledgeBase
+from utils.knowledge import KnowledgeBase
 
 console = Console()
 

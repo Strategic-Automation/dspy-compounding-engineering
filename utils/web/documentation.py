@@ -1,6 +1,5 @@
 from typing import Optional
 
-import dspy
 import httpx
 from bs4 import BeautifulSoup
 from markdownify import markdownify as md
@@ -71,17 +70,3 @@ class DocumentationFetcher:
                 f"Error: Unable to fetch documentation from {url} locally: {e}. "
                 "Please check the URL or try again later."
             )
-
-
-def get_documentation_tool():
-    """Returns the documentation tool for dspy agents."""
-    fetcher = DocumentationFetcher()
-
-    def fetch_documentation(url: str) -> str:
-        """
-        Fetches and parses official documentation from a given URL.
-        Use this to get up-to-date API references, guides, and examples.
-        """
-        return fetcher.fetch(url)
-
-    return dspy.Tool(fetch_documentation)

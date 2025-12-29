@@ -88,6 +88,7 @@ class ServiceRegistry:
                         "embeddings_ready": None,
                         "learnings_ensured": False,
                         "codebase_ensured": False,
+                        "kb_cache": None,
                     }
                     cls._instance.lock = threading.Lock()
         return cls._instance
@@ -98,28 +99,40 @@ class ServiceRegistry:
 
     def check_qdrant(self, force: bool = False) -> bool:
         """Check if Qdrant is available. Cached by default."""
-        if self._status["qdrant_available"] is not None and not force:
+        with self.lock:
+            if self._status["qdrant_available"] is not None and not force:
+                return self._status["qdrant_available"]
+
+            from qdrant_client import QdrantClient
+
+            qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
+            try:
+                client = QdrantClient(url=qdrant_url, timeout=1.0)
+                client.get_collections()
+                self._status["qdrant_available"] = True
+            except Exception:
+                from utils.io.logger import logger
+
+                self._status["qdrant_available"] = False
+                if not os.getenv("COMPOUNDING_QUIET"):
+                    logger.warning("Qdrant not available. Falling back to keyword search.")
             return self._status["qdrant_available"]
+
+    def get_qdrant_client(self):
+        """Returns a Qdrant client if available, or None."""
+        if not self.check_qdrant():
+            return None
 
         from qdrant_client import QdrantClient
 
         qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
-        try:
-            client = QdrantClient(url=qdrant_url, timeout=1.0)
-            client.get_collections()
-            self._status["qdrant_available"] = True
-        except Exception:
-            from utils.io.logger import logger
-
-            self._status["qdrant_available"] = False
-            if not os.getenv("COMPOUNDING_QUIET"):
-                logger.warning("Qdrant not available. Falling back to keyword search.")
-        return self._status["qdrant_available"]
+        return QdrantClient(url=qdrant_url, timeout=2.0)
 
     def check_api_keys(self, force: bool = False) -> bool:  # noqa: C901
         """Check if required API keys are available. Cached by default."""
-        if self._status["openai_key_available"] is not None and not force:
-            return self._status["openai_key_available"]
+        with self.lock:
+            if self._status["openai_key_available"] is not None and not force:
+                return self._status["openai_key_available"]
 
         provider = os.getenv("DSPY_LM_PROVIDER", "openai")
         emb_provider = os.getenv("EMBEDDING_PROVIDER")
@@ -158,6 +171,15 @@ class ServiceRegistry:
         final_available = available and (emb_available or emb_provider == "fastembed")
         self._status["openai_key_available"] = final_available
         return final_available
+
+    def get_kb(self, force: bool = False):
+        """Get or initialize the KnowledgeBase instance."""
+        with self.lock:
+            if self._status["kb_cache"] is None or force:
+                from utils.knowledge import KnowledgeBase
+
+                self._status["kb_cache"] = KnowledgeBase()
+            return self._status["kb_cache"]
 
 
 registry = ServiceRegistry()
