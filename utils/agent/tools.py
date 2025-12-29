@@ -63,7 +63,7 @@ def get_semantic_search_tool() -> dspy.Tool:
 
         output = []
         for r in results:
-            file_path = r.get("path", "unknown")
+            file_path = r.get("path", r.get("file_path", "unknown"))
             chunk = r.get("chunk_index", 0)
             content = r.get("content", "")[:500]  # Limit content preview
             score = r.get("score", 0)

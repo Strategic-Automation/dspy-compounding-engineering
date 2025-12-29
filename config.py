@@ -14,6 +14,10 @@ import subprocess
 import sys
 import threading
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from utils.knowledge import KnowledgeBase
 
 import dspy
 from dotenv import load_dotenv
@@ -120,13 +124,14 @@ class ServiceRegistry:
 
     def get_qdrant_client(self):
         """Returns a Qdrant client if available, or None."""
-        if not self.check_qdrant():
-            return None
+        with self.lock:
+            if not self.check_qdrant():
+                return None
 
-        from qdrant_client import QdrantClient
+            from qdrant_client import QdrantClient
 
-        qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
-        return QdrantClient(url=qdrant_url, timeout=2.0)
+            qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
+            return QdrantClient(url=qdrant_url, timeout=2.0)
 
     def check_api_keys(self, force: bool = False) -> bool:  # noqa: C901
         """Check if required API keys are available. Cached by default."""

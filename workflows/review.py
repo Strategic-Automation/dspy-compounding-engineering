@@ -302,7 +302,7 @@ def _execute_review_agents(code_diff: str) -> list[dict]:
     return findings
 
 
-def _extract_report_data(result) -> tuple[Optional[dict], Optional[Any]]:
+def _extract_report_data(result: Any) -> tuple[Optional[dict[str, Any]], Optional[Any]]:
     """Extract report data and report object from agent result."""
     if hasattr(result, "model_dump"):
         return result.model_dump(), result
@@ -332,7 +332,7 @@ def _extract_report_data(result) -> tuple[Optional[dict], Optional[Any]]:
     return None, None
 
 
-def _render_findings(findings: list) -> list[str]:
+def _render_findings(findings: list[dict[str, Any]]) -> list[str]:
     """Render findings list into markdown parts."""
     parts = ["## Detailed Findings\n"]
     for f in findings:
@@ -349,7 +349,7 @@ def _render_findings(findings: list) -> list[str]:
     return parts
 
 
-def _render_extra_fields(data: dict, captured_keys: set) -> list[str]:
+def _render_extra_fields(data: dict[str, Any], captured_keys: set[str]) -> list[str]:
     """Render remaining fields into markdown parts."""
     parts = []
     for key, value in data.items():
@@ -392,7 +392,7 @@ def _render_report_markdown(data: dict) -> str:
     return "\n".join(parts)
 
 
-def _process_agent_result(name: str, result) -> dict:
+def _process_agent_result(name: str, result: Any) -> dict[str, Any]:
     """Extract and format report from agent result."""
     report_data, report_obj = _extract_report_data(result)
 
