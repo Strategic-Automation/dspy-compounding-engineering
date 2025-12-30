@@ -38,15 +38,59 @@ def list_directory(path: str, base_dir: str = ".") -> str:
 
 def search_files(query: str, path: str = ".", regex: bool = False, base_dir: str = ".") -> str:
     """
-    Search for a string or regex in files at the given path using grep.
+    Search for a string or regex in files at the given path.
+    Uses git grep if available, otherwise falls back to grep -r with exclusions.
     """
     try:
         safe_path = validate_path(path, base_dir)
 
-        # Construct grep command
-        cmd = ["grep", "-r", "-n"]  # recursive, line number
+        # 1. Try git grep first (faster, respects .gitignore)
+        git_cmd = ["git", "grep", "-n"]
         if not regex:
-            cmd.append("-F")  # fixed string
+            git_cmd.append("-F")
+        git_cmd.append(query)
+        git_cmd.append(".")
+
+        try:
+            process = run_safe_command(
+                git_cmd,
+                cwd=safe_path,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if process.returncode == 0:
+                lines = process.stdout.splitlines()
+                if len(lines) > 50:
+                    return "\n".join(lines[:50]) + f"\n... and {len(lines) - 50} more matches"
+                return process.stdout
+            elif process.returncode == 1:
+                # No matches in git, but there might be untracked files
+                pass
+        except Exception:
+            # git command failed or not a git repo
+            pass
+
+        # 2. Fallback to standard grep with exclusions
+        cmd = ["grep", "-r", "-n"]
+        if not regex:
+            cmd.append("-F")
+
+        # Exclude large/irrelevant directories
+        exclude_dirs = [
+            ".venv",
+            "qdrant_storage",
+            ".git",
+            "site",
+            "__pycache__",
+            ".knowledge",
+            ".pytest_cache",
+            "plans",
+            "todos",
+        ]
+        for d in exclude_dirs:
+            cmd.append(f"--exclude-dir={d}")
+
         cmd.append(query)
         cmd.append(safe_path)
 
