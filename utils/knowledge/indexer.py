@@ -184,11 +184,18 @@ class CodebaseIndexer(CollectionManagerMixin):
             ".pdf",
         }
 
+        # directories to ignore
+        ignore_dirs = {"plans/", "todos/", "docs/", ".knowledge/", ".venv/", "site/", "qdrant_storage/"}
+
         with console.status(f"Indexing {len(files)} files...") as status:
             for filepath in files:
                 # Skip ignored extensions
                 _, ext = os.path.splitext(filepath)
                 if ext.lower() in ignore_exts:
+                    continue
+
+                # Skip ignored directories
+                if any(filepath.startswith(d) for d in ignore_dirs):
                     continue
 
                 full_path = os.path.join(root_dir, filepath)
