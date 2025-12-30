@@ -2,16 +2,14 @@ import glob
 import os
 import re
 
-from rich.console import Console
 from rich.markdown import Markdown
 from rich.prompt import Prompt
 from rich.table import Table
 
 from agents.workflow import TriageAgent
+from utils.io.logger import console
 from utils.knowledge import KBPredict
 from utils.todo import add_work_log_entry, complete_todo
-
-console = Console()
 
 
 def consistency_check_todos(todos_dir: str) -> None:
@@ -92,9 +90,9 @@ def run_triage():  # noqa: C901
     console.print(f"[bold]Found {len(pending_files)} pending items for triage.[/bold]\n")
 
     # Initialize KB-augmented triage predictor
-    triage_predictor = KBPredict(
+    triage_predictor = KBPredict.wrap(
         TriageAgent,
-        kb_tags=["triage", "code-review"],
+        kb_tags=["triage", "triage-decisions", "triage-sessions", "code-review"],
     )
 
     approved_count = 0

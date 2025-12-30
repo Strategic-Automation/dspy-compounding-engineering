@@ -75,11 +75,15 @@ class ReActPlanExecutor(dspy.Module):
 
     def __init__(self, base_dir: str = "."):
         super().__init__()
+        from utils.knowledge import KBPredict
+
         self.tools = get_todo_resolver_tools(base_dir)
-        self.react_agent = dspy.ReAct(
-            signature=PlanExecutionSignature, tools=self.tools, max_iters=20
+        react = dspy.ReAct(signature=PlanExecutionSignature, tools=self.tools, max_iters=20)
+        self.predictor = KBPredict.wrap(
+            react,
+            kb_tags=["work", "work-resolutions", "code-review", "triage-decisions"],
         )
 
     def forward(self, plan_content: str, plan_path: str):
         """Execute plan using ReAct reasoning."""
-        return self.react_agent(plan_content=plan_content, plan_path=plan_path)
+        return self.predictor(plan_content=plan_content, plan_path=plan_path)

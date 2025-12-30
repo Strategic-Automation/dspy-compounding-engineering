@@ -14,6 +14,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
+from filelock import FileLock
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     FieldCondition,
@@ -21,16 +22,13 @@ from qdrant_client.models import (
     MatchValue,
     PointStruct,
 )
-from rich.console import Console
 
-from ..io.logger import logger
+from ..io.logger import console, logger
 from ..security.scrubber import scrubber
 from .docs import KnowledgeDocumentation
 from .embeddings import EmbeddingProvider
 from .indexer import CodebaseIndexer
 from .utils import CollectionManagerMixin
-
-console = Console()
 
 
 class KnowledgeBase(CollectionManagerMixin):
@@ -41,11 +39,14 @@ class KnowledgeBase(CollectionManagerMixin):
     MAX_COLLECTION_NAME_LENGTH = 60
 
     def __init__(
-        self, knowledge_dir: str = ".knowledge", qdrant_client: Optional[QdrantClient] = None
+        self, knowledge_dir: Optional[str] = None, qdrant_client: Optional[QdrantClient] = None
     ):
-        from config import get_project_hash, registry
+        from config import get_project_hash, get_project_root, registry
 
-        self.knowledge_dir = knowledge_dir
+        if knowledge_dir is None:
+            knowledge_dir = os.path.join(str(get_project_root()), ".knowledge")
+
+        self.knowledge_dir = os.path.abspath(knowledge_dir)
         self._ensure_knowledge_dir()
         backups_dir = os.path.join(self.knowledge_dir, "backups")
         os.makedirs(backups_dir, exist_ok=True)
@@ -58,9 +59,10 @@ class KnowledgeBase(CollectionManagerMixin):
         # Docs Service
         self.docs_service = KnowledgeDocumentation(self.knowledge_dir)
 
-        # Initialize Qdrant Client (Decoupled)
         self.client = qdrant_client or registry.get_qdrant_client()
         self.vector_db_available = self.client is not None
+
+        logger.debug(f"KnowledgeBase initialized (Vector DB Available: {self.vector_db_available})")
 
         # Initialize Embedding Provider
         self.embedding_provider = EmbeddingProvider()
@@ -80,9 +82,18 @@ class KnowledgeBase(CollectionManagerMixin):
                 console.print("[yellow]Vector store empty. Syncing from disk...[/yellow]")
                 self._sync_to_qdrant()
         except Exception as e:
-            console.print(
-                f"[yellow]Could not check collection count (maybe connectivity issue): {e}[/yellow]"
-            )
+            logger.debug(f"Could not check collection count: {e}")
+
+        logger.info("KnowledgeBase service is ready", to_cli=True)
+
+    def get_codify_lock_path(self) -> str:
+        """Returns the path to the codify-specific lock file."""
+        return os.path.join(self.knowledge_dir, "codify.lock")
+
+    def get_lock(self, lock_type: str = "kb") -> "FileLock":
+        """Returns a FileLock instance for the specified type ('kb' or 'codify')."""
+        path = self.get_codify_lock_path() if lock_type == "codify" else self.lock_path
+        return FileLock(path)
 
     def _is_valid_url(self, url: str) -> bool:
         """Validate Qdrant URL format."""
@@ -123,9 +134,7 @@ class KnowledgeBase(CollectionManagerMixin):
         if not self.vector_db_available:
             return
 
-        from filelock import FileLock
-
-        lock = FileLock(self.lock_path)
+        lock = self.get_lock()
         with lock:
             files = glob.glob(os.path.join(self.knowledge_dir, "*.json"))
             total_files = len(files)
@@ -245,9 +254,7 @@ class KnowledgeBase(CollectionManagerMixin):
         learning["created_at"] = datetime.now().isoformat()
         learning["id"] = learning_id
 
-        from filelock import FileLock
-
-        lock = FileLock(self.lock_path)
+        lock = self.get_lock()
         try:
             with lock:
                 # 1. Save to Disk (Source of Truth/Backup)
@@ -388,9 +395,13 @@ class KnowledgeBase(CollectionManagerMixin):
         """
         Get a formatted string of relevant learnings for context injection.
         """
+        logger.debug(f"Retrieving relevant context for query: {query[:100]}... Tags: {tags}")
         learnings = self.retrieve_relevant(query, tags)
         if not learnings:
+            logger.debug("No relevant past learnings found for query.")
             return "No relevant past learnings found."
+
+        logger.debug(f"Found {len(learnings)} relevant learnings.")
 
         context = "## Relevant Past Learnings\\n\\n"
         for learning in learnings:
