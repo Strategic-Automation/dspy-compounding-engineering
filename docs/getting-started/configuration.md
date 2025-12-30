@@ -137,6 +137,31 @@ KB_MAX_RETRIEVED=10
 KB_SIMILARITY_THRESHOLD=0.6
 ```
 
+### Embedding Configuration
+
+Configure how the system generates vectors for semantic search and code indexing:
+
+```bash
+# Provider: openai, fastembed, openrouter, or ollama
+EMBEDDING_PROVIDER=openai
+
+# Model name (must match provider)
+EMBEDDING_MODEL=text-embedding-3-small
+
+# Custom API base if using local proxies or OpenRouter
+EMBEDDING_BASE_URL=https://...
+```
+
+**Supported Local Models:**
+
+-   **Mxbai**: `mxbai-embed-large:latest` (1024 dims) - High performance local embedding.
+-   **Nomic**: `nomic-embed-text` (768 dims).
+-   **Jina**: `jinaai/jina-embeddings-v2-small-en` (512 dims).
+
+!!! tip "FastEmbed Fallback"
+    If no `OPENAI_API_KEY` is found, the system automatically falls back to **FastEmbed** using the Jina small model for local execution.
+
+
 ## Verifying Configuration
 
 Test your configuration:
