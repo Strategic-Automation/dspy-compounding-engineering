@@ -40,6 +40,8 @@ dependencies = [
     "markdownify>=1.2.2",
     "httpx>=0.28.1",
     "loguru>=0.7.2",
+    "langfuse>=3.11.2",
+    "openinference-instrumentation-dspy>=0.1.32",
 ]
 
 

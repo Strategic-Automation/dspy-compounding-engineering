@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 import dspy
 from dotenv import load_dotenv
 
-from utils.io.logger import configure_logging, console
+from utils.io.logger import configure_logging, console, logger
 
 # =============================================================================
 # Project Utilities
@@ -342,6 +342,30 @@ def get_model_max_tokens(model_name: str, provider: str = "openai") -> int:
 def configure_dspy(env_file: str | None = None):
     """Configure DSPy with the appropriate LM provider and settings."""
     load_configuration(env_file)
+
+    # Langfuse Observability Integration (v2 - OpenInference)
+    if os.getenv("LANGFUSE_PUBLIC_KEY") and os.getenv("LANGFUSE_SECRET_KEY"):
+        # Map LANGFUSE_HOST to expected LANGFUSE_BASE_URL
+        if os.getenv("LANGFUSE_HOST") and not os.getenv("LANGFUSE_BASE_URL"):
+            os.environ["LANGFUSE_BASE_URL"] = os.environ["LANGFUSE_HOST"]
+
+        try:
+            from langfuse import get_client
+            from openinference.instrumentation.dspy import DSPyInstrumentor
+
+            # Initialize Langfuse client which registers the global OTEL TracerProvider
+            langfuse_client = get_client()
+
+            # This automatically handles tracing via OpenTelemetry to Langfuse
+            DSPyInstrumentor().instrument()
+
+            if not os.getenv("COMPOUNDING_QUIET"):
+                console.print("[dim]Langfuse observability (OpenInference) enabled.[/dim]")
+        except ImportError:
+            logger.warning("openinference-instrumentation-dspy not found. Tracing disabled.")
+        except Exception as e:
+            logger.error("Failed to initialize Langfuse tracing", detail=str(e))
+
     registry.check_qdrant()
     registry.check_api_keys()
 

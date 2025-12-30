@@ -34,7 +34,6 @@ class EmbeddingProvider:
 
     def __init__(self):
         self._resolve_config()
-        self._configure_vector_size()
         self._init_clients()
 
     def _resolve_config(self) -> None:
