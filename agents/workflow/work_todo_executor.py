@@ -77,9 +77,13 @@ class ReActTodoResolver(dspy.Module):
 
     def __init__(self, base_dir: str = "."):
         super().__init__()
+        from utils.knowledge import KBPredict
+
         self.tools = get_todo_resolver_tools(base_dir)
-        self.react_agent = dspy.ReAct(
-            signature=TodoResolutionSignature, tools=self.tools, max_iters=15
+        react = dspy.ReAct(signature=TodoResolutionSignature, tools=self.tools, max_iters=15)
+        self.predictor = KBPredict.wrap(
+            react,
+            kb_tags=["work", "work-resolutions", "code-review", "triage-decisions"],
         )
 
     def _sanitize_input(self, text: str) -> str:
@@ -92,4 +96,4 @@ class ReActTodoResolver(dspy.Module):
     def forward(self, todo_content: str, todo_id: str):
         """Resolve todo using ReAct reasoning."""
         clean_content = self._sanitize_input(todo_content)
-        return self.react_agent(todo_content=clean_content, todo_id=todo_id)
+        return self.predictor(todo_content=clean_content, todo_id=todo_id)

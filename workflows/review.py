@@ -5,7 +5,6 @@ import subprocess
 from typing import Any, Optional
 
 from pydantic import BaseModel
-from rich.console import Console
 from rich.markdown import Markdown
 from rich.progress import Progress
 from rich.table import Table
@@ -26,11 +25,9 @@ from agents.review import (
 )
 from utils.context import ProjectContext
 from utils.git import GitService
-from utils.io.logger import logger
+from utils.io.logger import console, logger
 from utils.knowledge import KBPredict
 from utils.todo import create_finding_todo
-
-console = Console()
 
 
 def detect_languages(code_content: str) -> set[str]:
@@ -169,7 +166,7 @@ def _gather_review_context(pr_url_or_id: str, project: bool = False) -> tuple[st
     try:
         if project:
             # Full project review - gather all source files
-            logger.info("Gathering project files...")
+            logger.info("Gathering project files...", to_cli=True)
             context_service = ProjectContext()
 
             audit_task = (
@@ -183,7 +180,7 @@ def _gather_review_context(pr_url_or_id: str, project: bool = False) -> tuple[st
             logger.success(f"Gathered {len(code_diff):,} characters of project code")
         elif pr_url_or_id == "latest":
             # Default to checking current staged/unstaged changes or HEAD
-            logger.info("Fetching local changes...")
+            logger.info("Fetching local changes...", to_cli=True)
             code_diff = GitService.get_diff("HEAD")
             summary = GitService.get_file_status_summary("HEAD")
 
@@ -198,7 +195,7 @@ def _gather_review_context(pr_url_or_id: str, project: bool = False) -> tuple[st
                 )
         else:
             # Fetch PR diff
-            logger.info(f"Fetching diff for {pr_url_or_id}...")
+            logger.info(f"Fetching diff for {pr_url_or_id}...", to_cli=True)
             code_diff = GitService.get_pr_diff(pr_url_or_id)
 
             # Create isolated worktree for PR
@@ -264,9 +261,9 @@ def _execute_review_agents(code_diff: str) -> list[dict]:
 
     def run_single_agent(name, agent_cls, diff):
         try:
-            predictor = KBPredict(
+            predictor = KBPredict.wrap(
                 agent_cls,
-                kb_tags=["code-review", name.lower().replace(" ", "-")],
+                kb_tags=["code-review", "code-review-patterns", name.lower().replace(" ", "-")],
             )
             return name, predictor(code_diff=diff)
         except Exception as e:
@@ -511,9 +508,9 @@ def run_review(pr_url_or_id: str, project: bool = False):
     Perform exhaustive multi-agent code review.
     """
     if project:
-        logger.info("Starting Full Project Review")
+        logger.info("Starting Full Project Review", to_cli=True)
     else:
-        logger.info(f"Starting Code Review: {pr_url_or_id}")
+        logger.info(f"Starting Code Review: {pr_url_or_id}", to_cli=True)
 
     # 1. Gather Context
     code_diff, worktree_path = _gather_review_context(pr_url_or_id, project)

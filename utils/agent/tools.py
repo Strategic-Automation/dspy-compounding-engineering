@@ -135,6 +135,7 @@ def get_research_tools(base_dir: str = ".") -> list[dspy.Tool]:
         get_semantic_search_tool(),  # Vector search for relevant code
         get_codebase_search_tool(base_dir),  # Grep-based keyword search
         get_file_reader_tool(base_dir),  # Read specific file sections
+        get_audit_logs_tool(),
     ]
 
 
@@ -148,6 +149,7 @@ def get_work_tools(base_dir: str = ".") -> list[dspy.Tool]:
         get_semantic_search_tool(),
         get_file_reader_tool(base_dir),
         get_directory_tool(base_dir),
+        get_audit_logs_tool(),
     ]
 
 
@@ -189,11 +191,26 @@ def get_system_status_tool() -> dspy.Tool:
     return dspy.Tool(get_system_status)
 
 
+def get_audit_logs_tool() -> dspy.Tool:
+    """Returns a tool for reading the system's audit logs."""
+    from utils.io.logger import logger
+
+    def get_audit_logs(limit: int = 100) -> str:
+        """
+        Retrieves the last N lines of the system's execution logs.
+        Use this to audit your own past actions, see error details,
+        or understand the full sequence of events in a workflow.
+        """
+        return logger.get_logs(limit=limit)
+
+    return dspy.Tool(get_audit_logs)
+
+
 def get_todo_resolver_tools(base_dir: str = ".") -> list[dspy.Tool]:
     """
     Get the full set of tools for todo resolution agents.
     Includes: directory listing, codebase search, semantic search, file reader,
-    file editor, file creator, gather context, and system status.
+    file editor, file creator, gather context, system status, and audit logs.
     """
     return [
         get_directory_tool(base_dir),
@@ -204,4 +221,5 @@ def get_todo_resolver_tools(base_dir: str = ".") -> list[dspy.Tool]:
         get_file_creator_tool(base_dir),
         get_gather_context_tool(),
         get_system_status_tool(),
+        get_audit_logs_tool(),
     ]
