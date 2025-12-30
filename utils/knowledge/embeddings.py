@@ -67,12 +67,13 @@ class EmbeddingProvider:
         if self.embedding_provider == "openrouter" and not self.embedding_base_url:
             self.embedding_base_url = "https://openrouter.ai/api/v1"
 
-    def _configure_vector_size(self) -> None:
-        """Determine vector size based on model."""
         DIMENSION_MAP = {
             "text-embedding-3-small": 1536,
             "text-embedding-3-large": 3072,
             "text-embedding-ada-002": 1536,
+            # mxbai models
+            "mxbai-embed-large:latest": 1024,
+            # Nomic Models
             "nomic-embed-text": 768,
             "all-MiniLM-L6-v2": 384,
             "all-MiniLM-L12-v2": 384,
@@ -90,6 +91,8 @@ class EmbeddingProvider:
                 self.vector_size = 768
             elif "minilm" in name.lower():
                 self.vector_size = 384
+            elif "mxbai-embed-large:latest" in self.embedding_model_name.lower():
+                self.vector_size = 1024
             else:
                 self.vector_size = 1536
 
