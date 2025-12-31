@@ -1,4 +1,5 @@
 import dspy
+from typing import ClassVar, Optional, Set
 from pydantic import Field
 
 from agents.review.schema import ReviewReport
@@ -52,7 +53,12 @@ class AgentNativeReviewer(dspy.Signature):
     4. Recommend Solutions: For each gap, suggest how to make it agent-native.
     """
 
+    __agent_name__: ClassVar[str] = "Agent Native Reviewer"
+    __agent_category__: ClassVar[str] = "agent-native"
+    __agent_severity__: ClassVar[str] = "p2"
+    applicable_languages: ClassVar[Optional[Set[str]]] = {"python"}
+
     code_diff: str = dspy.InputField(desc="The code changes to review")
-    agent_native_analysis: AgentNativeReport = dspy.OutputField(
+    review_report: AgentNativeReport = dspy.OutputField(
         desc="Structured agent-native capability analysis report"
     )

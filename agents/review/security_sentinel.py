@@ -1,4 +1,5 @@
 import dspy
+from typing import ClassVar, Optional, Set
 from pydantic import Field
 
 from agents.review.schema import ReviewReport
@@ -62,5 +63,10 @@ class SecuritySentinel(dspy.Signature):
     4. **Remediation Roadmap**: Prioritized action items
     """
 
+    __agent_name__: ClassVar[str] = "Security Sentinel"
+    __agent_category__: ClassVar[str] = "security"
+    __agent_severity__: ClassVar[str] = "p1"
+    applicable_languages: ClassVar[Optional[Set[str]]] = None
+
     code_diff: str = dspy.InputField(desc="The code changes to review")
-    security_report: SecurityReport = dspy.OutputField(desc="Structured security audit report")
+    review_report: SecurityReport = dspy.OutputField(desc="Structured security audit report")

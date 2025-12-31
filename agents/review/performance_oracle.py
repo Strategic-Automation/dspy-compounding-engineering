@@ -1,6 +1,7 @@
 from typing import List
 
 import dspy
+from typing import ClassVar, Optional, Set
 from pydantic import Field
 
 from agents.review.schema import ReviewFinding, ReviewReport
@@ -63,7 +64,12 @@ class PerformanceOracle(dspy.Signature):
     5. **Recommended Actions**: Prioritized list
     """
 
+    __agent_name__: ClassVar[str] = "Performance Oracle"
+    __agent_category__: ClassVar[str] = "performance"
+    __agent_severity__: ClassVar[str] = "p2"
+    applicable_languages: ClassVar[Optional[Set[str]]] = None
+
     code_diff: str = dspy.InputField(desc="The code changes to review")
-    performance_analysis: PerformanceReport = dspy.OutputField(
+    review_report: PerformanceReport = dspy.OutputField(
         desc="Structured performance analysis report"
     )

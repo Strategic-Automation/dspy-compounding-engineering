@@ -11,6 +11,7 @@ from config import registry
 from utils.io import list_directory, read_file_range, search_files
 from utils.web.documentation import DocumentationFetcher
 
+
 # --- Documentation Tools ---
 
 
@@ -26,6 +27,20 @@ def get_documentation_tool() -> dspy.Tool:
         return fetcher.fetch(url)
 
     return dspy.Tool(fetch_documentation)
+
+
+def get_search_learnings_tool() -> dspy.Tool:
+    """Returns a tool for retrieving codified best practices from the knowledge base."""
+
+    def search_learnings(query: str) -> str:
+        """
+        Retrieve codified best practices, past review patterns, and architectural insights.
+        Use this to ensure the new agent follows existing project standards and avoid known pitfalls.
+        """
+        kb = registry.get_kb()
+        return kb.get_context_string(query)
+
+    return dspy.Tool(search_learnings)
 
 
 # --- Codebase Exploration Tools ---
@@ -132,6 +147,7 @@ def get_research_tools(base_dir: str = ".") -> list[dspy.Tool]:
     """
     return [
         get_documentation_tool(),
+        get_search_learnings_tool(), # Internal best practices
         get_semantic_search_tool(),  # Vector search for relevant code
         get_codebase_search_tool(base_dir),  # Grep-based keyword search
         get_file_reader_tool(base_dir),  # Read specific file sections

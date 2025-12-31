@@ -3,12 +3,11 @@ import re
 
 from rich.console import Console
 
-from agents.research import (
-    BestPracticesResearcherModule,
-    FrameworkDocsResearcherModule,
-    RepoResearchAnalystModule,
-)
-from agents.workflow import PlanGenerator, SpecFlowAnalyzer
+from agents.research.best_practices_researcher import BestPracticesResearcherModule
+from agents.research.framework_docs_researcher import FrameworkDocsResearcherModule
+from agents.research.repo_research_analyst import RepoResearchAnalystModule
+from agents.workflow.plan_generator import PlanGenerator
+from agents.workflow.spec_flow_analyzer import SpecFlowAnalyzer
 from utils.knowledge import KBPredict, KnowledgeBase
 
 console = Console()

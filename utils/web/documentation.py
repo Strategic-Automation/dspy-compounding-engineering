@@ -168,8 +168,8 @@ class DocumentationFetcher:
         """
         try:
             parsed = urlparse(url)
-            hostname = parsed.hostname
-            safe_ip = self._get_safe_ip(hostname)
+            # Resolve hostname and get safe IP
+            safe_ip, error = self._get_safe_ip(hostname)
 
             if not safe_ip:
                 return (

@@ -9,7 +9,7 @@ from config import configure_dspy
 from utils.io import get_system_status
 from utils.knowledge import KnowledgeBase
 from workflows.codify import run_codify
-from workflows.generate_command import run_generate_command
+from workflows.generate_agent import run_generate_agent
 from workflows.plan import run_plan
 from workflows.review import run_review
 from workflows.triage import run_triage
@@ -113,6 +113,9 @@ def review(
     project: bool = typer.Option(
         False, "--project", "-p", help="Review entire project instead of just changes"
     ),
+    agent: Optional[list[str]] = typer.Option(
+        None, "--agent", "-a", help="Run only specific review agents (name or pattern)"
+    ),
 ):
     """
     Perform exhaustive multi-agent code reviews.
@@ -121,14 +124,35 @@ def review(
         compounding review              # Review local changes
         compounding review --project    # Review entire project
         compounding review 123          # Review PR #123
+        compounding review -a Security  # Run only security agent
     """
-    run_review(pr_url_or_id, project=project)
+    # Sanitize and validate agent filter
+    safe_agent_filter = None
+    if agent:
+        import re
+        safe_agent_filter = []
+        for a in agent:
+            # Enforce strict allow-list: alphanumeric, hyphen, underscore
+            # This prevents any potential regex or logging injection
+            if not re.match(r"^[a-zA-Z0-9\-_]+$", a):
+                logger.warning(f"Filtering term '{a}' contains invalid characters, skipping.")
+                continue
+            if len(a) > 50:
+                logger.warning(f"Filtering term '{a[:10]}...' too long, skipping.")
+                continue
+            safe_agent_filter.append(a)
+            
+        if not safe_agent_filter:
+            logger.warning("No valid agent filters provided.")
+            return
+
+    run_review(pr_url_or_id, project=project, agent_filter=safe_agent_filter)
 
 
 @app.command()
-def generate_command(
+def generate_agent(
     description: str = typer.Argument(
-        ..., help="Natural language description of what the command should do"
+        ..., help="Natural language description of what the review agent should check for"
     ),
     dry_run: bool = typer.Option(
         False,
@@ -138,18 +162,18 @@ def generate_command(
     ),
 ):
     """
-    Generate a new CLI command from a natural language description.
+    Generate a new Review Agent from a natural language description.
 
-    This meta-command creates new commands for the Compounding Engineering plugin.
-    It analyzes the description, designs an appropriate workflow and agents,
-    and generates all necessary code.
+    This meta-command creates new review agents for the multi-agent review system.
+    It analyzes the description, designs an appropriate scanning protocol,
+    and generates the agent code in agents/review/.
 
     Examples:
-        compounding generate-command "Create a command to format code"
-        compounding generate-command "Add a lint command that checks Python style"
-        compounding generate-command --dry-run "Create a deployment workflow"
+        compounding generate-agent "Check for SQL injection vulnerabilities"
+        compounding generate-agent "Ensure all Python functions have docstrings"
+        compounding generate-agent --dry-run "Audit for frontend race conditions"
     """
-    run_generate_command(description=description, dry_run=dry_run)
+    run_generate_agent(description=description, dry_run=dry_run)
 
 
 @app.command()

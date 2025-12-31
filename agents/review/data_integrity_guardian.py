@@ -1,4 +1,5 @@
 import dspy
+from typing import ClassVar, Optional, Set
 from pydantic import Field
 
 from agents.review.schema import ReviewReport
@@ -58,7 +59,12 @@ class DataIntegrityGuardian(dspy.Signature):
     4. Compliance with privacy regulations
     """
 
+    __agent_name__: ClassVar[str] = "Data Integrity Guardian"
+    __agent_category__: ClassVar[str] = "data-integrity"
+    __agent_severity__: ClassVar[str] = "p1"
+    applicable_languages: ClassVar[Optional[Set[str]]] = None
+
     code_diff: str = dspy.InputField(desc="The code changes to review")
-    data_integrity_report: DataIntegrityReport = dspy.OutputField(
+    review_report: DataIntegrityReport = dspy.OutputField(
         desc="Structured data integrity analysis report"
     )

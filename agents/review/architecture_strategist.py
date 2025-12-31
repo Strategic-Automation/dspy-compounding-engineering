@@ -1,4 +1,5 @@
 import dspy
+from typing import ClassVar, Optional, Set
 from pydantic import Field
 
 from agents.review.schema import ReviewReport
@@ -54,7 +55,12 @@ class ArchitectureStrategist(dspy.Signature):
     - Architectural decisions are properly documented when significant
     """
 
+    __agent_name__: ClassVar[str] = "Architecture Strategist"
+    __agent_category__: ClassVar[str] = "architecture"
+    __agent_severity__: ClassVar[str] = "p2"
+    applicable_languages: ClassVar[Optional[Set[str]]] = None
+
     code_diff: str = dspy.InputField(desc="The code changes to review")
-    architecture_analysis: ArchitectureReport = dspy.OutputField(
+    review_report: ArchitectureReport = dspy.OutputField(
         desc="Structured architectural analysis report"
     )
