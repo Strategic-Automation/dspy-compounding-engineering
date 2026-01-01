@@ -42,6 +42,35 @@ def get_search_learnings_tool() -> dspy.Tool:
     return dspy.Tool(search_learnings)
 
 
+# --- Search Tools ---
+
+
+def get_internet_search_tool() -> dspy.Tool:
+    """Returns a tool for searching the live internet for current information."""
+
+    def internet_search(query: str) -> str:
+        """
+        Search the internet for current best practices, standards, and information.
+        Returns a list of relevant URLs with titles and sources.
+        """
+        from utils.search import search_web
+
+        results = search_web(query)
+        if not results:
+            return "No search results found."
+
+        output = []
+        for r in results:
+            title = r.get("title", "No Title")
+            url = r.get("url", "No URL")
+            source = r.get("source", "Unknown")
+            output.append(f"- **{title}**\n  URL: {url}\n  Source: {source}")
+
+        return "\n\n".join(output)
+
+    return dspy.Tool(internet_search)
+
+
 # --- Codebase Exploration Tools ---
 
 
@@ -147,6 +176,7 @@ def get_research_tools(base_dir: str = ".") -> list[dspy.Tool]:
     return [
         get_documentation_tool(),
         get_search_learnings_tool(),  # Internal best practices
+        get_internet_search_tool(),  # Live internet search
         get_semantic_search_tool(),  # Vector search for relevant code
         get_codebase_search_tool(base_dir),  # Grep-based keyword search
         get_file_reader_tool(base_dir),  # Read specific file sections

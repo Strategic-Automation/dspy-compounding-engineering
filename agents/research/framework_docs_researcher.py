@@ -28,6 +28,7 @@ class FrameworkDocsResearcher(dspy.Signature):
 
     **Available Tools:**
     - `fetch_documentation(url)`: Fetch external documentation from a URL.
+    - `internet_search(query)`: Search the live internet for current information and URLs.
     - `semantic_search(query, limit)`: Vector search for relevant code by meaning.
     - `search_codebase(query, path)`: Grep-based keyword search in project files.
     - `read_file(file_path, start_line, end_line)`: Read specific file sections.
