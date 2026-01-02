@@ -246,21 +246,27 @@ def _gather_review_context(pr_url_or_id: str, project: bool = False) -> tuple[st
         else:
             # Fetch PR diff
             logger.info(f"Fetching diff for {pr_url_or_id}...", to_cli=True)
-            code_diff = GitService.get_pr_diff(pr_url_or_id)
+            code_diff = GitService.get_diff(pr_url_or_id)
 
-            # Create isolated worktree for PR
+            # Create isolated worktree for PRs only
             try:
-                safe_id = "".join(c for c in pr_url_or_id if c.isalnum() or c in ("-", "_"))
-                worktree_path = f"worktrees/review-{safe_id}"
+                is_pr = pr_url_or_id.startswith("http") or pr_url_or_id.isdigit()
+                is_file = os.path.isfile(pr_url_or_id)
 
-                if os.path.exists(worktree_path):
-                    console.print(
-                        f"[yellow]Worktree {worktree_path} already exists. Using it.[/yellow]"
-                    )
+                if is_pr and not is_file:
+                    safe_id = "".join(c for c in pr_url_or_id if c.isalnum() or c in ("-", "_"))
+                    worktree_path = f"worktrees/review-{safe_id}"
+
+                    if os.path.exists(worktree_path):
+                        console.print(
+                            f"[yellow]Worktree {worktree_path} already exists. Using it.[/yellow]"
+                        )
+                    else:
+                        console.print(f"[cyan]Creating isolated worktree at {worktree_path}...[/cyan]")
+                        GitService.checkout_pr_worktree(pr_url_or_id, worktree_path)
+                        console.print("[green]✓ Worktree created[/green]")
                 else:
-                    console.print(f"[cyan]Creating isolated worktree at {worktree_path}...[/cyan]")
-                    GitService.checkout_pr_worktree(pr_url_or_id, worktree_path)
-                    console.print("[green]✓ Worktree created[/green]")
+                    worktree_path = None
             except Exception as e:
                 console.print(
                     "[yellow]Warning: Could not create worktree "
@@ -268,13 +274,13 @@ def _gather_review_context(pr_url_or_id: str, project: bool = False) -> tuple[st
                 )
 
         if not code_diff:
-            logger.error("No diff found to review!")
+            logger.error(f"No changes found to review for: {pr_url_or_id}!")
             return None, None
 
-    except Exception:
-        logger.error("Error fetching PR content. Please check git and gh CLI status.")
+    except Exception as e:
+        logger.error(f"Error gathering review context: {e}")
         console.print("[yellow]Falling back to placeholder diff for demonstration...[/yellow]")
-        code_diff = "# Placeholder diff (Git fetch failed)\n# Ensure git and gh CLI are installed"
+        code_diff = "# Placeholder diff (Context gathering failed)\n# Check your arguments"
 
     return code_diff, worktree_path
 
