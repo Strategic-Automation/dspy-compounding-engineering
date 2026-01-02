@@ -2,8 +2,6 @@
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 
 @patch("utils.search.ddg_search.DDGS")
 def test_search_web_success(mock_ddgs_class):

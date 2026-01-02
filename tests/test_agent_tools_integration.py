@@ -1,8 +1,10 @@
 """Tests for centralized tool integration."""
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
+
 import dspy
-from utils.agent.tools import get_research_tools, get_internet_search_tool
+
+from utils.agent.tools import get_internet_search_tool, get_research_tools
 
 
 def _get_tool_name(tool):
@@ -29,7 +31,7 @@ def _get_tool_desc(tool):
 def test_internet_search_tool_creation():
     """Test that the internet search tool is created correctly."""
     tool = get_internet_search_tool()
-    
+
     assert isinstance(tool, dspy.Tool)
     assert _get_tool_name(tool) == "internet_search"
     assert "Search the internet" in _get_tool_desc(tool)
@@ -38,7 +40,7 @@ def test_internet_search_tool_creation():
 def test_research_tools_bundle_includes_search():
     """Test that the research tools bundle includes the internet search tool."""
     tools = get_research_tools()
-    
+
     tool_names = [_get_tool_name(t) for t in tools]
     assert "internet_search" in tool_names
     assert "fetch_documentation" in tool_names
@@ -47,14 +49,12 @@ def test_research_tools_bundle_includes_search():
 def test_internet_search_tool_execution():
     """Test the execution of the internet search tool (with mocks)."""
     tool = get_internet_search_tool()
-    
-    mock_results = [
-        {"title": "Test Title", "url": "https://test.com", "source": "DuckDuckGo"}
-    ]
-    
-    with patch("utils.search.search_web", return_value=mock_results):
+
+    mock_results = [{"title": "Test Title", "url": "https://test.com", "source": "DuckDuckGo"}]
+
+    with patch("utils.search.ddg_search.search_web", return_value=mock_results):
         result = tool.func("test query")
-        
+
         assert "Test Title" in result
         assert "https://test.com" in result
         assert "DuckDuckGo" in result
@@ -63,7 +63,7 @@ def test_internet_search_tool_execution():
 def test_internet_search_tool_empty_results():
     """Test the execution of the internet search tool with no results."""
     tool = get_internet_search_tool()
-    
-    with patch("utils.search.search_web", return_value=[]):
+
+    with patch("utils.search.ddg_search.search_web", return_value=[]):
         result = tool.func("test query")
         assert "No search results found" in result

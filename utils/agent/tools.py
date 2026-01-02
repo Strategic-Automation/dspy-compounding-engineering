@@ -53,20 +53,9 @@ def get_internet_search_tool() -> dspy.Tool:
         Search the internet for current best practices, standards, and information.
         Returns a list of relevant URLs with titles and sources.
         """
-        from utils.search import search_web
+        from utils.search import internet_search as run_search
 
-        results = search_web(query)
-        if not results:
-            return "No search results found."
-
-        output = []
-        for r in results:
-            title = r.get("title", "No Title")
-            url = r.get("url", "No URL")
-            source = r.get("source", "Unknown")
-            output.append(f"- **{title}**\n  URL: {url}\n  Source: {source}")
-
-        return "\n\n".join(output)
+        return run_search(query)
 
     return dspy.Tool(internet_search)
 
