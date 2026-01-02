@@ -158,9 +158,9 @@ Creates:
 
 ---
 
-### generate_command.py
+### generate_agent.py
 
-**Function**: `run_generate_command(description: str, dry_run: bool = False)`
+**Function**: `run_generate_agent(description: str, dry_run: bool = False)`
 
 Meta-command to generate new CLI commands from natural language.
 
@@ -176,7 +176,7 @@ Meta-command to generate new CLI commands from natural language.
 
 **Example**:
 ```bash
-uv run python cli.py generate-command "Create a command to format all Python files"
+uv run python cli.py generate-agent "Create a command to format all Python files"
 ```
 
 Generates:

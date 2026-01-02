@@ -74,6 +74,46 @@ def detect_languages(code_content: str) -> set[str]:
     return languages
 
 
+def _validate_agent_class(
+    name: str, obj: Any, module_name: str, full_module_name: str
+) -> Optional[tuple[str, Type[dspy.Signature], Optional[Set[str]], str, str]]:
+    """Validate and extract metadata from a potential reviewer class."""
+    if not (
+        inspect.isclass(obj)
+        and issubclass(obj, dspy.Signature)
+        and obj.__module__ == full_module_name
+        and obj is not dspy.Signature
+    ):
+        return None
+
+    # Extract metadata with safe fallbacks
+    agent_name = getattr(obj, "__agent_name__", None)
+    if not agent_name:
+        agent_name = re.sub(r"(?<!^)(?=[A-Z])", " ", obj.__name__)
+
+    applicable_langs = getattr(obj, "applicable_languages", None)
+    category = getattr(obj, "__agent_category__", "code-review")
+    severity = getattr(obj, "__agent_severity__", "p2")
+
+    # Import shared constants
+    from agents.review import VALID_CATEGORIES, VALID_SEVERITIES
+
+    if category not in VALID_CATEGORIES:
+        logger.warning(f"Skipping {agent_name}: Invalid category '{category}'")
+        return None
+
+    if severity not in VALID_SEVERITIES:
+        logger.warning(f"Skipping {agent_name}: Invalid severity '{severity}'")
+        return None
+
+    # Ensure the agent has at least one output field to be useful
+    if not obj.output_fields:
+        logger.warning(f"Skipping reviewer {name} in {module_name}: No output fields defined.")
+        return None
+
+    return agent_name, obj, applicable_langs, category, severity
+
+
 def discover_reviewers() -> list[tuple[str, Type[dspy.Signature], Optional[Set[str]], str, str]]:
     """
     Dynamically discover all review agents in the agents.review package.
@@ -97,39 +137,9 @@ def discover_reviewers() -> list[tuple[str, Type[dspy.Signature], Optional[Set[s
             module = importlib.import_module(full_module_name)
             for name, obj in inspect.getmembers(module):
                 try:
-                    if (
-                        inspect.isclass(obj)
-                        and issubclass(obj, dspy.Signature)
-                        and obj.__module__ == full_module_name
-                        and obj is not dspy.Signature
-                    ):
-                        # Extract metadata with safe fallbacks
-                        agent_name = getattr(obj, "__agent_name__", None)
-                        if not agent_name:
-                            agent_name = re.sub(r"(?<!^)(?=[A-Z])", " ", obj.__name__)
-
-                        applicable_langs = getattr(obj, "applicable_languages", None)
-                        category = getattr(obj, "__agent_category__", "code-review")
-                        severity = getattr(obj, "__agent_severity__", "p2")
-
-                        # Validate metadata against whitelists
-                        valid_categories = {"code-review", "security", "performance", "architecture", "simplicity", "agent-native", "rails", "frontend", "data-integrity"}
-                        valid_severities = {"p1", "p2", "p3"}
-
-                        if category not in valid_categories:
-                            logger.warning(f"Skipping {agent_name}: Invalid category '{category}'")
-                            continue
-
-                        if severity not in valid_severities:
-                            logger.warning(f"Skipping {agent_name}: Invalid severity '{severity}'")
-                            continue
-
-                        # Ensure the agent has at least one output field to be useful
-                        if not obj.output_fields:
-                            logger.warning(f"Skipping reviewer {name} in {module_name}: No output fields defined.")
-                            continue
-
-                        reviewers.append((agent_name, obj, applicable_langs, category, severity))
+                    reviewer = _validate_agent_class(name, obj, module_name, full_module_name)
+                    if reviewer:
+                        reviewers.append(reviewer)
                 except Exception as class_err:
                     logger.error(f"Error inspecting class {name} in {module_name}: {class_err}")
         except Exception as e:
@@ -269,6 +279,35 @@ def _gather_review_context(pr_url_or_id: str, project: bool = False) -> tuple[st
     return code_diff, worktree_path
 
 
+def _filter_applicable_reviewers(
+    review_config: list, detected_langs: set, agent_filter: Optional[list[str]]
+) -> tuple[list, list]:
+    """Filter reviewers based on languages and optional filter."""
+    review_agents = []
+    skipped_reviewers = []
+
+    for name, cls, applicable_langs, category, severity in review_config:
+        # Check if agent is in filter (case-insensitive)
+        if agent_filter:
+            matches_filter = False
+            for f in agent_filter:
+                if not f or len(f) > 50:
+                    continue
+                if re.search(rf"\b{re.escape(f)}\b", name, re.IGNORECASE):
+                    matches_filter = True
+                    break
+            if not matches_filter:
+                continue
+
+        norm_langs = {lang.lower() for lang in applicable_langs} if applicable_langs else None
+        if norm_langs is None or (norm_langs & detected_langs):
+            review_agents.append((name, cls, category, severity))
+        else:
+            skipped_reviewers.append(name)
+
+    return review_agents, skipped_reviewers
+
+
 def _execute_review_agents(code_diff: str, agent_filter: Optional[list[str]] = None) -> list[dict]:
     """Filter and run applicable review agents."""
     # Detect languages in the code
@@ -284,30 +323,9 @@ def _execute_review_agents(code_diff: str, agent_filter: Optional[list[str]] = N
     review_config = discover_reviewers()
 
     # Filter reviewers based on detected languages and agent_filter
-    review_agents = []
-    skipped_reviewers = []
-    for name, cls, applicable_langs, category, severity in review_config:
-        # Check if agent is in filter (case-insensitive)
-        if agent_filter:
-            # Case-insensitive word boundary match
-            matches_filter = False
-            for f in agent_filter:
-                # Sanity check: limit length of filter term to prevent ReDoS
-                if not f or len(f) > 50:
-                    continue
-                # Use a simple word boundary search
-                if re.search(rf"\b{re.escape(f)}\b", name, re.IGNORECASE):
-                    matches_filter = True
-                    break
-
-            if not matches_filter:
-                continue
-
-        norm_langs = {l.lower() for l in applicable_langs} if applicable_langs else None
-        if norm_langs is None or (norm_langs & detected_langs):
-            review_agents.append((name, cls, category, severity))
-        else:
-            skipped_reviewers.append(name)
+    review_agents, skipped_reviewers = _filter_applicable_reviewers(
+        review_config, detected_langs, agent_filter
+    )
 
     if skipped_reviewers:
         console.print(
@@ -334,9 +352,7 @@ def _execute_review_agents(code_diff: str, agent_filter: Optional[list[str]] = N
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             future_to_agent = {
-                executor.submit(
-                    run_single_agent, name, cls, code_diff
-                ): (name, category, severity)
+                executor.submit(run_single_agent, name, cls, code_diff): (name, category, severity)
                 for name, cls, category, severity in review_agents
             }
 
@@ -348,7 +364,14 @@ def _execute_review_agents(code_diff: str, agent_filter: Optional[list[str]] = N
                 try:
                     name, result = future.result()
                     if isinstance(result, str) and result.startswith("Error:"):
-                        findings.append({"agent": name, "review": result, "category": agent_cat, "severity": agent_sev})
+                        findings.append(
+                            {
+                                "agent": name,
+                                "review": result,
+                                "category": agent_cat,
+                                "severity": agent_sev,
+                            }
+                        )
                         continue
 
                     # Process and format report
@@ -376,7 +399,7 @@ def _extract_report_data(result: Any) -> tuple[Optional[dict[str, Any]], Optiona
     # Standard field for all unified agents
     standard_field = "review_report"
 
-    # Check for the standard field first
+    # Check for the standard field
     if hasattr(result, standard_field):
         val = getattr(result, standard_field)
         if hasattr(val, "model_dump"):
@@ -384,21 +407,11 @@ def _extract_report_data(result: Any) -> tuple[Optional[dict[str, Any]], Optiona
         if isinstance(val, dict):
             return val, None
 
-    # Minimal fallback for any un-migrated or special agents
-    legacy_fields = [
-        "review_comments", "security_report", "performance_analysis",
-        "architecture_analysis", "simplification_analysis"
-    ]
-    for field_name in legacy_fields:
-        if hasattr(result, field_name):
-            val = getattr(result, field_name)
-            if hasattr(val, "model_dump"):
-                return val.model_dump(), val
-            if isinstance(val, dict):
-                return val, None
-
     # Log a warning if no report field was found
-    logger.warning(f"No valid report field found in agent result. Output fields: {getattr(result, '_output_fields', 'unknown')}")
+    logger.warning(
+        f"No standard 'review_report' field found in agent result. "
+        f"Output fields: {getattr(result, '_output_fields', 'unknown')}"
+    )
     return None, None
 
 
@@ -481,7 +494,9 @@ def _process_agent_result(name: str, result: Any) -> dict[str, Any]:
     return finding_data
 
 
-def _map_agent_to_todo(agent_name: str, discovered_metadata: Optional[dict] = None) -> tuple[str, str]:
+def _map_agent_to_todo(
+    agent_name: str, discovered_metadata: Optional[dict] = None
+) -> tuple[str, str]:
     """Map agent name to category and priority."""
     if discovered_metadata:
         return discovered_metadata.get("category", "code-review"), discovered_metadata.get(
@@ -548,7 +563,9 @@ def _create_review_todos(findings: list[dict]) -> None:
 
         cat_val = finding.get("category")
         sev_val = finding.get("severity")
-        category, severity = _map_agent_to_todo(agent_name, {"category": cat_val, "severity": sev_val})
+        category, severity = _map_agent_to_todo(
+            agent_name, {"category": cat_val, "severity": sev_val}
+        )
         finding_data = {
             "agent": agent_name,
             "review": review_text,

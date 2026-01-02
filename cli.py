@@ -6,7 +6,7 @@ import typer
 from rich.console import Console
 
 from config import configure_dspy
-from utils.io import get_system_status
+from utils.io import get_system_status, validate_agent_filters
 from utils.knowledge import KnowledgeBase
 from workflows.codify import run_codify
 from workflows.generate_agent import run_generate_agent
@@ -113,9 +113,10 @@ def review(
     project: bool = typer.Option(
         False, "--project", "-p", help="Review entire project instead of just changes"
     ),
-    agent: Optional[list[str]] = typer.Option(
-        None, "--agent", "-a", help="Run only specific review agents (name or pattern)"
-    ),
+    agent: Annotated[
+        Optional[list[str]],
+        typer.Option("--agent", "-a", help="Run only specific review agents (name or pattern)"),
+    ] = None,
 ):
     """
     Perform exhaustive multi-agent code reviews.
@@ -127,24 +128,9 @@ def review(
         compounding review -a Security  # Run only security agent
     """
     # Sanitize and validate agent filter
-    safe_agent_filter = None
-    if agent:
-        import re
-        safe_agent_filter = []
-        for a in agent:
-            # Enforce strict allow-list: alphanumeric, hyphen, underscore
-            # This prevents any potential regex or logging injection
-            if not re.match(r"^[a-zA-Z0-9\-_]+$", a):
-                logger.warning(f"Filtering term '{a}' contains invalid characters, skipping.")
-                continue
-            if len(a) > 50:
-                logger.warning(f"Filtering term '{a[:10]}...' too long, skipping.")
-                continue
-            safe_agent_filter.append(a)
-
-        if not safe_agent_filter:
-            logger.warning("No valid agent filters provided.")
-            return
+    safe_agent_filter = validate_agent_filters(agent) if agent else None
+    if agent and safe_agent_filter is None:
+        return
 
     run_review(pr_url_or_id, project=project, agent_filter=safe_agent_filter)
 
@@ -227,7 +213,7 @@ def compress_kb(
 
 @app.command()
 def index(
-    root_dir: Annotated[str, typer.Option("--dir", "-d", help="Root directory to index")] = ".",
+    root_dir: str = typer.Option(".", "--dir", "-d", help="Root directory to index"),
     recreate: Annotated[
         bool, typer.Option("--recreate", "-r", help="Force recreation of the vector collection")
     ] = False,

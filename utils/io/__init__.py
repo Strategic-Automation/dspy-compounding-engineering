@@ -11,6 +11,7 @@ from .safe import (
     safe_delete,
     safe_write,
     skip_ai_commands,
+    validate_agent_filters,
     validate_path,
 )
 from .status import get_system_status
@@ -27,5 +28,6 @@ __all__ = [
     "safe_delete",
     "safe_write",
     "skip_ai_commands",
+    "validate_agent_filters",
     "validate_path",
 ]

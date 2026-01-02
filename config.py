@@ -14,7 +14,7 @@ import subprocess
 import sys
 import threading
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     pass
@@ -111,6 +111,23 @@ class ServiceRegistry:
         with self.lock:
             return self._status.copy()
 
+    def update_status(self, key: str, value: Any):
+        """Update a status flag safely."""
+        with self.lock:
+            self._status[key] = value
+
+    def reset(self):
+        """Reset all status flags for testing."""
+        with self.lock:
+            self._status = {
+                "qdrant_available": None,
+                "openai_key_available": None,
+                "embeddings_ready": None,
+                "learnings_ensured": False,
+                "codebase_ensured": False,
+                "service_ready": False,
+            }
+
     def check_qdrant(self, force: bool = False) -> bool:
         """Check if Qdrant is available. Cached by default."""
         with self.lock:
@@ -119,7 +136,7 @@ class ServiceRegistry:
 
             from qdrant_client import QdrantClient
 
-            qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
+            qdrant_url = settings.qdrant_url
             try:
                 client = QdrantClient(url=qdrant_url, timeout=1.0)
                 client.get_collections()
@@ -128,7 +145,7 @@ class ServiceRegistry:
                 from utils.io.logger import logger
 
                 self._status["qdrant_available"] = False
-                if not os.getenv("COMPOUNDING_QUIET"):
+                if not settings.quiet:
                     logger.warning("Qdrant not available. Falling back to keyword search.")
             return self._status["qdrant_available"]
 
@@ -140,7 +157,7 @@ class ServiceRegistry:
 
             from qdrant_client import QdrantClient
 
-            qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
+            qdrant_url = settings.qdrant_url
             return QdrantClient(url=qdrant_url, timeout=2.0)
 
     def check_api_keys(self, force: bool = False) -> bool:
@@ -150,7 +167,7 @@ class ServiceRegistry:
                 return self._status["openai_key_available"]
 
         # Check LM provider keys
-        lm_provider = os.getenv("DSPY_LM_PROVIDER", "openai")
+        lm_provider = settings.dspy_lm_provider
         lm_available = self._check_provider_key(lm_provider)
 
         # Check Embedding provider keys
@@ -192,7 +209,28 @@ class ServiceRegistry:
             return self._status["kb_cache"]
 
 
+class AppConfig:
+    """Unified configuration for Compounding Engineering."""
+
+    def __init__(self):
+        self.load()
+
+    def load(self):
+        """Load settings from environment variables."""
+        self.context_window_limit = int(os.getenv("CONTEXT_WINDOW_LIMIT", "128000"))
+        self.context_output_reserve = int(os.getenv("CONTEXT_OUTPUT_RESERVE", "4096"))
+        self.default_max_tokens = int(os.getenv("DSPY_MAX_TOKENS", "16384"))
+        self.quiet = bool(os.getenv("COMPOUNDING_QUIET"))
+        self.log_path = os.getenv("COMPOUNDING_LOG_PATH", "compounding.log")
+        self.log_level = os.getenv("COMPOUNDING_LOG_LEVEL", "INFO")
+        self.qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
+        self.dspy_lm_provider = os.getenv("DSPY_LM_PROVIDER", "openai")
+        self.dspy_lm_model = os.getenv("DSPY_LM_MODEL", "gpt-4.1")
+
+
+# Global Registry and Config instances
 registry = ServiceRegistry()
+settings = AppConfig()
 
 
 # =============================================================================
@@ -231,6 +269,8 @@ def load_configuration(env_file: str | None = None) -> None:
             is_primary = not seen_paths
             load_dotenv(dotenv_path=path, override=is_primary)
             seen_paths.add(path)
+            # Refresh settings after loading .env
+            settings.load()
         elif path_val == env_file:
             console.print(f"[bold red]Error:[/bold red] Env file '{env_file}' not found.")
             sys.exit(1)
@@ -240,9 +280,25 @@ def load_configuration(env_file: str | None = None) -> None:
 # Context & Token Configuration
 # =============================================================================
 
-CONTEXT_WINDOW_LIMIT = int(os.getenv("CONTEXT_WINDOW_LIMIT", "128000"))
-CONTEXT_OUTPUT_RESERVE = int(os.getenv("CONTEXT_OUTPUT_RESERVE", "4096"))
-DEFAULT_MAX_TOKENS = int(os.getenv("DSPY_MAX_TOKENS", "16384"))
+# These are kept as properties that pull from the global 'settings' instance
+# to maintain backward compatibility while centralizing loading.
+
+
+def get_context_window_limit():
+    return settings.context_window_limit
+
+
+def get_context_output_reserve():
+    return settings.context_output_reserve
+
+
+def get_default_max_tokens():
+    return settings.default_max_tokens
+
+
+CONTEXT_WINDOW_LIMIT = settings.context_window_limit
+CONTEXT_OUTPUT_RESERVE = settings.context_output_reserve
+DEFAULT_MAX_TOKENS = settings.default_max_tokens
 
 TIER_1_FILES = [
     "pyproject.toml",
@@ -339,38 +395,43 @@ def get_model_max_tokens(model_name: str, provider: str = "openai") -> int:
 # =============================================================================
 
 
+def _configure_observability():
+    """Initialize Langfuse observability if keys are present."""
+    if not (os.getenv("LANGFUSE_PUBLIC_KEY") and os.getenv("LANGFUSE_SECRET_KEY")):
+        return
+
+    # Map LANGFUSE_HOST to expected LANGFUSE_BASE_URL
+    if os.getenv("LANGFUSE_HOST") and not os.getenv("LANGFUSE_BASE_URL"):
+        os.environ["LANGFUSE_BASE_URL"] = os.environ["LANGFUSE_HOST"]
+
+    try:
+        from langfuse import get_client
+        from openinference.instrumentation.dspy import DSPyInstrumentor
+
+        # Initialize Langfuse client which registers the global OTEL TracerProvider
+        get_client()
+
+        # This automatically handles tracing via OpenTelemetry to Langfuse
+        DSPyInstrumentor().instrument()
+
+        if not os.getenv("COMPOUNDING_QUIET"):
+            console.print("[dim]Langfuse observability (OpenInference) enabled.[/dim]")
+    except ImportError:
+        logger.warning("openinference-instrumentation-dspy not found. Tracing disabled.")
+    except Exception as e:
+        logger.error("Failed to initialize Langfuse tracing", detail=str(e))
+
+
 def configure_dspy(env_file: str | None = None):
     """Configure DSPy with the appropriate LM provider and settings."""
     load_configuration(env_file)
-
-    # Langfuse Observability Integration (v2 - OpenInference)
-    if os.getenv("LANGFUSE_PUBLIC_KEY") and os.getenv("LANGFUSE_SECRET_KEY"):
-        # Map LANGFUSE_HOST to expected LANGFUSE_BASE_URL
-        if os.getenv("LANGFUSE_HOST") and not os.getenv("LANGFUSE_BASE_URL"):
-            os.environ["LANGFUSE_BASE_URL"] = os.environ["LANGFUSE_HOST"]
-
-        try:
-            from langfuse import get_client
-            from openinference.instrumentation.dspy import DSPyInstrumentor
-
-            # Initialize Langfuse client which registers the global OTEL TracerProvider
-            langfuse_client = get_client()
-
-            # This automatically handles tracing via OpenTelemetry to Langfuse
-            DSPyInstrumentor().instrument()
-
-            if not os.getenv("COMPOUNDING_QUIET"):
-                console.print("[dim]Langfuse observability (OpenInference) enabled.[/dim]")
-        except ImportError:
-            logger.warning("openinference-instrumentation-dspy not found. Tracing disabled.")
-        except Exception as e:
-            logger.error("Failed to initialize Langfuse tracing", detail=str(e))
+    _configure_observability()
 
     registry.check_qdrant()
     registry.check_api_keys()
 
-    provider = os.getenv("DSPY_LM_PROVIDER", "openai")
-    model_name = os.getenv("DSPY_LM_MODEL", "gpt-4.1")
+    provider = settings.dspy_lm_provider
+    model_name = settings.dspy_lm_model
     max_tokens = get_model_max_tokens(model_name, provider)
 
     if provider == "openai":

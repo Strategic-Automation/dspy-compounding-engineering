@@ -161,7 +161,9 @@ class SystemLogger:
         loguru_logger.opt(depth=2).log(level.upper(), log_msg)
 
         # Route to CLI
-        if to_cli and not SystemLogger._is_quiet():
+        # Errors and warnings bypass quiet mode to ensure visibility
+        bypass_quiet = level.lower() in ["error", "warning"]
+        if to_cli and (bypass_quiet or not SystemLogger._is_quiet()):
             cli_msg = f"{prefix} {scrubbed_msg}".strip()
             if level.lower() == "info":
                 console.log(f"[dim]{cli_msg}[/dim]")

@@ -67,6 +67,4 @@ class CodeSimplicityReviewer(dspy.Signature):
     applicable_languages: ClassVar[Optional[Set[str]]] = None
 
     code_diff: str = dspy.InputField(desc="The code changes to review")
-    review_report: SimplicityReport = dspy.OutputField(
-        desc="Structured simplicity analysis report"
-    )
+    review_report: SimplicityReport = dspy.OutputField(desc="Structured simplicity analysis report")

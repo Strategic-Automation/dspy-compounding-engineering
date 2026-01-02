@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, List, Union
+from typing import Dict, List, Optional, Union
 
 from rich.console import Console
 
@@ -36,6 +36,76 @@ def list_directory(path: str, base_dir: str = ".") -> str:
         return f"Error listing directory: {str(e)}"
 
 
+def _format_grep_result(process, max_lines: int = 50) -> str:
+    """Format grep process output with a line limit."""
+    if process.returncode == 0:
+        lines = process.stdout.splitlines()
+        if len(lines) > max_lines:
+            return "\n".join(lines[:max_lines]) + f"\n... and {len(lines) - max_lines} more matches"
+        return process.stdout
+    elif process.returncode == 1:
+        return "No matches found."
+    else:
+        return f"Error searching files: {process.stderr}"
+
+
+def _run_git_grep(query: str, safe_path: str, regex: bool) -> Optional[str]:
+    """Helper to run git grep."""
+    git_cmd = ["git", "grep", "-n"]
+    if not regex:
+        git_cmd.append("-F")
+    git_cmd.append(query)
+    git_cmd.append(".")
+
+    try:
+        process = run_safe_command(
+            git_cmd,
+            cwd=safe_path,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if process.returncode == 0:
+            return _format_grep_result(process)
+    except Exception:
+        pass
+    return None
+
+
+def _run_standard_grep(query: str, safe_path: str, regex: bool) -> str:
+    """Helper to run standard grep with exclusions."""
+    cmd = ["grep", "-r", "-n"]
+    if not regex:
+        cmd.append("-F")
+
+    # Exclude large/irrelevant directories
+    exclude_dirs = [
+        ".venv",
+        "qdrant_storage",
+        ".git",
+        "site",
+        "__pycache__",
+        ".knowledge",
+        ".pytest_cache",
+        "plans",
+        "todos",
+    ]
+    for d in exclude_dirs:
+        cmd.append(f"--exclude-dir={d}")
+
+    cmd.append(query)
+    cmd.append(safe_path)
+
+    process = run_safe_command(
+        cmd,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    return _format_grep_result(process)
+
+
 def search_files(query: str, path: str = ".", regex: bool = False, base_dir: str = ".") -> str:
     """
     Search for a string or regex in files at the given path.
@@ -44,74 +114,13 @@ def search_files(query: str, path: str = ".", regex: bool = False, base_dir: str
     try:
         safe_path = validate_path(path, base_dir)
 
-        # 1. Try git grep first (faster, respects .gitignore)
-        git_cmd = ["git", "grep", "-n"]
-        if not regex:
-            git_cmd.append("-F")
-        git_cmd.append(query)
-        git_cmd.append(".")
+        # 1. Try git grep first
+        git_result = _run_git_grep(query, safe_path, regex)
+        if git_result:
+            return git_result
 
-        try:
-            process = run_safe_command(
-                git_cmd,
-                cwd=safe_path,
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            if process.returncode == 0:
-                lines = process.stdout.splitlines()
-                if len(lines) > 50:
-                    return "\n".join(lines[:50]) + f"\n... and {len(lines) - 50} more matches"
-                return process.stdout
-            elif process.returncode == 1:
-                # No matches in git, but there might be untracked files
-                pass
-        except Exception:
-            # git command failed or not a git repo
-            pass
-
-        # 2. Fallback to standard grep with exclusions
-        cmd = ["grep", "-r", "-n"]
-        if not regex:
-            cmd.append("-F")
-
-        # Exclude large/irrelevant directories
-        exclude_dirs = [
-            ".venv",
-            "qdrant_storage",
-            ".git",
-            "site",
-            "__pycache__",
-            ".knowledge",
-            ".pytest_cache",
-            "plans",
-            "todos",
-        ]
-        for d in exclude_dirs:
-            cmd.append(f"--exclude-dir={d}")
-
-        cmd.append(query)
-        cmd.append(safe_path)
-
-        # Run grep
-        process = run_safe_command(
-            cmd,
-            capture_output=True,
-            text=True,
-            check=False,  # Don't raise on exit code 1 (no matches)
-        )
-
-        if process.returncode == 0:
-            # Limit output to avoid context overflow
-            lines = process.stdout.splitlines()
-            if len(lines) > 50:
-                return "\n".join(lines[:50]) + f"\n... and {len(lines) - 50} more matches"
-            return process.stdout
-        elif process.returncode == 1:
-            return "No matches found."
-        else:
-            return f"Error searching files: {process.stderr}"
+        # 2. Fallback to standard grep
+        return _run_standard_grep(query, safe_path, regex)
 
     except Exception as e:
         return f"Error executing search: {str(e)}"

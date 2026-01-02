@@ -54,6 +54,4 @@ class JulikFrontendRacesReviewer(dspy.Signature):
     code_diff: str = dspy.InputField(
         desc="The code changes to review, focusing on JavaScript, Stimulus, and frontend logic."
     )
-    review_report: JulikReport = dspy.OutputField(
-        desc="Structured race condition analysis report"
-    )
+    review_report: JulikReport = dspy.OutputField(desc="Structured race condition analysis report")

@@ -1,4 +1,5 @@
 import os
+import re
 import shutil
 import subprocess
 from typing import List, Optional
@@ -117,3 +118,34 @@ def skip_ai_commands(
             console.print(f"  - {cmd}")
         if len(commands) > 3:
             console.print(f"  ... and {len(commands) - 3} more")
+
+
+def validate_agent_filters(agent_filters: list[str]) -> list[str] | None:
+    """
+    Validate and sanitize agent filter terms.
+
+    Args:
+        agent_filters: List of agent filter strings from CLI
+
+    Returns:
+        Sanitized list of valid filters, or None if no valid filters remain
+    """
+    from utils.io.logger import logger
+
+    valid_filters = []
+    for term in agent_filters:
+        # Enforce strict allow-list: alphanumeric, hyphen, underscore
+        # Prevents regex or logging injection
+        if not re.match(r"^[a-zA-Z0-9\-_]+$", term):
+            logger.warning(f"Filtering term '{term}' contains invalid characters, skipping.")
+            continue
+        if len(term) > 50:
+            logger.warning(f"Filtering term '{term[:10]}...' too long, skipping.")
+            continue
+        valid_filters.append(term)
+
+    if not valid_filters:
+        logger.warning("No valid agent filters provided.")
+        return None
+
+    return valid_filters
