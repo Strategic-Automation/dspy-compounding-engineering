@@ -141,7 +141,7 @@ def review(
                 logger.warning(f"Filtering term '{a[:10]}...' too long, skipping.")
                 continue
             safe_agent_filter.append(a)
-            
+
         if not safe_agent_filter:
             logger.warning("No valid agent filters provided.")
             return

@@ -53,7 +53,7 @@ class AgentGenerator(dspy.Signature):
         desc="Description of what the review agent should check for"
     )
     existing_agents: str = dspy.InputField(desc="List of existing review agents for reference")
-    
+
     file_name: str = dspy.OutputField(desc="Snake-case file name (e.g. sql_injection_reviewer.py)")
     class_name: str = dspy.OutputField(desc="CamelCase class name (e.g. SqlInjectionReviewer)")
     agent_name: str = dspy.OutputField(desc="Human-readable name (e.g. SQL Injection Reviewer)")

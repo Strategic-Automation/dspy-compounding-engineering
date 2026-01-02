@@ -11,7 +11,6 @@ from config import registry
 from utils.io import list_directory, read_file_range, search_files
 from utils.web.documentation import DocumentationFetcher
 
-
 # --- Documentation Tools ---
 
 
@@ -161,6 +160,7 @@ def get_work_tools(base_dir: str = ".") -> list[dspy.Tool]:
     Includes: codebase search, semantic search, file reader, directory listing.
     """
     return [
+        get_search_learnings_tool(),
         get_codebase_search_tool(base_dir),
         get_semantic_search_tool(),
         get_file_reader_tool(base_dir),

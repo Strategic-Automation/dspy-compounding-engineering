@@ -1,7 +1,6 @@
-from typing import List
+from typing import ClassVar, List, Optional, Set
 
 import dspy
-from typing import ClassVar, Optional, Set
 from pydantic import Field
 
 from agents.review.schema import ReviewFinding, ReviewReport

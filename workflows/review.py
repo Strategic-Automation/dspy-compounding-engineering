@@ -5,15 +5,14 @@ import os
 import pkgutil
 import re
 import subprocess
-from typing import Any, Optional, Set, Tuple, Type
+from typing import Any, Optional, Set, Type
 
+import dspy
 from pydantic import BaseModel
 from rich.markdown import Markdown
 from rich.progress import Progress
 from rich.table import Table
 
-import dspy
-from agents.review.schema import ReviewReport
 from utils.context import ProjectContext
 from utils.git import GitService
 from utils.io.logger import console, logger
@@ -112,19 +111,19 @@ def discover_reviewers() -> list[tuple[str, Type[dspy.Signature], Optional[Set[s
                         applicable_langs = getattr(obj, "applicable_languages", None)
                         category = getattr(obj, "__agent_category__", "code-review")
                         severity = getattr(obj, "__agent_severity__", "p2")
-                        
+
                         # Validate metadata against whitelists
                         valid_categories = {"code-review", "security", "performance", "architecture", "simplicity", "agent-native", "rails", "frontend", "data-integrity"}
                         valid_severities = {"p1", "p2", "p3"}
-                        
+
                         if category not in valid_categories:
                             logger.warning(f"Skipping {agent_name}: Invalid category '{category}'")
                             continue
-                            
+
                         if severity not in valid_severities:
                             logger.warning(f"Skipping {agent_name}: Invalid severity '{severity}'")
                             continue
-                        
+
                         # Ensure the agent has at least one output field to be useful
                         if not obj.output_fields:
                             logger.warning(f"Skipping reviewer {name} in {module_name}: No output fields defined.")
@@ -300,7 +299,7 @@ def _execute_review_agents(code_diff: str, agent_filter: Optional[list[str]] = N
                 if re.search(rf"\b{re.escape(f)}\b", name, re.IGNORECASE):
                     matches_filter = True
                     break
-            
+
             if not matches_filter:
                 continue
 
@@ -376,7 +375,7 @@ def _extract_report_data(result: Any) -> tuple[Optional[dict[str, Any]], Optiona
 
     # Standard field for all unified agents
     standard_field = "review_report"
-    
+
     # Check for the standard field first
     if hasattr(result, standard_field):
         val = getattr(result, standard_field)

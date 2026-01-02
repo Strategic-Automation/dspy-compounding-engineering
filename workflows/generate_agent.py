@@ -6,11 +6,13 @@ based on natural language descriptions.
 """
 
 import os
+
 import dspy
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Confirm
 from rich.syntax import Syntax
+
 from agents.workflow.agent_generator import AgentGenerator
 from utils.agent.tools import get_research_tools
 
@@ -64,8 +66,8 @@ def run_generate_agent(description: str, dry_run: bool = False):
 
         # Use ReAct to allow the generator to use tools
         generator = dspy.ReAct(
-            AgentGenerator, 
-            tools=tools, 
+            AgentGenerator,
+            tools=tools,
             max_iters=10
         )
         result = generator(
@@ -104,7 +106,7 @@ def run_generate_agent(description: str, dry_run: bool = False):
     safe_file_name = os.path.basename(spec.file_name)
     if not safe_file_name.endswith(".py"):
         safe_file_name += ".py"
-        
+
     # Strict whitelisting: only lowercase alphanumeric and underscores
     # This prevents directory traversal sequences and special shell characters
     import re
@@ -116,11 +118,11 @@ def run_generate_agent(description: str, dry_run: bool = False):
     base_dir = os.getcwd()
     target_dir = os.path.join(base_dir, "agents/review")
     file_path = os.path.join(target_dir, safe_file_name)
-    
+
     # Fully resolve all paths to prevent symlink/traversal bypasses
     real_file_path = os.path.realpath(file_path)
     real_target_dir = os.path.realpath(target_dir)
-    
+
     # Use commonpath to ensure real_file_path is strictly within real_target_dir
     try:
         if os.path.commonpath([real_file_path, real_target_dir]) != real_target_dir:
@@ -130,14 +132,14 @@ def run_generate_agent(description: str, dry_run: bool = False):
         # Paths are on different drives or other OS level issues
         console.print(f"[red]Error: Cross-device or invalid path detected for '{safe_file_name}'.[/red]")
         return None
-        
+
     # Basic content validation: ensure it's a valid DSPy signature with review_report
     if "review_report" not in spec.content or "dspy.Signature" not in spec.content:
         console.print("[red]Error: Generated code missing required 'review_report' output field or 'dspy.Signature' class.[/red]")
         return None
 
     console.print(f"\n[bold cyan]agents/review/{safe_file_name}[/bold cyan]")
-    
+
     syntax = Syntax(spec.content, "python", theme="monokai", line_numbers=True)
     console.print(syntax)
 
@@ -178,6 +180,6 @@ def run_generate_agent(description: str, dry_run: bool = False):
 
     console.print("\n[bold green]✓ Next steps:[/bold green]")
     console.print("The new agent is automatically discovered!")
-    console.print(f"Test it by running: [cyan]compounding review[/cyan]")
+    console.print("Test it by running: [cyan]compounding review[/cyan]")
 
     return spec
