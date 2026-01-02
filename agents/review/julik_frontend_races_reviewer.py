@@ -3,7 +3,7 @@ from typing import ClassVar, Optional, Set
 import dspy
 from pydantic import Field
 
-from agents.review.schema import ReviewReport
+from agents.schema import ReviewReport
 
 
 class JulikReport(ReviewReport):

@@ -62,15 +62,27 @@ def run_plan(feature_description: str):
         best_practices = KBPredict(
             BestPracticesResearcherModule,
             kb_tags=["planning", "best-practices"],
-        )(topic=feature_description)
+        )(topic=feature_description, repo_research=repo_md)
         console.print("[green]✓ Best Practices Research Complete[/green]")
         bp_md = best_practices.research_report.format_markdown()
         _save_stage_output(plans_dir, safe_name, "2-best-practices", bp_md)
 
+        # Framework research now sees both local repo context and general best practices
+        # We use explicit delimiters to prevent content injection/confusion
         framework_docs = KBPredict(
             FrameworkDocsResearcherModule,
             kb_tags=["planning", "framework-docs"],
-        )(framework_or_library=feature_description)
+        )(
+            framework_or_library=feature_description,
+            previous_research=(
+                "--- START REPOSITORY CONTEXT ---\n"
+                f"{repo_md}\n"
+                "--- END REPOSITORY CONTEXT ---\n\n"
+                "--- START BEST PRACTICES ---\n"
+                f"{bp_md}\n"
+                "--- END BEST PRACTICES ---"
+            ),
+        )
         console.print("[green]✓ Framework Docs Research Complete[/green]")
         fw_md = framework_docs.documentation_report.format_markdown()
         _save_stage_output(plans_dir, safe_name, "3-framework-docs", fw_md)
@@ -111,7 +123,7 @@ def run_plan(feature_description: str):
             spec_flow_analysis=spec_flow.flow_analysis,
         )
 
-    plan_content = plan_gen.plan_content
+    plan_content = plan_gen.plan_report.format_markdown()
 
     # Save final plan
     final_path = os.path.join(plans_dir, f"{safe_name}.md")

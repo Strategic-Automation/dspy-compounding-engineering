@@ -1,6 +1,6 @@
 import dspy
 
-from agents.research.schema import GitHistoryReport
+from agents.schema import GitHistoryReport
 
 
 class GitHistoryAnalyzer(dspy.Signature):

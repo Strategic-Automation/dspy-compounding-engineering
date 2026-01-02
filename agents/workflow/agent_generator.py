@@ -28,7 +28,7 @@ class AgentGenerator(dspy.Signature):
     3. **Implement**:
        - Use `ClassVar` for metadata: `__agent_name__`, `__agent_category__`,
          `__agent_severity__`, `applicable_languages`.
-       - Use standard `ReviewReport` and `ReviewFinding` from `agents.review.schema`.
+       - Use standard `ReviewReport` and `ReviewFinding` from `agents.schema`.
        - Write a comprehensive docstring describing the scanning logic.
 
     ## Critical Guidelines:
@@ -46,7 +46,7 @@ class AgentGenerator(dspy.Signature):
     import dspy
     from pydantic import Field
 
-    from agents.review.schema import ReviewFinding, ReviewReport
+    from agents.schema import ReviewFinding, ReviewReport
 
 
     class YourCustomFinding(ReviewFinding):

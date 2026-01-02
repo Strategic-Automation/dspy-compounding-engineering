@@ -1,6 +1,6 @@
 """DuckDuckGo search implementation for research agents."""
 
-from duckduckgo_search import DDGS
+from ddgs import DDGS
 
 
 def search_web(query: str, max_results: int = 5) -> list[dict]:
@@ -63,5 +63,12 @@ def internet_search(query: str, max_results: int = 5) -> str:
     Consolidated function for searching the internet and returning formatted markdown.
     This is the primary entry point for agent tools.
     """
+    from ..io.logger import logger
+
+    logger.info(f"Searching the internet for: {query}", to_cli=True)
     results = search_web(query, max_results=max_results)
-    return format_search_results(results)
+    formatted_results = format_search_results(results)
+    
+    # Proactive scrubbing of data retrieved from the web
+    from ..security.scrubber import scrubber
+    return scrubber.scrub(formatted_results)

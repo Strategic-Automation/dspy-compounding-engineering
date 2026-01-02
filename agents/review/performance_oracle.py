@@ -3,7 +3,7 @@ from typing import ClassVar, List, Optional, Set
 import dspy
 from pydantic import Field
 
-from agents.review.schema import ReviewFinding, ReviewReport
+from agents.schema import ReviewFinding, ReviewReport
 
 
 class PerformanceFinding(ReviewFinding):
