@@ -8,6 +8,7 @@ from config import (
     DENSE_FALLBACK_MODEL_NAME,
     SPARSE_MODEL_NAME,
     resolve_embedding_config,
+    settings,
 )
 
 from ..io.logger import console, logger
@@ -55,7 +56,7 @@ class EmbeddingProvider:
         # Auto-detect fallback if no API key for cloud providers
         is_cloud = self.embedding_provider in ["openai", "openrouter"]
         if is_cloud and not self.embedding_api_key:
-            if not os.getenv("COMPOUNDING_QUIET"):
+            if not settings.quiet:
                 console.print(
                     f"[yellow]No API key found for {self.embedding_provider}. "
                     "Falling back to FastEmbed (local embeddings).[/yellow]"

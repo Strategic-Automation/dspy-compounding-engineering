@@ -38,7 +38,7 @@ class BaseResearchReport(BaseModel):
 
         # Dynamically include specialized fields
         base_fields = {"summary", "analysis", "insights", "references"}
-        for field_name, value in self.dict().items():
+        for field_name, value in self.model_dump().items():
             if field_name not in base_fields and value:
                 title = field_name.replace("_", " ").title()
                 if isinstance(value, list):

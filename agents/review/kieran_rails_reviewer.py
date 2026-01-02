@@ -1,3 +1,5 @@
+from typing import ClassVar, Optional, Set
+
 import dspy
 from pydantic import Field
 
@@ -47,5 +49,10 @@ class KieranRailsReviewer(dspy.Signature):
        - "Adding more modules is never a bad thing. Making modules very complex is a bad thing"
     """
 
+    __agent_name__: ClassVar[str] = "Kieran Rails Reviewer"
+    __agent_category__: ClassVar[str] = "rails"
+    __agent_severity__: ClassVar[str] = "p2"
+    applicable_languages: ClassVar[Optional[Set[str]]] = {"ruby"}
+
     code_diff: str = dspy.InputField(desc="The code changes to review")
-    review_comments: KieranReport = dspy.OutputField(desc="Structured review report")
+    review_report: KieranReport = dspy.OutputField(desc="Structured review report")

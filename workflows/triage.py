@@ -6,7 +6,7 @@ from rich.markdown import Markdown
 from rich.prompt import Prompt
 from rich.table import Table
 
-from agents.workflow import TriageAgent
+from agents.workflow.triage_agent import TriageAgent
 from utils.io.logger import console
 from utils.knowledge import KBPredict
 from utils.todo import add_work_log_entry, complete_todo

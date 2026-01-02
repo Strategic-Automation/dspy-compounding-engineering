@@ -62,8 +62,7 @@ class CollectionManagerMixin:
 
             # 2. Update status (Narrow lock scope)
             if registry_flag:
-                with registry.lock:
-                    registry.status[registry_flag] = True
+                registry.update_status(registry_flag, True)
             return True
         except Exception as e:
             console.print(f"[red]Failed to ensure Qdrant collection '{collection_name}': {e}[/red]")

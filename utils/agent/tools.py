@@ -28,6 +28,20 @@ def get_documentation_tool() -> dspy.Tool:
     return dspy.Tool(fetch_documentation)
 
 
+def get_search_learnings_tool() -> dspy.Tool:
+    """Returns a tool for retrieving codified best practices from the knowledge base."""
+
+    def search_learnings(query: str) -> str:
+        """
+        Retrieve codified best practices, past review patterns, and architectural insights.
+        Use this to ensure the new agent follows existing project standards.
+        """
+        kb = registry.get_kb()
+        return kb.get_context_string(query)
+
+    return dspy.Tool(search_learnings)
+
+
 # --- Codebase Exploration Tools ---
 
 
@@ -132,6 +146,7 @@ def get_research_tools(base_dir: str = ".") -> list[dspy.Tool]:
     """
     return [
         get_documentation_tool(),
+        get_search_learnings_tool(),  # Internal best practices
         get_semantic_search_tool(),  # Vector search for relevant code
         get_codebase_search_tool(base_dir),  # Grep-based keyword search
         get_file_reader_tool(base_dir),  # Read specific file sections
@@ -145,6 +160,7 @@ def get_work_tools(base_dir: str = ".") -> list[dspy.Tool]:
     Includes: codebase search, semantic search, file reader, directory listing.
     """
     return [
+        get_search_learnings_tool(),
         get_codebase_search_tool(base_dir),
         get_semantic_search_tool(),
         get_file_reader_tool(base_dir),

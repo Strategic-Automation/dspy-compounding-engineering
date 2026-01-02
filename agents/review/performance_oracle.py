@@ -1,4 +1,4 @@
-from typing import List
+from typing import ClassVar, List, Optional, Set
 
 import dspy
 from pydantic import Field
@@ -63,7 +63,12 @@ class PerformanceOracle(dspy.Signature):
     5. **Recommended Actions**: Prioritized list
     """
 
+    __agent_name__: ClassVar[str] = "Performance Oracle"
+    __agent_category__: ClassVar[str] = "performance"
+    __agent_severity__: ClassVar[str] = "p2"
+    applicable_languages: ClassVar[Optional[Set[str]]] = None
+
     code_diff: str = dspy.InputField(desc="The code changes to review")
-    performance_analysis: PerformanceReport = dspy.OutputField(
+    review_report: PerformanceReport = dspy.OutputField(
         desc="Structured performance analysis report"
     )

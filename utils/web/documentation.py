@@ -169,11 +169,15 @@ class DocumentationFetcher:
         try:
             parsed = urlparse(url)
             hostname = parsed.hostname
-            safe_ip = self._get_safe_ip(hostname)
+            if not hostname:
+                return f"Error: URL {url} missing hostname."
+
+            # Resolve hostname and get safe IP
+            safe_ip, error = self._get_safe_ip(hostname)
 
             if not safe_ip:
                 return (
-                    f"Error: URL {url} resolved to an unsafe or unresolvable address. "
+                    f"Error: URL {url} resolved to an unsafe or unresolvable address: {error}. "
                     "Blocked for security reasons."
                 )
 

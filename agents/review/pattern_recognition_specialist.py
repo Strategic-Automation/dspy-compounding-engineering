@@ -1,3 +1,5 @@
+from typing import ClassVar, Optional, Set
+
 import dspy
 from pydantic import Field
 
@@ -46,5 +48,10 @@ class PatternRecognitionSpecialist(dspy.Signature):
     - **Naming Consistency Analysis**: Statistics and examples
     """
 
+    __agent_name__: ClassVar[str] = "Pattern Recognition Specialist"
+    __agent_category__: ClassVar[str] = "architecture"
+    __agent_severity__: ClassVar[str] = "p3"
+    applicable_languages: ClassVar[Optional[Set[str]]] = None
+
     code_diff: str = dspy.InputField(desc="The code changes to review")
-    pattern_analysis: PatternReport = dspy.OutputField(desc="Structured pattern analysis report")
+    review_report: PatternReport = dspy.OutputField(desc="Structured pattern analysis report")

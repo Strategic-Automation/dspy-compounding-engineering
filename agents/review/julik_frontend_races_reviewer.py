@@ -1,3 +1,5 @@
+from typing import ClassVar, Optional, Set
+
 import dspy
 from pydantic import Field
 
@@ -44,9 +46,12 @@ class JulikFrontendRacesReviewer(dspy.Signature):
        - "If it flickers, it's trash"
     """
 
+    __agent_name__: ClassVar[str] = "Julik Frontend Races Reviewer"
+    __agent_category__: ClassVar[str] = "frontend"
+    __agent_severity__: ClassVar[str] = "p2"
+    applicable_languages: ClassVar[Optional[Set[str]]] = {"typescript", "javascript"}
+
     code_diff: str = dspy.InputField(
         desc="The code changes to review, focusing on JavaScript, Stimulus, and frontend logic."
     )
-    race_condition_analysis: JulikReport = dspy.OutputField(
-        desc="Structured race condition analysis report"
-    )
+    review_report: JulikReport = dspy.OutputField(desc="Structured race condition analysis report")

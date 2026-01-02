@@ -1,28 +1,18 @@
 import concurrent.futures
+import importlib
+import inspect
 import os
+import pkgutil
 import re
 import subprocess
-from typing import Any, Optional
+from typing import Any, Optional, Set, Type
 
+import dspy
 from pydantic import BaseModel
 from rich.markdown import Markdown
 from rich.progress import Progress
 from rich.table import Table
 
-from agents.review import (
-    AgentNativeReviewer,
-    ArchitectureStrategist,
-    CodeSimplicityReviewer,
-    DataIntegrityGuardian,
-    DhhRailsReviewer,
-    JulikFrontendRacesReviewer,
-    KieranPythonReviewer,
-    KieranRailsReviewer,
-    KieranTypescriptReviewer,
-    PatternRecognitionSpecialist,
-    PerformanceOracle,
-    SecuritySentinel,
-)
 from utils.context import ProjectContext
 from utils.git import GitService
 from utils.io.logger import console, logger
@@ -41,14 +31,18 @@ def detect_languages(code_content: str) -> set[str]:
         r"\+\+\+ [ab]/([^\s]+)",
         r"--- [ab]/([^\s]+)",
         r"File: ([^\s]+)",
+        r"=== ([^\s]+) \(Score:",  # ProjectContext format
     ]
 
     extensions = set()
     for pattern in file_patterns:
         for match in re.findall(pattern, code_content):
             if "." in match:
+                # Extract extension and remove trailing non-alphanumeric (quotes, etc)
                 ext = match.rsplit(".", 1)[-1].lower()
-                extensions.add(ext)
+                ext = re.sub(r"[^a-z0-9]+$", "", ext)
+                if ext:
+                    extensions.add(ext)
 
     # Map extensions to language identifiers
     lang_map = {
@@ -80,22 +74,78 @@ def detect_languages(code_content: str) -> set[str]:
     return languages
 
 
-# Reviewer configuration: (name, class, applicable_languages)
-# None for applicable_languages means universal (runs for all code)
-REVIEWER_CONFIG = [
-    ("Kieran Python Reviewer", KieranPythonReviewer, {"python"}),
-    ("Kieran Rails Reviewer", KieranRailsReviewer, {"ruby"}),
-    ("DHH Rails Reviewer", DhhRailsReviewer, {"ruby"}),
-    ("Kieran TypeScript Reviewer", KieranTypescriptReviewer, {"typescript", "javascript"}),
-    ("Julik Frontend Races Reviewer", JulikFrontendRacesReviewer, {"typescript", "javascript"}),
-    ("Security Sentinel", SecuritySentinel, None),  # Universal
-    ("Performance Oracle", PerformanceOracle, None),  # Universal
-    ("Data Integrity Guardian", DataIntegrityGuardian, None),  # Universal
-    ("Architecture Strategist", ArchitectureStrategist, None),  # Universal
-    ("Pattern Recognition Specialist", PatternRecognitionSpecialist, None),  # Universal
-    ("Code Simplicity Reviewer", CodeSimplicityReviewer, None),  # Universal
-    ("Agent Native Reviewer", AgentNativeReviewer, None),  # Universal
-]
+def _validate_agent_class(
+    name: str, obj: Any, module_name: str, full_module_name: str
+) -> Optional[tuple[str, Type[dspy.Signature], Optional[Set[str]], str, str]]:
+    """Validate and extract metadata from a potential reviewer class."""
+    if not (
+        inspect.isclass(obj)
+        and issubclass(obj, dspy.Signature)
+        and obj.__module__ == full_module_name
+        and obj is not dspy.Signature
+    ):
+        return None
+
+    # Extract metadata with safe fallbacks
+    agent_name = getattr(obj, "__agent_name__", None)
+    if not agent_name:
+        agent_name = re.sub(r"(?<!^)(?=[A-Z])", " ", obj.__name__)
+
+    applicable_langs = getattr(obj, "applicable_languages", None)
+    category = getattr(obj, "__agent_category__", "code-review")
+    severity = getattr(obj, "__agent_severity__", "p2")
+
+    # Import shared constants
+    from agents.review import VALID_CATEGORIES, VALID_SEVERITIES
+
+    if category not in VALID_CATEGORIES:
+        logger.warning(f"Skipping {agent_name}: Invalid category '{category}'")
+        return None
+
+    if severity not in VALID_SEVERITIES:
+        logger.warning(f"Skipping {agent_name}: Invalid severity '{severity}'")
+        return None
+
+    # Ensure the agent has at least one output field to be useful
+    if not obj.output_fields:
+        logger.warning(f"Skipping reviewer {name} in {module_name}: No output fields defined.")
+        return None
+
+    return agent_name, obj, applicable_langs, category, severity
+
+
+def discover_reviewers() -> list[tuple[str, Type[dspy.Signature], Optional[Set[str]], str, str]]:
+    """
+    Dynamically discover all review agents in the agents.review package.
+    Expects agents to be dspy.Signature classes with:
+    - __agent_name__: Human-readable name
+    - __agent_category__: Category (e.g. security)
+    - __agent_severity__: Priority (p1, p2, p3)
+    - applicable_languages: Set of languages or None
+    """
+    reviewers = []
+    import agents.review as review_pkg
+
+    package_path = os.path.dirname(review_pkg.__file__)
+
+    for _, module_name, is_pkg in pkgutil.iter_modules([package_path]):
+        if is_pkg or module_name == "schema":
+            continue
+
+        full_module_name = f"agents.review.{module_name}"
+        try:
+            module = importlib.import_module(full_module_name)
+            for name, obj in inspect.getmembers(module):
+                try:
+                    reviewer = _validate_agent_class(name, obj, module_name, full_module_name)
+                    if reviewer:
+                        reviewers.append(reviewer)
+                except Exception as class_err:
+                    logger.error(f"Error inspecting class {name} in {module_name}: {class_err}")
+        except Exception as e:
+            logger.error(f"Failed to load reviewer module {full_module_name}: {e}")
+
+    return reviewers
 
 
 def convert_pydantic_to_markdown(model: BaseModel) -> str:  # noqa: C901
@@ -229,7 +279,36 @@ def _gather_review_context(pr_url_or_id: str, project: bool = False) -> tuple[st
     return code_diff, worktree_path
 
 
-def _execute_review_agents(code_diff: str) -> list[dict]:
+def _filter_applicable_reviewers(
+    review_config: list, detected_langs: set, agent_filter: Optional[list[str]]
+) -> tuple[list, list]:
+    """Filter reviewers based on languages and optional filter."""
+    review_agents = []
+    skipped_reviewers = []
+
+    for name, cls, applicable_langs, category, severity in review_config:
+        # Check if agent is in filter (case-insensitive)
+        if agent_filter:
+            matches_filter = False
+            for f in agent_filter:
+                if not f or len(f) > 50:
+                    continue
+                if re.search(rf"\b{re.escape(f)}\b", name, re.IGNORECASE):
+                    matches_filter = True
+                    break
+            if not matches_filter:
+                continue
+
+        norm_langs = {lang.lower() for lang in applicable_langs} if applicable_langs else None
+        if norm_langs is None or (norm_langs & detected_langs):
+            review_agents.append((name, cls, category, severity))
+        else:
+            skipped_reviewers.append(name)
+
+    return review_agents, skipped_reviewers
+
+
+def _execute_review_agents(code_diff: str, agent_filter: Optional[list[str]] = None) -> list[dict]:
     """Filter and run applicable review agents."""
     # Detect languages in the code
     detected_langs = detect_languages(code_diff)
@@ -240,14 +319,13 @@ def _execute_review_agents(code_diff: str) -> list[dict]:
             "[yellow]No specific languages detected, running universal reviewers[/yellow]"
         )
 
-    # Filter reviewers based on detected languages
-    review_agents = []
-    skipped_reviewers = []
-    for name, cls, applicable_langs in REVIEWER_CONFIG:
-        if applicable_langs is None or (applicable_langs & detected_langs):
-            review_agents.append((name, cls))
-        else:
-            skipped_reviewers.append(name)
+    # Discover reviewers dynamically
+    review_config = discover_reviewers()
+
+    # Filter reviewers based on detected languages and agent_filter
+    review_agents, skipped_reviewers = _filter_applicable_reviewers(
+        review_config, detected_langs, agent_filter
+    )
 
     if skipped_reviewers:
         console.print(
@@ -274,23 +352,31 @@ def _execute_review_agents(code_diff: str) -> list[dict]:
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             future_to_agent = {
-                executor.submit(run_single_agent, name, cls, code_diff): name
-                for name, cls in review_agents
+                executor.submit(run_single_agent, name, cls, code_diff): (name, category, severity)
+                for name, cls, category, severity in review_agents
             }
 
             for future in concurrent.futures.as_completed(future_to_agent):
-                agent_name = future_to_agent[future]
+                agent_name, agent_cat, agent_sev = future_to_agent[future]
                 progress.update(task, description=f"[cyan]Completed {agent_name}...")
                 progress.advance(task)
 
                 try:
                     name, result = future.result()
                     if isinstance(result, str) and result.startswith("Error:"):
-                        findings.append({"agent": name, "review": result})
+                        findings.append(
+                            {
+                                "agent": name,
+                                "review": result,
+                                "category": agent_cat,
+                                "severity": agent_sev,
+                            }
+                        )
                         continue
 
                     # Process and format report
                     formatted_review = _process_agent_result(name, result)
+                    formatted_review.update({"category": agent_cat, "severity": agent_sev})
                     findings.append(formatted_review)
 
                 except Exception as e:
@@ -300,32 +386,32 @@ def _execute_review_agents(code_diff: str) -> list[dict]:
 
 
 def _extract_report_data(result: Any) -> tuple[Optional[dict[str, Any]], Optional[Any]]:
-    """Extract report data and report object from agent result."""
+    """
+    Extract report data and report object from agent result.
+    Prioritizes 'review_report' as the standard output field.
+    """
+    # If the result itself is a model (rare but possible)
     if hasattr(result, "model_dump"):
         return result.model_dump(), result
     if isinstance(result, dict):
         return result, None
 
-    # Scan common output fields for the report model
-    fields = [
-        "review_comments",
-        "security_report",
-        "performance_analysis",
-        "architecture_analysis",
-        "data_integrity_report",
-        "pattern_analysis",
-        "simplification_analysis",
-        "dhh_review",
-        "agent_native_analysis",
-        "race_condition_analysis",
-    ]
-    for field_name in fields:
-        if hasattr(result, field_name):
-            val = getattr(result, field_name)
-            if hasattr(val, "model_dump"):
-                return val.model_dump(), val
-            if isinstance(val, dict):
-                return val, None
+    # Standard field for all unified agents
+    standard_field = "review_report"
+
+    # Check for the standard field
+    if hasattr(result, standard_field):
+        val = getattr(result, standard_field)
+        if hasattr(val, "model_dump"):
+            return val.model_dump(), val
+        if isinstance(val, dict):
+            return val, None
+
+    # Log a warning if no report field was found
+    logger.warning(
+        f"No standard 'review_report' field found in agent result. "
+        f"Output fields: {getattr(result, '_output_fields', 'unknown')}"
+    )
     return None, None
 
 
@@ -408,23 +494,16 @@ def _process_agent_result(name: str, result: Any) -> dict[str, Any]:
     return finding_data
 
 
-def _map_agent_to_todo(agent_name: str) -> tuple[str, str]:
+def _map_agent_to_todo(
+    agent_name: str, discovered_metadata: Optional[dict] = None
+) -> tuple[str, str]:
     """Map agent name to category and priority."""
-    mapping = {
-        "Security Sentinel": ("security", "p1"),
-        "Performance Oracle": ("performance", "p2"),
-        "Data Integrity Guardian": ("data-integrity", "p1"),
-        "Architecture Strategist": ("architecture", "p2"),
-        "Pattern Recognition Specialist": ("patterns", "p3"),
-        "Code Simplicity Reviewer": ("simplicity", "p3"),
-        "DHH Rails Reviewer": ("rails", "p2"),
-        "Kieran Rails Reviewer": ("rails", "p2"),
-        "Kieran TypeScript Reviewer": ("typescript", "p2"),
-        "Kieran Python Reviewer": ("python", "p2"),
-        "Agent Native Reviewer": ("agent-native", "p2"),
-        "Julik Frontend Races Reviewer": ("frontend", "p2"),
-    }
-    return mapping.get(agent_name, ("code-review", "p2"))
+    if discovered_metadata:
+        return discovered_metadata.get("category", "code-review"), discovered_metadata.get(
+            "severity", "p2"
+        )
+
+    return "code-review", "p2"
 
 
 def _display_todo_summary(created_todos: list[dict], counts: dict[str, int]) -> None:
@@ -482,7 +561,11 @@ def _create_review_todos(findings: list[dict]) -> None:
         if finding.get("action_required") is False:
             continue
 
-        category, severity = _map_agent_to_todo(agent_name)
+        cat_val = finding.get("category")
+        sev_val = finding.get("severity")
+        category, severity = _map_agent_to_todo(
+            agent_name, {"category": cat_val, "severity": sev_val}
+        )
         finding_data = {
             "agent": agent_name,
             "review": review_text,
@@ -503,7 +586,7 @@ def _create_review_todos(findings: list[dict]) -> None:
     _display_todo_summary(created_todos, counts)
 
 
-def run_review(pr_url_or_id: str, project: bool = False):
+def run_review(pr_url_or_id: str, project: bool = False, agent_filter: Optional[list[str]] = None):
     """
     Perform exhaustive multi-agent code review.
     """
@@ -519,7 +602,7 @@ def run_review(pr_url_or_id: str, project: bool = False):
 
     # 2. Run Agents
     console.rule("Running Review Agents")
-    findings = _execute_review_agents(code_diff)
+    findings = _execute_review_agents(code_diff, agent_filter=agent_filter)
 
     # 3. Display Results
     console.rule("Review Complete")

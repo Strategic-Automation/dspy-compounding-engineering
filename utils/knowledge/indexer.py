@@ -120,44 +120,27 @@ class CodebaseIndexer(CollectionManagerMixin):
 
         return chunks
 
-    def index_codebase(self, root_dir: str = ".", force_recreate: bool = False) -> None:
-        """
-        Index the codebase using vector embeddings.
-        Uses smart indexing to skip unchanged files.
-        """
-        if force_recreate:
-            self._ensure_collection(force_recreate=True)
-
-        if not self.vector_db_available:
-            logger.error("Vector DB not available. Cannot index codebase.")
-            return
-
+    def _get_files_to_index(self, root_dir: str) -> List[str]:
+        """Get list of files to index, preferably using git."""
         try:
-            # 1. Get list of tracked files
-            cmd = ["git", "ls-files"]
+            # 1. Get list of tracked and untracked files (excluding ignored)
+            cmd = ["git", "ls-files", "--cached", "--others", "--exclude-standard"]
             result = run_safe_command(cmd, cwd=root_dir, capture_output=True, text=True, check=True)
-            files = result.stdout.splitlines()
+            return result.stdout.splitlines()
         except subprocess.CalledProcessError:
             logger.warning("Not a git repository. Indexing all files...")
             # Fallback to glob
-            files = [
+            return [
                 os.path.relpath(f, root_dir)
                 for f in glob.glob(os.path.join(root_dir, "**/*"), recursive=True)
                 if os.path.isfile(f)
             ]
         except Exception as e:
             console.print(f"[red]Failed to list files: {e}[/red]")
-            return
+            return []
 
-        # 2. Get current index state
-        logger.info("Fetching existing index state...")
-        indexed_files = self._get_indexed_files_metadata()
-
-        # 3. Process files
-        updated_count = 0
-        skipped_count = 0
-
-        # extensions to ignore
+    def _should_ignore(self, filepath: str) -> bool:
+        """Check if a file should be ignored based on extension or directory."""
         ignore_exts = {
             ".pyc",
             ".png",
@@ -183,19 +166,52 @@ class CodebaseIndexer(CollectionManagerMixin):
             ".lock",
             ".pdf",
         }
+        ignore_dirs = {
+            "plans/",
+            "todos/",
+            "docs/",
+            ".knowledge/",
+            ".venv/",
+            "site/",
+            "qdrant_storage/",
+        }
 
-        # directories to ignore
-        ignore_dirs = {"plans/", "todos/", "docs/", ".knowledge/", ".venv/", "site/", "qdrant_storage/"}
+        _, ext = os.path.splitext(filepath)
+        if ext.lower() in ignore_exts:
+            return True
+
+        if any(filepath.startswith(d) for d in ignore_dirs):
+            return True
+
+        return False
+
+    def index_codebase(self, root_dir: str = ".", force_recreate: bool = False) -> None:
+        """
+        Index the codebase using vector embeddings.
+        Uses smart indexing to skip unchanged files.
+        """
+        if force_recreate:
+            self._ensure_collection(force_recreate=True)
+
+        if not self.vector_db_available:
+            logger.error("Vector DB not available. Cannot index codebase.")
+            return
+
+        files = self._get_files_to_index(root_dir)
+        if not files:
+            return
+
+        # 2. Get current index state
+        logger.info("Fetching existing index state...")
+        indexed_files = self._get_indexed_files_metadata()
+
+        # 3. Process files
+        updated_count = 0
+        skipped_count = 0
 
         with console.status(f"Indexing {len(files)} files...") as status:
             for filepath in files:
-                # Skip ignored extensions
-                _, ext = os.path.splitext(filepath)
-                if ext.lower() in ignore_exts:
-                    continue
-
-                # Skip ignored directories
-                if any(filepath.startswith(d) for d in ignore_dirs):
+                if self._should_ignore(filepath):
                     continue
 
                 full_path = os.path.join(root_dir, filepath)
