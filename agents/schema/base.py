@@ -37,17 +37,20 @@ class BaseResearchReport(BaseModel):
         ]
 
         # Dynamically include specialized fields
+        # Use model_fields to avoid model_dump() which triggers recursion/serialization issues
         base_fields = {"summary", "analysis", "insights", "references"}
-        for field_name, value in self.model_dump().items():
-            if field_name not in base_fields and value:
-                title = field_name.replace("_", " ").title()
-                if isinstance(value, list):
-                    lines.append(f"### {title}")
-                    for item in value:
-                        lines.append(f"- {item}")
-                    lines.append("")
-                else:
-                    lines.append(f"### {title}\n{value}\n")
+        for field_name in self.model_fields:
+            if field_name not in base_fields:
+                value = getattr(self, field_name)
+                if value:
+                    title = field_name.replace("_", " ").title()
+                    if isinstance(value, list):
+                        lines.append(f"### {title}")
+                        for item in value:
+                            lines.append(f"- {item}")
+                        lines.append("")
+                    else:
+                        lines.append(f"### {title}\n{value}\n")
 
         self._format_insights(lines)
         self._format_references(lines)
@@ -74,38 +77,3 @@ class BaseResearchReport(BaseModel):
             for ref in self.references:
                 lines.append(f"- {ref}")
             lines.append("")
-
-
-class FrameworkDocsReport(BaseResearchReport):
-    """Structured report for framework and library documentation research."""
-
-    version_information: Optional[str] = Field(
-        None, description="Current version and any relevant constraints"
-    )
-
-
-class BestPracticesReport(BaseResearchReport):
-    """Structured report for best practices research."""
-
-    implementation_patterns: List[str] = Field(
-        default_factory=list, description="Recommended architectural or code patterns"
-    )
-    anti_patterns: List[str] = Field(
-        default_factory=list, description="Patterns or practices to avoid"
-    )
-
-
-class RepoResearchReport(BaseResearchReport):
-    """Structured report for repository-wide research and analysis."""
-
-    architecture_overview: Optional[str] = Field(
-        None, description="High-level architecture assessment"
-    )
-
-
-class GitHistoryReport(BaseResearchReport):
-    """Structured report for git history and repository evolution analysis."""
-
-    evolution_summary: Optional[str] = Field(
-        None, description="Summary of how the project evolved over time"
-    )

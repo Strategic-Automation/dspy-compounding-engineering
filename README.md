@@ -19,12 +19,14 @@ This CLI tool provides AI-powered development tools for code review, planning, a
 ## Features
 
 - **🧠 Compounding Engineering**: True learning system where every operation makes the next one easier
+
   - **Auto-Learning**: Every todo resolution automatically codifies learnings
   - **KB Auto-Injection**: Past learnings automatically inform all AI operations
   - **Pattern Recognition**: Similar issues are prevented based on past resolutions
   - **Knowledge Accumulation**: System gets smarter with every use
 
 - **🔍 Multi-Agent Code Review**: Run 10+ specialized review agents in parallel
+
   - **Security Sentinel**: Detects vulnerabilities (SQLi, XSS, etc.)
   - **Performance Oracle**: Identifies bottlenecks and O(n) issues
   - **Architecture Strategist**: Reviews design patterns and SOLID principles
@@ -33,18 +35,22 @@ This CLI tool provides AI-powered development tools for code review, planning, a
   - And many more...
 
 - **🤖 ReAct File Editing**: Intelligent file operations with reasoning
+
   - **Smart Context Gathering**: Relevance-scored file selection and token budget management
   - **Iterative Reasoning**: Think → Act → Observe → Iterate pattern
   - **Zero Hallucination**: Direct file manipulation, not text generation
 
 - **🛡️ Secure Work Execution**: Safely execute AI-generated plans
+
   - **Isolated Worktrees**: High-level isolation for safe parallel execution via `--worktree`
   - **Parallel Processing**: Multi-threaded todo resolution with `--workers`
   - **Auto-Codification**: Every resolution creates learnings for future use
 
 - **📋 Smart Planning**: Transform feature descriptions into detailed plans
+
   - Repository research & pattern analysis
-  - Framework documentation integration
+  - **🌐 Internet Search**: Access live sources and current standards
+  - **Documentation Fetcher**: Deep-read official documentation from URLs
   - SpecFlow user journey analysis
   - **KB-Informed**: Plans leverage past architectural decisions
 
@@ -84,9 +90,11 @@ uv sync
 This project uses [Qdrant](https://qdrant.tech/) for semantic search. A Docker Compose configuration is provided.
 
 1. **Start Qdrant**:
+
    ```bash
    docker compose up -d qdrant
    ```
+
    This will start Qdrant on `localhost:6333`.
 
 2. **Configure Embeddings**:
@@ -169,7 +177,7 @@ graph LR
     KB -->|Auto-Inject| B
     KB -->|Auto-Inject| C
     KB -->|Auto-Inject| D
-    
+
     style KB fill:#4CAF50,stroke:#333,stroke-width:3px
     style D fill:#FFC107,stroke:#333,stroke-width:2px
 ```
@@ -193,6 +201,7 @@ graph LR
 See our [detailed Roadmap](https://strategic-automation.github.io/dspy-compounding-engineering/roadmap/) for upcoming features.
 
 Key focus areas:
+
 - **GitHub Integration**: Create Issues, post PR comments, manage Projects (Partially Completed)
 - **Vector Embeddings**: Upgrade from keyword matching to semantic similarity (Completed)
 - **Smart Context**: Intelligent relevance-scored gathering (Completed)
@@ -337,28 +346,33 @@ uv run python cli.py codify "Use factory pattern for agent creation" --source re
 The system is built on a layered architecture designed for modularity and compounding intelligence:
 
 ### 1. Interface Layer (CLI)
+
 - **Entry Point**: `cli.py` uses `Typer` to provide a robust command-line interface.
 - **Commands**: Maps user intents (e.g., `review`, `work`) to specific workflows.
 
 ### 2. Orchestration Layer (Workflows)
+
 - **Logic**: Python scripts in `workflows/` orchestrate complex multi-step processes.
 - **Responsibility**: Manages state, handles user interaction, and coordinates agents.
 - **Key Workflows**:
-    - **Unified Work**: Combines planning and execution using ReAct loops.
-    - **Review Pipeline**: Parallelizes multiple specialized review agents.
-    - **Triage System**: Manages findings and prioritizes work.
+  - **Unified Work**: Combines planning and execution using ReAct loops.
+  - **Review Pipeline**: Parallelizes multiple specialized review agents.
+  - **Triage System**: Manages findings and prioritizes work.
 
 ### 3. Intelligence Layer (DSPy Agents)
+
 - **Signatures**: Declarative definitions of AI tasks in `agents/`.
 - **Modules**: `dspy.Module` implementations that chain thoughts and actions.
 - **Optimization**: Agents are optimized via DSPy teleprompters.
 
 ### 4. Knowledge Layer (Compounding Engine)
+
 - **Storage**: JSON-based knowledge base in `.knowledge/`.
 - **Retrieval**: `KBPredict` wrapper automatically injects relevant context into agent calls.
 - **Learning**: `LearningExtractor` codifies outcomes from every task into reusable patterns.
 
 ### 5. Infrastructure Layer (Utilities)
+
 - **Git Service**: Manages isolated worktrees for safe execution.
 - **Project Context**: Efficiently gathers and token-limits codebase context.
 - **Todo Service**: Standardizes the unit of work (Markdown-based todos).
@@ -375,14 +389,14 @@ Based on the [Compounding Engineering](https://every.to/source-code/my-ai-had-al
 
 ## Comparison with Original Plugin
 
-| Feature | Original Plugin | This DSPy Edition |
-|---------|-----------------|-------------------|
-| **Runtime** | Claude Code Plugin | Standalone Python CLI |
-| **LLM** | Claude Only | OpenAI, Anthropic, Ollama |
-| **Execution** | Direct File Edit | **Secure Git Worktrees** |
-| **Integration**| GitHub App | Local-First CLI |
-| **Learning** | Manual CLAUDE.md | **Automatic KB Injection** |
-| **Codification** | Manual | **Automatic on every resolution** |
+| Feature          | Original Plugin    | This DSPy Edition                 |
+| ---------------- | ------------------ | --------------------------------- |
+| **Runtime**      | Claude Code Plugin | Standalone Python CLI             |
+| **LLM**          | Claude Only        | OpenAI, Anthropic, Ollama         |
+| **Execution**    | Direct File Edit   | **Secure Git Worktrees**          |
+| **Integration**  | GitHub App         | Local-First CLI                   |
+| **Learning**     | Manual CLAUDE.md   | **Automatic KB Injection**        |
+| **Codification** | Manual             | **Automatic on every resolution** |
 
 ## Contributing
 

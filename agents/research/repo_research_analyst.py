@@ -1,60 +1,33 @@
 import dspy
 
-from agents.research.schema import RepoResearchReport
+from agents.schema import RepoResearchReport
 from utils.agent.tools import get_research_tools
 from utils.io.logger import logger
 
 
 class RepoResearchAnalyst(dspy.Signature):
     """
-    You are an expert repository research analyst specializing in understanding codebases,
-    documentation structures, and project conventions. Your mission is to conduct thorough,
-    systematic research to uncover patterns, guidelines, and best practices within repositories.
+    You are an expert repository analyst. Your mission is to provide CRITICAL local context
+    about the repository structure, conventions, and patterns to guide subsequent research.
 
-    **Core Responsibilities:**
+    **STRICT OUTPUT PROTOCOL:**
+    1. Provide ONLY the requested fields.
+    2. Use `[[ ## next_thought ## ]]` followed by your reasoning.
+    3. Use `[[ ## next_tool_name ## ]]` followed by the tool name.
+    4. Use `[[ ## next_tool_args ## ]]` followed by a JSON dict of arguments.
+    5. CRITICAL: Always use DOUBLE brackets `[[` and `]]`. Do NOT use single brackets.
+    6. Do NOT include notes or instructions like "# note: ..." in output fields.
 
-    1. **Architecture and Structure Analysis**
-       - Examine key documentation files (ARCHITECTURE.md, README.md, CONTRIBUTING.md)
-       - Map out the repository's organizational structure
-       - Identify architectural patterns and design decisions
-       - Note any project-specific conventions or standards
+    **Core Focus:**
+    - Map repository structure and key directories.
+    - Identify architecture patterns and coding standards.
+    - Discover templates and contribution documentation.
+    - Document local implementation patterns.
 
-    2. **GitHub Issue Pattern Analysis**
-       - Review existing issues to identify formatting patterns
-       - Document label usage conventions and categorization schemes
-       - Note common issue structures and required information
-       - Identify any automation or bot interactions
-
-    3. **Documentation and Guidelines Review**
-       - Locate and analyze all contribution guidelines
-       - Check for issue/PR submission requirements
-       - Document any coding standards or style guides
-       - Note testing requirements and review processes
-
-    4. **Template Discovery**
-       - Search for issue templates in `.github/ISSUE_TEMPLATE/`
-       - Check for pull request templates
-       - Document any other template files (e.g., RFC templates)
-       - Analyze template structure and required fields
-
-    5. **Codebase Pattern Search**
-       - Identify common implementation patterns
-       - Document naming conventions and code organization
-
-    **Available Tools:**
-    - `fetch_documentation(url)`: Fetch external documentation from a URL.
-    - `semantic_search(query, limit)`: Vector search for relevant code by meaning.
-      Use this FIRST to find files related to a concept or feature.
-    - `search_codebase(query, path)`: Grep-based keyword search in project files.
-    - `read_file(file_path, start_line, end_line)`: Read specific file sections.
-      Use this to get more context after finding files with semantic_search.
-
-    **Output Format:**
-
-    Structure your findings into the provided RepoResearchReport schema.
-    Ensure you provide a high-level `summary`, a detailed `analysis` of the project's
-    architecture and conventions, and a list of granular `insights` for each
-    pattern, template, or guideline discovered.
+    **Example Step:**
+    [[ ## next_thought ## ]] I need to find the architecture docs.
+    [[ ## next_tool_name ## ]] search_codebase
+    [[ ## next_tool_args ## ]] {"query": "ARCHITECTURE.md"}
     """
 
     feature_description = dspy.InputField(
@@ -73,8 +46,12 @@ class RepoResearchAnalystModule(dspy.Module):
     def __init__(self, base_dir: str = "."):
         super().__init__()
         self.tools = get_research_tools(base_dir)
-        self.agent = dspy.ReAct(RepoResearchAnalyst, tools=self.tools, max_iters=3)
+        self.agent = dspy.ReAct(RepoResearchAnalyst, tools=self.tools, max_iters=5)
 
     def forward(self, feature_description: str):
+        # Basic validation to ensure robustness
+        if not isinstance(feature_description, str):
+            feature_description = str(feature_description)
+
         logger.info(f"Starting Repo Research for: {feature_description}")
         return self.agent(feature_description=feature_description)

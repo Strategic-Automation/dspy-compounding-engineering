@@ -1,45 +1,40 @@
 import dspy
 
-from agents.research.schema import FrameworkDocsReport
+from agents.schema import FrameworkDocsReport
 from utils.agent.tools import get_research_tools
 from utils.io.logger import logger
 
 
 class FrameworkDocsResearcher(dspy.Signature):
     """
-    You are a documentation specialist focused on extracting practical knowledge
-    from framework and library documentation. Your mission is to analyze official
-    documentation sources and synthesize actionable guidance.
+    You are a documentation specialist. Your mission is to extract practical, version-aware
+    knowledge from official library/framework documentation.
 
-    **Core Responsibilities:**
+    **STRICT OUTPUT PROTOCOL:**
+    1. Provide ONLY the requested fields.
+    2. Use `[[ ## next_thought ## ]]` followed by your reasoning.
+    3. Use `[[ ## next_tool_name ## ]]` followed by the tool name.
+    4. Use `[[ ## next_tool_args ## ]]` followed by a JSON dict of arguments.
+    5. CRITICAL: Always use DOUBLE brackets `[[` and `]]`. Do NOT use single brackets.
+    6. Do NOT include notes or instructions like "# note: ..." in output fields.
 
-    1. **Official Documentation Analysis**
-       - Navigate and analyze API references
-       - Extract configuration options and best practices
-       - Identify common patterns and anti-patterns
+    **Core Focus:**
+    - Review `previous_research` to fill technical gaps.
+    - Analyze API references and configuration options.
+    - Highlight version-specific features and migrations.
+    - Document practical usage examples.
 
-    2. **Version-Aware Research**
-       - Note version-specific features or breaking changes
-       - Highlight deprecated APIs or migration paths
-
-    3. **Practical Examples**
-       - Find and document working code examples
-       - Identify integration patterns with other tools
-
-    **Available Tools:**
-    - `fetch_documentation(url)`: Fetch external documentation from a URL.
-    - `semantic_search(query, limit)`: Vector search for relevant code by meaning.
-    - `search_codebase(query, path)`: Grep-based keyword search in project files.
-    - `read_file(file_path, start_line, end_line)`: Read specific file sections.
-
-    **Output Format:**
-
-    Structure your findings into the provided FrameworkDocsReport schema.
-    Provide a high-level `summary`, a technical `analysis` of how the framework works,
-    and granular `insights` for each API endpoint, guide, or best practice found.
+    **Example Step:**
+    [[ ## next_thought ## ]] Fetching documentation for the library.
+    [[ ## next_tool_name ## ]] fetch_documentation
+    [[ ## next_tool_args ## ]] {"url": "https://example.com/docs"}
     """
 
     framework_or_library = dspy.InputField(desc="The framework, library, or feature to research")
+    previous_research = dspy.InputField(
+        desc="Existing research findings from repo or best practices (optional)",
+        default=None,
+    )
     documentation_report: FrameworkDocsReport = dspy.OutputField(
         desc="The comprehensive documentation report"
     )
@@ -55,8 +50,14 @@ class FrameworkDocsResearcherModule(dspy.Module):
     def __init__(self, base_dir: str = "."):
         super().__init__()
         self.tools = get_research_tools(base_dir)
-        self.agent = dspy.ReAct(FrameworkDocsResearcher, tools=self.tools, max_iters=3)
+        self.agent = dspy.ReAct(FrameworkDocsResearcher, tools=self.tools, max_iters=5)
 
-    def forward(self, framework_or_library: str):
+    def forward(self, framework_or_library: str, previous_research: str = None):
+        # Basic validation to ensure robustness
+        if previous_research and not isinstance(previous_research, str):
+            previous_research = str(previous_research)
+
         logger.info(f"Starting Framework Docs Research for: {framework_or_library}")
-        return self.agent(framework_or_library=framework_or_library)
+        return self.agent(
+            framework_or_library=framework_or_library, previous_research=previous_research
+        )

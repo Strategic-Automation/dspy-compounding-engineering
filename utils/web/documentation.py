@@ -143,11 +143,14 @@ class DocumentationFetcher:
                 content = self._fetch_via_jina(url)
                 if content:
                     logger.success(f"Successfully fetched documentation via Jina for {url}")
-                    return content
+                    from ..security.scrubber import scrubber
+                    return scrubber.scrub(content)
             except Exception as e:
                 logger.warning(f"Jina fetch failed for {url}: {e}. Falling back to local parsing.")
 
-        return self._fetch_locally(url)
+        local_content = self._fetch_locally(url)
+        from ..security.scrubber import scrubber
+        return scrubber.scrub(local_content)
 
     def _fetch_via_jina(self, url: str) -> Optional[str]:
         """

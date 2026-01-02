@@ -73,8 +73,8 @@ def codify_learning(
             logger.warning(f"Empty response from FeedbackCodifier for {category}")
             return False
 
-        # Convert Pydantic model to dict
-        codified_data = codified_obj.model_dump()
+        # Convert Pydantic model to dict safely
+        codified_data = codified_obj.model_dump(mode="python")
 
         # Add metadata
         codified_data["original_feedback"] = context[:1000]  # Truncate to avoid bloat
