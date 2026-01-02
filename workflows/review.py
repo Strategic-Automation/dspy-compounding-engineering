@@ -208,10 +208,19 @@ def convert_pydantic_to_markdown(model: BaseModel) -> str:  # noqa: C901
     return "\n".join(parts)
 
 
-def _gather_review_context(pr_url_or_id: str, project: bool = False) -> tuple[str, str | None]:
-    """Gather code diff and summary for review."""
-    worktree_path = None
-    code_diff = None
+def _gather_review_context(pr_url_or_id: str, project: bool = False) -> tuple[str | None, str | None]:
+    """
+    Gather code diff and summary for review.
+
+    Args:
+        pr_url_or_id: PR number, URL, branch name, or 'latest'
+        project: If True, review the entire project context
+
+    Returns:
+        tuple: (code_diff, worktree_path or None)
+    """
+    worktree_path: str | None = None
+    code_diff: str | None = None
 
     try:
         if project:
@@ -228,6 +237,7 @@ def _gather_review_context(pr_url_or_id: str, project: bool = False) -> tuple[st
                 logger.error("No source files found to review!")
                 return None, None
             logger.success(f"Gathered {len(code_diff):,} characters of project code")
+
         elif pr_url_or_id == "latest":
             # Default to checking current staged/unstaged changes or HEAD
             logger.info("Fetching local changes...", to_cli=True)
@@ -244,37 +254,55 @@ def _gather_review_context(pr_url_or_id: str, project: bool = False) -> tuple[st
                     f"FILE STATUS SUMMARY (Renames Detected):\n{summary}\n\nGIT DIFF:\n{code_diff}"
                 )
         else:
-            # Fetch PR diff
+            # Fetch PR/Branch/File diff
             logger.info(f"Fetching diff for {pr_url_or_id}...", to_cli=True)
-            code_diff = GitService.get_pr_diff(pr_url_or_id)
+            code_diff = GitService.get_diff(pr_url_or_id)
 
-            # Create isolated worktree for PR
-            try:
-                safe_id = "".join(c for c in pr_url_or_id if c.isalnum() or c in ("-", "_"))
-                worktree_path = f"worktrees/review-{safe_id}"
+            # 1. Determine if we should create a worktree (only for actual PRs/Branches, not local files)
+            is_pr = pr_url_or_id.startswith("http") or pr_url_or_id.isdigit()
+            is_remote_branch = "/" in pr_url_or_id and not os.path.exists(pr_url_or_id)
+            is_file = os.path.isfile(pr_url_or_id)
 
-                if os.path.exists(worktree_path):
+            if (is_pr or is_remote_branch) and not is_file:
+                try:
+                    # 2. Sanitize ID for safe path construction
+                    safe_id = "".join(c for c in pr_url_or_id if c.isalnum() or c in ("-", "_"))
+                    if not safe_id:
+                        from uuid import uuid4
+                        safe_id = str(uuid4())[:8]
+
+                    # 3. Resolve absolute worktree path and verify containment
+                    base_worktree_dir = os.path.abspath("worktrees")
+                    target_path = os.path.abspath(os.path.join(base_worktree_dir, f"review-{safe_id}"))
+
+                    if not target_path.startswith(base_worktree_dir):
+                        raise ValueError(f"Security: Malicious worktree path detected: {target_path}")
+
+                    worktree_path = target_path
+
+                    if os.path.exists(worktree_path):
+                        console.print(
+                            f"[yellow]Worktree {worktree_path} already exists. Using it.[/yellow]"
+                        )
+                    else:
+                        console.print(f"[cyan]Creating isolated worktree at {worktree_path}...[/cyan]")
+                        os.makedirs(base_worktree_dir, exist_ok=True)
+                        GitService.checkout_pr_worktree(pr_url_or_id, worktree_path)
+                        console.print("[green]✓ Worktree created[/green]")
+                except Exception as e:
                     console.print(
-                        f"[yellow]Worktree {worktree_path} already exists. Using it.[/yellow]"
+                        f"[yellow]Warning: Could not create worktree (proceeding with diff only): {e}[/yellow]"
                     )
-                else:
-                    console.print(f"[cyan]Creating isolated worktree at {worktree_path}...[/cyan]")
-                    GitService.checkout_pr_worktree(pr_url_or_id, worktree_path)
-                    console.print("[green]✓ Worktree created[/green]")
-            except Exception as e:
-                console.print(
-                    "[yellow]Warning: Could not create worktree "
-                    f"(proceeding with diff only): {e}[/yellow]"
-                )
+                    worktree_path = None
 
         if not code_diff:
-            logger.error("No diff found to review!")
+            logger.error(f"No changes found to review for: {pr_url_or_id}!")
             return None, None
 
-    except Exception:
-        logger.error("Error fetching PR content. Please check git and gh CLI status.")
+    except Exception as e:
+        logger.error(f"Error gathering review context: {e}")
         console.print("[yellow]Falling back to placeholder diff for demonstration...[/yellow]")
-        code_diff = "# Placeholder diff (Git fetch failed)\n# Ensure git and gh CLI are installed"
+        code_diff = "# Placeholder diff (Context gathering failed)\n# Check your arguments"
 
     return code_diff, worktree_path
 
@@ -586,7 +614,7 @@ def _create_review_todos(findings: list[dict]) -> None:
     _display_todo_summary(created_todos, counts)
 
 
-def run_review(pr_url_or_id: str, project: bool = False, agent_filter: Optional[list[str]] = None):
+def run_review(pr_url_or_id: str, project: bool = False, agent_filter: Optional[list[str]] = None) -> None:
     """
     Perform exhaustive multi-agent code review.
     """

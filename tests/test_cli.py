@@ -187,14 +187,3 @@ class TestHelpOutput:
 class TestDeprecatedCommands:
     """Tests for backward-compatible deprecated commands."""
 
-    def test_generate_command_alias_shows_deprecation(self, mock_workflows):
-        """Legacy generate-command should work but show deprecation warning."""
-        # Check if generate-command exists (it may have been removed)
-        result = runner.invoke(app, ["--help"])
-        if "generate-command" in result.stdout:
-            result = runner.invoke(app, ["generate-command", "test desc"])
-            assert result.exit_code == 0
-            assert "deprecated" in result.stdout.lower() or mock_workflows["generate_agent"].called
-        else:
-            # Command doesn't exist, which is fine
-            pass

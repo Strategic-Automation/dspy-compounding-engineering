@@ -5,7 +5,7 @@ The `codify` command is the mechanism for explicitly teaching the system. While 
 ## Usage
 
 ```bash
-uv run python cli.py codify "YOUR FEEDBACK HERE" [OPTIONS]
+compounding codify "YOUR FEEDBACK HERE" [OPTIONS]
 ```
 
 ### Arguments
@@ -25,7 +25,7 @@ uv run python cli.py codify "YOUR FEEDBACK HERE" [OPTIONS]
 ### 1. Architectural Rules
 
 ```bash
-uv run python cli.py codify "All API responses must be wrapped in a standard Envelope object"
+compounding codify "All API responses must be wrapped in a standard Envelope object"
 ```
 
 *Future Effect*: Agents will verify this in `review` and implement it in `work`.
@@ -33,13 +33,13 @@ uv run python cli.py codify "All API responses must be wrapped in a standard Env
 ### 2. Contextual Preferences
 
 ```bash
-uv run python cli.py codify "Use snake_case for Python variables but camelCase for JSON keys"
+compounding codify "Use snake_case for Python variables but camelCase for JSON keys"
 ```
 
 ### 3. Deprecations
 
 ```bash
-uv run python cli.py codify "Do not use the 'requests' library; use 'httpx' for all async calls"
+compounding codify "Do not use the 'requests' library; use 'httpx' for all async calls"
 ```
 
 ## How It Works

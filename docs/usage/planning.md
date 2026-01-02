@@ -5,7 +5,7 @@ The `plan` command helps you transform high-level feature descriptions into deta
 ## Usage
 
 ```bash
-uv run python cli.py plan "FEATURE_DESCRIPTION"
+compounding plan "FEATURE_DESCRIPTION"
 ```
 
 ### Arguments
@@ -15,7 +15,7 @@ uv run python cli.py plan "FEATURE_DESCRIPTION"
 ## Example
 
 ```bash
-uv run python cli.py plan "Add a new user settings page with dark mode toggle and email notification preferences"
+compounding plan "Add a new user settings page with dark mode toggle and email notification preferences"
 ```
 
 ## How It Works
