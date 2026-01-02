@@ -1,6 +1,6 @@
 import math
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 from rich.console import Console
@@ -22,7 +22,7 @@ app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
 @app.callback()
 def main(
     env_file: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option(
             "--env-file",
             "-e",
@@ -34,7 +34,7 @@ def main(
             resolve_path=True,
         ),
     ] = None,
-):
+) -> None:
     """
     Compounding Engineering (DSPy Edition)
     """
@@ -42,7 +42,7 @@ def main(
 
 
 @app.command()
-def triage():
+def triage() -> None:
     """
     Triage and categorize findings for the CLI todo system.
     """
@@ -50,7 +50,7 @@ def triage():
 
 
 @app.command()
-def plan(feature_description: str):
+def plan(feature_description: str) -> None:
     """
     Transform feature descriptions into well-structured project plans.
     """
@@ -59,7 +59,7 @@ def plan(feature_description: str):
 
 @app.command()
 def work(
-    pattern: Optional[str] = typer.Argument(None, help="Todo ID, plan file, or pattern"),
+    pattern: str | None = typer.Argument(None, help="Todo ID, plan file, or pattern"),
     dry_run: bool = typer.Option(False, "--dry-run", "-n", help="Dry run mode"),
     sequential: bool = typer.Option(
         False,
@@ -75,7 +75,7 @@ def work(
         "--in-place/--worktree",
         help="Apply changes in-place to current branch (default) or use isolated worktree",
     ),
-):
+) -> None:
     """
     Unified work command using DSPy ReAct.
 
@@ -115,10 +115,10 @@ def review(
         False, "--project", "-p", help="Review entire project instead of just changes"
     ),
     agent: Annotated[
-        Optional[list[str]],
+        list[str] | None,
         typer.Option("--agent", "-a", help="Run only specific review agents (name or pattern)"),
     ] = None,
-):
+) -> None:
     """
     Perform exhaustive multi-agent code reviews.
 
@@ -155,7 +155,7 @@ def generate_agent(
         "-n",
         help="Show what would be created without writing files",
     ),
-):
+) -> None:
     """
     Generate a new Review Agent from a natural language description.
 
@@ -180,7 +180,7 @@ def codify(
         "-s",
         help="Source of the feedback (e.g., 'review', 'retro')",
     ),
-):
+) -> None:
     """
     Codify feedback into the knowledge base.
 
@@ -201,7 +201,7 @@ def compress_kb(
     dry_run: bool = typer.Option(
         False, "--dry-run", "-n", help="Show stats without modifying the file"
     ),
-):
+) -> None:
     """
     Compress the AI knowledge base (AI.md) using LLM.
 
@@ -226,7 +226,7 @@ def index(
     recreate: Annotated[
         bool, typer.Option("--recreate", "-r", help="Force recreation of the vector collection")
     ] = False,
-):
+) -> None:
     """
     Index the codebase for semantic search using Vector Embeddings.
     Use this to enable agents to find relevant code snippets.
@@ -237,7 +237,7 @@ def index(
 
 
 @app.command()
-def status():
+def status() -> None:
     """
     Check the current status of external services (Qdrant, API keys).
     """

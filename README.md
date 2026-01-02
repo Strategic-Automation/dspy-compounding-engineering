@@ -108,27 +108,27 @@ The repository includes a small wrapper script `uvx` that runs the CLI via `uv r
 
 ```bash
 ./uvx -h
-./uvx generate-command "create a command to list large files"
+./uvx generate-agent "create an agent to check for hardcoded secrets"
 ```
 
 The script is in the repository root and is executable; run it from the repo directory.
 
-You can also prefix commands with `compounding`, for example `./uvx compounding generate-command`.
+You can also prefix commands with `compounding`, for example `./uvx compounding generate-agent`.
 
 ## Example run
 
-Quick example using the temporary runner `uvx` to see the `generate-command` help:
+Quick example using the temporary runner `uvx` to see the `generate-agent` help:
 
 ```bash
-./uvx generate-command -h
+./uvx generate-agent -h
 ```
 
 Expected excerpt:
 
 ```
-Usage: cli.py generate-command [OPTIONS] DESCRIPTION
+Usage: compounding generate-agent [OPTIONS] DESCRIPTION
 
-Generate a new CLI command from a natural language description.
+Generate a new Review Agent from a natural language description.
 
 Options:
   --dry-run  -n   Show what would be created without writing files
@@ -248,6 +248,9 @@ The tool will warn you if multiple conflicting configuration files are detected.
 
 ## Usage
 
+> [!TIP]
+> If you have installed the tool via `uv tool install --from .`, you can use the `compounding` command directly. Otherwise, use `uv run python cli.py`.
+
 ### 1. Review Code
 
 Run a comprehensive multi-agent review on your current changes or a specific PR:
@@ -318,16 +321,16 @@ This will:
 5. Mark todos as complete (`*-complete-*.md`)
 6. Clean up worktrees automatically
 
-### 4. Generate Commands
+### 4. Generate Agents
 
-Generate shell commands from natural language descriptions:
+Generate new review agents from natural language descriptions:
 
 ```bash
-# Generate a command
-compounding generate-command "find all Python files modified in the last week"
+# Generate a new agent
+compounding generate-agent "Check for SQL injection vulnerabilities"
 
-# Execute the generated command (use with caution)
-compounding generate-command "list large files" --execute
+# Preview without creating files
+compounding generate-agent "Ensure all Python functions have docstrings" --dry-run
 ```
 
 ### 5. Plan New Features

@@ -49,4 +49,4 @@ After triage:
 2.  **Skipped** findings are archived or deleted.
 3.  The system learns from your decisions (e.g., if you consistently reject a certain type of finding, it may learn to stop flagging it - *planned feature*).
 
-You can then run `cli.py work` to automatically fix the approved todos.
+You can then run `compounding work` to automatically fix the approved todos.
