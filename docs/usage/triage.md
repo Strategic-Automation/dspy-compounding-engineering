@@ -5,7 +5,7 @@ The `triage` command is your interactive dashboard for processing code review fi
 ## Usage
 
 ```bash
-uv run python cli.py triage
+compounding triage
 ```
 
 ## Interactive Mode

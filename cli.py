@@ -108,7 +108,8 @@ def work(
 @app.command()
 def review(
     pr_url_or_id: str = typer.Argument(
-        "latest", help="PR number, URL, branch name, or 'latest' for local changes"
+        "latest",
+        help="PR number (e.g., 86), full URL, branch name, or 'latest' for local changes",
     ),
     project: bool = typer.Option(
         False, "--project", "-p", help="Review entire project instead of just changes"
@@ -121,10 +122,18 @@ def review(
     """
     Perform exhaustive multi-agent code reviews.
 
+    Args:
+        pr_url_or_id: The target to review. Can be:
+            - A PR ID (e.g., 86)
+            - A full URL (e.g., https://github.com/user/project/pull/86)
+            - A branch name (e.g., dev)
+            - 'latest' (the default) to review unstaged/local changes
+
     Examples:
         compounding review              # Review local changes
+        compounding review 86           # Review PR #86
+        compounding review dev          # Review differences against dev
         compounding review --project    # Review entire project
-        compounding review 123          # Review PR #123
         compounding review -a Security  # Run only security agent
     """
     # Sanitize and validate agent filter
