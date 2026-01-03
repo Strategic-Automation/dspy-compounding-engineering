@@ -123,7 +123,14 @@ DSPY_LM_MAX_TOKENS=4096
 
 # Timeout in seconds
 DSPY_LM_TIMEOUT=120
+
+# Max tokens for documentation fetching (paging support)
+DOCS_MAX_TOKENS=32768
 ```
+
+### Documentation Paging
+
+When documentation content exceeds `DOCS_MAX_TOKENS`, it is automatically truncated. The agent receives a warning with instructions on how to fetch the next "page" of content using an `offset_tokens` parameter. This prevents context window overflows while still allowing access to massive documentation sites.
 
 ### Knowledge Base Settings
 

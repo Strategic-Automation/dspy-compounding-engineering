@@ -122,7 +122,7 @@ class DocumentationFetcher:
         except Exception as e:
             return False, f"URL check internal error: {e}"
 
-    def fetch(self, url: str) -> str:
+    def fetch(self, url: str, max_tokens: Optional[int] = None, offset_tokens: int = 0) -> str:
         """
         Fetch documentation from a URL and return it as Markdown.
         """
@@ -140,27 +140,81 @@ class DocumentationFetcher:
 
         if self.use_jina:
             try:
-                content = self._fetch_via_jina(url)
+                # We fetch the whole content from Jina (as it's high quality),
+                # but we truncate locally to handle paging.
+                content = self._fetch_via_jina(url, max_tokens=max_tokens)
                 if content:
                     logger.success(f"Successfully fetched documentation via Jina for {url}")
                     from ..security.scrubber import scrubber
-                    return scrubber.scrub(content)
+
+                    clean_content = scrubber.scrub(content)
+                    return self._truncate_to_limit(clean_content, max_tokens, offset_tokens)
             except Exception as e:
                 logger.warning(f"Jina fetch failed for {url}: {e}. Falling back to local parsing.")
 
         local_content = self._fetch_locally(url)
         from ..security.scrubber import scrubber
-        return scrubber.scrub(local_content)
 
-    def _fetch_via_jina(self, url: str) -> Optional[str]:
+        clean_content = scrubber.scrub(local_content)
+        return self._truncate_to_limit(clean_content, max_tokens, offset_tokens)
+
+    def _truncate_to_limit(
+        self, content: str, max_tokens: Optional[int], offset_tokens: int = 0
+    ) -> str:
+        """Truncate content to token limit with paging support."""
+        if not max_tokens and not offset_tokens:
+            return content
+
+        import tiktoken
+
+        try:
+            encoding = tiktoken.get_encoding("cl100k_base")
+        except Exception:
+            encoding = tiktoken.get_encoding("gpt2")
+
+        tokens = encoding.encode(content)
+        total_tokens = len(tokens)
+
+        if offset_tokens >= total_tokens:
+            msg = f"Offset {offset_tokens} tokens is beyond document length ({total_tokens} tokens)."
+            return f"Error: {msg}"
+
+        # Calculate range
+        start = offset_tokens
+        end = min(start + max_tokens, total_tokens) if max_tokens else total_tokens
+
+        # Slice and decode
+        sliced_tokens = tokens[start:end]
+        truncated_content = encoding.decode(sliced_tokens)
+
+        if end < total_tokens:
+            next_offset = end
+            remaining = total_tokens - end
+            warning = (
+                f"\n\n[TRUNCATED: ~{remaining} tokens remaining. "
+                f"To read more, call fetch_documentation again with offset_tokens={next_offset}]"
+            )
+            truncated_content += warning
+        elif offset_tokens > 0 and end == total_tokens:
+            truncated_content += "\n\n[END OF DOCUMENT]"
+
+        return truncated_content
+
+    def _fetch_via_jina(self, url: str, max_tokens: Optional[int] = None) -> Optional[str]:
         """
         Fetch via r.jina.ai for high-quality markdown.
         """
         # Note: We send the URL to Jina as a string. Jina performs the fetch.
         # We've already validated the URL is safe (not local) in self.fetch().
         jina_url = f"https://r.jina.ai/{url}"
+        headers = {}
+        if max_tokens:
+            # Jina supports X-Return-Format: markdown and optionally length limits
+            # though we do truncation locally to be safe.
+            headers["X-Return-Format"] = "markdown"
+
         with httpx.Client(timeout=self.timeout) as client:
-            response = client.get(jina_url)
+            response = client.get(jina_url, headers=headers)
             response.raise_for_status()
             return response.text
 

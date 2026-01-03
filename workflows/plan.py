@@ -34,19 +34,51 @@ def _save_stage_output(plans_dir: str, safe_name: str, stage: str, content: str)
 
 def run_plan(feature_description: str):
     """Orchestrate the planning process."""
+    from utils.git.service import GitService
+
+    # 0. Handle GitHub Issues
+    target_description = feature_description
+    issue_details = {}
+
+    # Simple check for issue pattern: #123, 123, or github.com/.../issues/123
+    is_issue = False
+    if feature_description.isdigit() or feature_description.startswith("#"):
+        is_issue = True
+    elif "github.com" in feature_description and "/issues/" in feature_description:
+        is_issue = True
+
+    if is_issue:
+        with console.status(f"Fetching GitHub issue {feature_description}..."):
+            issue_id = feature_description.lstrip("#")
+            issue_details = GitService.get_issue_details(issue_id)
+            if issue_details:
+                title = issue_details.get("title", "")
+                body = issue_details.get("body", "")
+                target_description = f"Issue #{issue_details.get('number')}: {title}\n\n{body}"
+                if title:
+                    console.print(f"[green]✓ Fetched issue: {title}[/green]")
+            else:
+                msg = f"⚠ Could not fetch issue {feature_description}. Treating as raw description."
+                console.print(f"[yellow]{msg}[/yellow]")
+
     plans_dir = "plans"
     os.makedirs(plans_dir, exist_ok=True)
 
-    safe_name = _get_safe_name(feature_description)
+    # Use title for file naming if it's an issue
+    naming_source = (
+        issue_details.get("title", feature_description) if issue_details else feature_description
+    )
+    safe_name = _get_safe_name(naming_source)
 
-    console.print(f"[bold]Planning Feature:[/bold] {feature_description}\n")
+    plan_title = feature_description if not issue_details else issue_details.get("title")
+    console.print(f"[bold]Planning Feature:[/bold] {plan_title}\n")
 
     # 1. Research Phase
     console.rule("Phase 1: Research")
     kb = KnowledgeBase()
 
     with console.status("Scanning project structure..."):
-        semantic_results = kb.search_codebase(feature_description, limit=5)
+        semantic_results = kb.search_codebase(target_description, limit=5)
         if semantic_results:
             console.print(f"[dim]Found {len(semantic_results)} semantic code matches[/dim]")
 
@@ -54,7 +86,7 @@ def run_plan(feature_description: str):
         repo_research = KBPredict(
             RepoResearchAnalystModule,
             kb_tags=["planning", "repo-research"],
-        )(feature_description=feature_description)
+        )(feature_description=target_description)
         console.print("[green]✓ Repo Research Complete[/green]")
         repo_md = repo_research.research_report.format_markdown()
         _save_stage_output(plans_dir, safe_name, "1-repo-research", repo_md)
@@ -62,18 +94,17 @@ def run_plan(feature_description: str):
         best_practices = KBPredict(
             BestPracticesResearcherModule,
             kb_tags=["planning", "best-practices"],
-        )(topic=feature_description, repo_research=repo_md)
+        )(topic=target_description, repo_research=repo_md)
         console.print("[green]✓ Best Practices Research Complete[/green]")
         bp_md = best_practices.research_report.format_markdown()
         _save_stage_output(plans_dir, safe_name, "2-best-practices", bp_md)
 
         # Framework research now sees both local repo context and general best practices
-        # We use explicit delimiters to prevent content injection/confusion
         framework_docs = KBPredict(
             FrameworkDocsResearcherModule,
             kb_tags=["planning", "framework-docs"],
         )(
-            framework_or_library=feature_description,
+            framework_or_library=target_description,
             previous_research=(
                 "--- START REPOSITORY CONTEXT ---\n"
                 f"{repo_md}\n"
@@ -105,7 +136,7 @@ def run_plan(feature_description: str):
         spec_flow = KBPredict(
             SpecFlowAnalyzer,
             kb_tags=["planning", "spec-flow"],
-        )(feature_description=feature_description, research_findings=research_summary)
+        )(feature_description=target_description, research_findings=research_summary)
     console.print("[green]✓ SpecFlow Analysis Complete[/green]")
     _save_stage_output(plans_dir, safe_name, "5-specflow-analysis", spec_flow.flow_analysis)
 
@@ -115,10 +146,10 @@ def run_plan(feature_description: str):
         planner = KBPredict(
             PlanGenerator,
             kb_tags=["planning", "architecture"],
-            kb_query=feature_description,
+            kb_query=target_description,
         )
         plan_gen = planner(
-            feature_description=feature_description,
+            feature_description=target_description,
             research_summary=research_summary,
             spec_flow_analysis=spec_flow.flow_analysis,
         )

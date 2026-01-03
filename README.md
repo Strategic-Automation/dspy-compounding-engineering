@@ -247,6 +247,7 @@ OPENROUTER_API_KEY=sk-or-...
 # Context Limits (Optional)
 CONTEXT_WINDOW_LIMIT=128000
 CONTEXT_OUTPUT_RESERVE=4096
+DOCS_MAX_TOKENS=32768  # Limit for documentation fetching (default: 32k)
 ```
 
 ## Multi-Source Configuration
@@ -348,10 +349,15 @@ compounding generate-agent "Ensure all Python functions have docstrings" --dry-r
 
 ### 5. Plan New Features
 
-Generate a detailed implementation plan:
+Generate a detailed implementation plan from a description or GitHub issue:
 
 ```bash
+# Plan from a natural language description
 compounding plan "Add user authentication with OAuth"
+
+# Plan from a GitHub issue (ID or URL)
+compounding plan 30
+compounding plan https://github.com/user/repo/issues/30
 ```
 
 ### 6. Codify Learnings

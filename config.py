@@ -219,6 +219,7 @@ class AppConfig:
         """Load settings from environment variables."""
         self.context_window_limit = int(os.getenv("CONTEXT_WINDOW_LIMIT", "128000"))
         self.context_output_reserve = int(os.getenv("CONTEXT_OUTPUT_RESERVE", "4096"))
+        self.docs_max_tokens = int(os.getenv("DOCS_MAX_TOKENS", "32768"))
         self.default_max_tokens = int(os.getenv("DSPY_MAX_TOKENS", "16384"))
         self.quiet = bool(os.getenv("COMPOUNDING_QUIET"))
         self.log_path = os.getenv("COMPOUNDING_LOG_PATH", "compounding.log")

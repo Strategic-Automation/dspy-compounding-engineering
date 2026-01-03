@@ -49,7 +49,7 @@ def _format_grep_result(process, max_lines: int = 50) -> str:
         return f"Error searching files: {process.stderr}"
 
 
-def _run_git_grep(query: str, safe_path: str, regex: bool) -> Optional[str]:
+def _run_git_grep(query: str, safe_path: str, regex: bool, limit: int = 50) -> Optional[str]:
     """Helper to run git grep."""
     git_cmd = ["git", "grep", "-n"]
     if not regex:
@@ -66,13 +66,13 @@ def _run_git_grep(query: str, safe_path: str, regex: bool) -> Optional[str]:
             check=False,
         )
         if process.returncode == 0:
-            return _format_grep_result(process)
+            return _format_grep_result(process, max_lines=limit)
     except Exception:
         pass
     return None
 
 
-def _run_standard_grep(query: str, safe_path: str, regex: bool) -> str:
+def _run_standard_grep(query: str, safe_path: str, regex: bool, limit: int = 50) -> str:
     """Helper to run standard grep with exclusions."""
     cmd = ["grep", "-r", "-n"]
     if not regex:
@@ -103,10 +103,12 @@ def _run_standard_grep(query: str, safe_path: str, regex: bool) -> str:
         check=False,
     )
 
-    return _format_grep_result(process)
+    return _format_grep_result(process, max_lines=limit)
 
 
-def search_files(query: str, path: str = ".", regex: bool = False, base_dir: str = ".") -> str:
+def search_files(
+    query: str, path: str = ".", regex: bool = False, base_dir: str = ".", limit: int = 50
+) -> str:
     """
     Search for a string or regex in files at the given path.
     Uses git grep if available, otherwise falls back to grep -r with exclusions.
@@ -115,12 +117,12 @@ def search_files(query: str, path: str = ".", regex: bool = False, base_dir: str
         safe_path = validate_path(path, base_dir)
 
         # 1. Try git grep first
-        git_result = _run_git_grep(query, safe_path, regex)
+        git_result = _run_git_grep(query, safe_path, regex, limit=limit)
         if git_result:
             return git_result
 
         # 2. Fallback to standard grep
-        return _run_standard_grep(query, safe_path, regex)
+        return _run_standard_grep(query, safe_path, regex, limit=limit)
 
     except Exception as e:
         return f"Error executing search: {str(e)}"

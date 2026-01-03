@@ -56,6 +56,6 @@ class BestPracticesResearcherModule(dspy.Module):
         # Basic validation to ensure robustness
         if repo_research and not isinstance(repo_research, str):
             repo_research = str(repo_research)
-            
+
         logger.info(f"Starting Best Practices Research for: {topic}")
         return self.agent(topic=topic, repo_research=repo_research)

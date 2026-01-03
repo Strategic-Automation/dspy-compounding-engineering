@@ -50,11 +50,20 @@ def triage() -> None:
 
 
 @app.command()
-def plan(feature_description: str) -> None:
+def plan(
+    description: Annotated[
+        str, typer.Argument(..., help="Feature description, GitHub issue ID, or URL")
+    ],
+) -> None:
     """
-    Transform feature descriptions into well-structured project plans.
+    Transform feature descriptions or GitHub issues into project plans.
+
+    Examples:
+        compounding plan "Add user authentication"
+        compounding plan 30
+        compounding plan https://github.com/user/repo/issues/30
     """
-    run_plan(feature_description)
+    run_plan(description)
 
 
 @app.command()
