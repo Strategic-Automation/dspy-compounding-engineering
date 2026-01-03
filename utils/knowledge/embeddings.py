@@ -1,22 +1,40 @@
 import os
-from typing import List
+import threading
+from typing import Any
 
 from openai import OpenAI
-from rich.console import Console
 
-from config import resolve_embedding_config
+from config import (
+    DENSE_FALLBACK_MODEL_NAME,
+    SPARSE_MODEL_NAME,
+    resolve_embedding_config,
+    settings,
+)
 
-console = Console()
+from ..io.logger import console, logger
+
+# Global Model Registry (Thread-Safe Singleton Pattern)
+_MODEL_CACHE: dict[str, Any] = {}
+_CACHE_LOCK = threading.Lock()
+_PER_MODEL_LOCKS: dict[str, threading.Lock] = {}
+
+
+def _get_model_lock(key: str) -> threading.Lock:
+    """Get or create a granular lock for a specific model key."""
+    with _CACHE_LOCK:
+        if key not in _PER_MODEL_LOCKS:
+            _PER_MODEL_LOCKS[key] = threading.Lock()
+        return _PER_MODEL_LOCKS[key]
 
 
 class EmbeddingProvider:
     """
     Manages embedding generation using OpenAI-compatible APIs or local FastEmbed.
+    Implements thread-safe model caching to prevent redundant loads in parallel agents.
     """
 
     def __init__(self):
         self._resolve_config()
-        self._configure_vector_size()
         self._init_clients()
 
     def _resolve_config(self) -> None:
@@ -38,74 +56,99 @@ class EmbeddingProvider:
         # Auto-detect fallback if no API key for cloud providers
         is_cloud = self.embedding_provider in ["openai", "openrouter"]
         if is_cloud and not self.embedding_api_key:
-            if not os.getenv("COMPOUNDING_QUIET"):
+            if not settings.quiet:
                 console.print(
                     f"[yellow]No API key found for {self.embedding_provider}. "
                     "Falling back to FastEmbed (local embeddings).[/yellow]"
                 )
             self.embedding_provider = "fastembed"
-            self.embedding_model_name = "jinaai/jina-embeddings-v2-small-en"
+            self.embedding_model_name = DENSE_FALLBACK_MODEL_NAME
 
         if self.embedding_provider == "openrouter" and not self.embedding_base_url:
             self.embedding_base_url = "https://openrouter.ai/api/v1"
 
-    def _configure_vector_size(self) -> None:
-        """Determine vector size based on model."""
-        # Standard model dimension mapping
         DIMENSION_MAP = {
-            # OpenAI Models
             "text-embedding-3-small": 1536,
             "text-embedding-3-large": 3072,
             "text-embedding-ada-002": 1536,
+            # mxbai models
+            "mxbai-embed-large:latest": 1024,
             # Nomic Models
             "nomic-embed-text": 768,
-            # MiniLM Models
             "all-MiniLM-L6-v2": 384,
             "all-MiniLM-L12-v2": 384,
-            # Jina Models
             "jinaai/jina-embeddings-v2-small-en": 512,
             "jinaai/jina-embeddings-v2-base-en": 768,
         }
 
-        if self.embedding_provider == "fastembed":
-            self.vector_size = DIMENSION_MAP.get(self.embedding_model_name, 512)
-        else:
-            # Exact match first
-            if self.embedding_model_name in DIMENSION_MAP:
-                self.vector_size = DIMENSION_MAP[self.embedding_model_name]
-            # Heuristics
-            elif "nomic" in self.embedding_model_name.lower():
+        # Simplified lookup
+        name = self.embedding_model_name
+        self.vector_size = DIMENSION_MAP.get(name)
+
+        if not self.vector_size:
+            # Fallback heuristics
+            if "nomic" in name.lower():
                 self.vector_size = 768
-            elif "minilm" in self.embedding_model_name.lower():
+            elif "minilm" in name.lower():
                 self.vector_size = 384
+            elif "mxbai-embed-large:latest" in self.embedding_model_name.lower():
+                self.vector_size = 1024
             else:
-                if not os.getenv("COMPOUNDING_QUIET"):
-                    console.print(
-                        f"[yellow]Unknown embedding model '{self.embedding_model_name}'. "
-                        "Defaulting to 1536 dimensions.[/yellow]"
-                    )
                 self.vector_size = 1536
 
-        if os.getenv("EMBEDDING_DIMENSION"):
-            self.vector_size = int(os.getenv("EMBEDDING_DIMENSION"))
+    def _get_cached_model(self, key: str, loader_func: Any, model_name: str) -> Any:
+        """Generic thread-safe model caching helper with granular locking."""
+        # Double-checked locking part 1: Quick check without lock
+        if key in _MODEL_CACHE:
+            logger.debug(f"Retrieved model {key} from cache")
+            return _MODEL_CACHE[key]
+
+        # Acquire granular lock for this specific model
+        model_lock = _get_model_lock(key)
+        with model_lock:
+            # Double-checked locking part 2: check again inside lock
+            if key in _MODEL_CACHE:
+                return _MODEL_CACHE[key]
+
+            logger.info(f"Loading model: {model_name}...", to_cli=True)
+            try:
+                model = loader_func(model_name=model_name)
+                _MODEL_CACHE[key] = model
+                logger.success(f"Model {model_name} loaded successfully")
+                return model
+            except Exception as e:
+                logger.error(f"Failed to load model {model_name}", detail=str(e))
+                raise e
+
+    def _get_fastembed_model(self, model_name: str) -> Any:
+        """Get or initialize a FastEmbed model from global cache."""
+        from fastembed import TextEmbedding
+
+        try:
+            return self._get_cached_model(f"dense_{model_name}", TextEmbedding, model_name)
+        except Exception:
+            # Fallback to Jina small if failed
+            if model_name == DENSE_FALLBACK_MODEL_NAME:
+                raise
+            return self._get_fastembed_model(DENSE_FALLBACK_MODEL_NAME)
+
+    def _get_sparse_model(self) -> Any:
+        """Get or initialize a SparseTextEmbedding model from global cache."""
+        from fastembed import SparseTextEmbedding
+
+        return self._get_cached_model(
+            f"sparse_{SPARSE_MODEL_NAME}", SparseTextEmbedding, SPARSE_MODEL_NAME
+        )
 
     def _init_clients(self) -> None:
         """Initialize remote API or local model clients."""
         if self.embedding_provider == "fastembed":
-            from fastembed import TextEmbedding
-
-            try:
-                self.fast_model = TextEmbedding(model_name=self.embedding_model_name)
-            except Exception as e:
-                console.print(f"[red]Failed to load FastEmbed model: {e}[/red]")
-                # Fallback to a safe default if specific model fails
-                self.fast_model = TextEmbedding(model_name="jinaai/jina-embeddings-v2-small-en")
-                self.vector_size = 512
+            self.fast_model = self._get_fastembed_model(self.embedding_model_name)
             self.client = None
         else:
             self.client = OpenAI(api_key=self.embedding_api_key, base_url=self.embedding_base_url)
 
-    def get_embedding(self, text: str) -> List[float]:
+    def get_embedding(self, text: str) -> list[float]:
         """Generate embedding for text using configured provider."""
         try:
             if self.embedding_provider == "fastembed":
@@ -117,19 +160,18 @@ class EmbeddingProvider:
                 )
                 return response.data[0].embedding
         except Exception as e:
-            console.print(f"[red]Failed to generate embedding: {e}[/red]")
+            logger.error("Failed to generate embedding", detail=str(e))
             raise e
 
     def get_sparse_embedding(self, text: str):
         """Generate sparse embedding for text using fastembed."""
-        if not hasattr(self, "sparse_model"):
-            from fastembed import SparseTextEmbedding
-
-            self.sparse_model = SparseTextEmbedding(model_name="Qdrant/bm25")
-
         try:
-            embedding = list(self.sparse_model.embed(text))[0]
-            return {"indices": embedding.indices.tolist(), "values": embedding.values.tolist()}
+            model = self._get_sparse_model()
+            embedding = list(model.embed(text))[0]
+            return {
+                "indices": embedding.indices.tolist(),
+                "values": embedding.values.tolist(),
+            }
         except Exception as e:
-            console.print(f"[red]Failed to generate sparse embedding: {e}[/red]")
+            logger.error("Failed to generate sparse embedding", detail=str(e))
             return {"indices": [], "values": []}

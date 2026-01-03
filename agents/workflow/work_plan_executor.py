@@ -1,13 +1,6 @@
 import dspy
 
-from utils.io import (
-    edit_file_lines,
-    get_project_context,
-    get_system_status,
-    list_directory,
-    read_file_range,
-    search_files,
-)
+from utils.agent.tools import get_todo_resolver_tools
 
 
 class PlanExecutionSignature(dspy.Signature):
@@ -36,16 +29,16 @@ class PlanExecutionSignature(dspy.Signature):
     configuration files (like pyproject.toml) can break the entire system.
 
     You have access to the following tools:
-    - list_directory(path): List files and directories.
-    - search_files(query, path, regex): Search for string/regex in files.
-    - read_file_range(file_path, start_line, end_line): Read specific lines.
-    - edit_file_lines(file_path, edits): Edit specific lines. 'edits' is a list of dicts with
+    - list_dir(path): List files and directories.
+    - search_codebase(query, path): Search for string/regex in files.
+    - read_file(file_path, start_line, end_line): Read specific lines.
+    - edit_file(file_path, edits): Edit specific lines. 'edits' is a list of dicts with
       'start_line', 'end_line', 'content'.
-    - get_project_context(task): Gather relevant file contents based on a task description.
+    - gather_context(task): Gather relevant file contents based on a task description.
       Use this at the start of a task to get an overview of relevant code.
     - get_system_status(): Check if Qdrant and API keys are available.
 
-    CRITICAL: When using edit_file_lines, the 'content' MUST NOT include the surrounding lines
+    CRITICAL: When using edit_file, the 'content' MUST NOT include the surrounding lines
     (context) unless you INTEND to duplicate them.
     - If you want to replace line 10, 'edits' should be [{'start_line': 10, 'end_line': 10,
       'content': 'new_line_10_content'}].
@@ -58,7 +51,7 @@ class PlanExecutionSignature(dspy.Signature):
          the file.
        - If it does, you MUST replace the existing definition (using the correct line range)
          instead of appending a new one.
-       - Use 'search_files' or 'read_file_range' to find the exact line numbers of the existing
+       - Use 'search_codebase' or 'read_file' to find the exact line numbers of the existing
          code before editing.
     """
 
@@ -75,32 +68,22 @@ class PlanExecutionSignature(dspy.Signature):
 
 
 class ReActPlanExecutor(dspy.Module):
+    """
+    ReAct-based plan executor that uses centralized tools from
+    utils/agent/tools.py for consistent codebase exploration and editing.
+    """
+
     def __init__(self, base_dir: str = "."):
         super().__init__()
+        from utils.knowledge import KBPredict
 
-        # Define tools with base_dir bound
-        from functools import partial
-
-        self.tools = [
-            partial(list_directory, base_dir=base_dir),
-            partial(search_files, base_dir=base_dir),
-            partial(read_file_range, base_dir=base_dir),
-            partial(edit_file_lines, base_dir=base_dir),
-            partial(get_project_context, base_dir=base_dir),
-            get_system_status,
-        ]
-
-        # Update tool names and docstrings to match originals (needed for dspy)
-        for tool in self.tools:
-            if hasattr(tool, "func"):
-                tool.__name__ = tool.func.__name__
-                tool.__doc__ = tool.func.__doc__
-
-        # Create ReAct agent
-        self.react_agent = dspy.ReAct(
-            signature=PlanExecutionSignature, tools=self.tools, max_iters=20
+        self.tools = get_todo_resolver_tools(base_dir)
+        react = dspy.ReAct(signature=PlanExecutionSignature, tools=self.tools, max_iters=20)
+        self.predictor = KBPredict.wrap(
+            react,
+            kb_tags=["work", "work-resolutions", "code-review", "triage-decisions"],
         )
 
     def forward(self, plan_content: str, plan_path: str):
         """Execute plan using ReAct reasoning."""
-        return self.react_agent(plan_content=plan_content, plan_path=plan_path)
+        return self.predictor(plan_content=plan_content, plan_path=plan_path)

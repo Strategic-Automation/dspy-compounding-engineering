@@ -90,7 +90,27 @@ The `KnowledgeGardener` agent (future enhancement) will:
 
 ## Retrieval Mechanism
 
-### Current: Keyword Matching
+### Hybrid Search (Dense + Sparse)
+
+The system uses **Hybrid Search** by default to provide the best possible relevance. This combines:
+
+1.  **Dense Retrieval (Semantic)**: Uses vector embeddings to find learnings that are semantically similar to your query (e.g., "auth" matches "login").
+2.  **Sparse Retrieval (Keyword)**: Uses BM25-style keyword matching to find exact term overlaps (e.g., "SQLi" matches "SQLi").
+
+Results are combined using **Reciprocal Rank Fusion (RRF)** to ensure high-quality context injection.
+
+### Supported Embedding Models
+
+The system is flexible and supports multiple embedding providers:
+
+-   **OpenAI**: `text-embedding-3-small` (default), `text-embedding-3-large`, `text-embedding-ada-002`.
+-   **Local (FastEmbed)**: `jinaai/jina-embeddings-v2-small-en` (fallback).
+-   **Local (Ollama/Mxbai)**: `mxbai-embed-large:latest` (1024 dimensions).
+-   **Nomic/MiniLM**: `nomic-embed-text`, `all-MiniLM-L6-v2`, etc.
+
+### Fallback: Keyword Matching
+
+If a Vector Database (Qdrant) is not available, the system automatically falls back to:
 
 ```python
 def retrieve_relevant(self, query: str, tags: list = None, max_results: int = 5):
@@ -100,25 +120,7 @@ def retrieve_relevant(self, query: str, tags: list = None, max_results: int = 5)
     # 4. Return top N by score
 ```
 
-**Limitations**:
-- No semantic understanding
-- Misses synonyms (e.g., "auth" vs "authentication")
-- Requires exact keyword matches
-
-### Future: Vector Embeddings
-
-```python
-# Planned enhancement
-def retrieve_relevant(self, query: str, top_k: int = 5):
-    query_embedding = embed(query)
-    results = vector_db.similarity_search(query_embedding, k=top_k)
-    return results
-```
-
-This will enable:
-- Semantic similarity ("login issues" matches "authentication problems")
-- Fuzzy matching
-- Better context relevance
+While functional, keyword fallback lacks semantic understanding and is less effective at finding related but differently-worded patterns.
 
 ## Usage Examples
 

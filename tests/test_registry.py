@@ -20,9 +20,8 @@ def test_registry_initial_status():
 
 @patch("qdrant_client.QdrantClient")
 def test_registry_check_qdrant_caching(mock_qdrant_class):
-    # Reset status for test
     reg = ServiceRegistry()
-    reg.status["qdrant_available"] = None
+    # autouse reset_registry in conftest.py already reset this
 
     mock_client = MagicMock()
     mock_qdrant_class.return_value = mock_client
@@ -40,12 +39,30 @@ def test_registry_check_qdrant_caching(mock_qdrant_class):
 
 def test_registry_check_api_keys_logic():
     reg = ServiceRegistry()
-    reg.status["openai_key_available"] = None
+    # autouse reset_registry in conftest.py already reset this
 
     with patch.dict(os.environ, {"OPENAI_API_KEY": "sk-test", "DSPY_LM_PROVIDER": "openai"}):
         assert reg.check_api_keys(force=True) is True
 
-    reg.status["openai_key_available"] = None
+    reg.reset()
     with patch.dict(os.environ, {"DSPY_LM_PROVIDER": "openai"}, clear=True):
         # No key in env
         assert reg.check_api_keys(force=True) is False
+
+
+def test_registry_update_status():
+    reg = ServiceRegistry()
+    reg.update_status("qdrant_available", "custom_status")
+    assert reg.status["qdrant_available"] == "custom_status"
+
+
+def test_registry_reset():
+    reg = ServiceRegistry()
+    reg.update_status("learnings_ensured", True)
+    reg.update_status("qdrant_available", True)
+
+    reg.reset()
+    status = reg.status
+    assert status["learnings_ensured"] is False
+    assert status["qdrant_available"] is None
+    assert status["openai_key_available"] is None

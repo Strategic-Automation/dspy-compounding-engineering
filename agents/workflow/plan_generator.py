@@ -1,67 +1,24 @@
 import dspy
 
+from agents.schema import PlanReport
+
 
 class PlanGenerator(dspy.Signature):
     """
-    Transform feature descriptions, bug reports, or improvement ideas into well-structured markdown
-    files issues that follow project conventions and best practices.
+    Transform feature descriptions and research findings into a structured
+    implementation plan.
 
-    **Goal:** Create a plan for a new feature or bug fix.
+    **STRICT OUTPUT PROTOCOL:**
+    1. Provide ONLY the requested fields for the PlanReport.
+    2. Use `[[ ## plan_report ## ]]` followed by the structured report.
+    3. Do NOT include any notes, hints, or instructions (e.g., "# note: ...") in your output.
+    4. Keep the tone professional, technical, and concise.
+    5. No emojis or decorative formatting.
 
-    **Input:**
-    - Feature Description
-    - Research Findings (Repo, Best Practices, Framework Docs)
-    - SpecFlow Analysis
-
-    **Output:**
-    A comprehensive markdown plan.
-
-    **Structure Options:**
-    - **MINIMAL (Quick Issue)**: For simple bugs/improvements.
-    - **MORE (Standard Issue)**: For most features.
-    - **A LOT (Comprehensive Issue)**: For major features.
-
-    Choose the appropriate detail level based on the complexity.
-
-    **Content Formatting:**
-    - Use clear, descriptive headings (##, ###)
-    - Include code examples in triple backticks
-    - Use task lists (- [ ])
-    - Add collapsible sections for logs
-    - Apply appropriate emojis
-
-    **Structure Template (Standard):**
-    ```markdown
-    # [Title]
-
-    ## Overview
-    [Description]
-
-    ## Problem Statement / Motivation
-    [Why this matters]
-
-    ## Proposed Solution
-    [High-level approach]
-
-    ## Technical Considerations
-    - Architecture impacts
-    - Performance
-    - Security
-
-    ## Acceptance Criteria
-    - [ ] Requirement 1
-    - [ ] Requirement 2
-
-    ## Implementation Plan
-    - [ ] Task 1
-    - [ ] Task 2
-
-    ## References
-    - [Links]
-    ```
+    **Goal:** Create a comprehensive, well-structured implementation plan.
     """
 
     feature_description = dspy.InputField(desc="The feature description")
     research_summary = dspy.InputField(desc="Combined research findings")
     spec_flow_analysis = dspy.InputField(desc="SpecFlow analysis results")
-    plan_content = dspy.OutputField(desc="The generated markdown plan")
+    plan_report: PlanReport = dspy.OutputField(desc="The structured implementation plan")

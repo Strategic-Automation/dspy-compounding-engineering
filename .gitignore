@@ -63,3 +63,4 @@ site/
 htmlcov/
 .tox/
 qdrant_storage/
+reviews/

@@ -27,6 +27,9 @@ class CodifiedFeedback(BaseModel):
     related_patterns: List[str] = Field(
         default_factory=list, description="Links to similar improvements or patterns"
     )
+    is_novel: bool = Field(
+        description="True if this insight is not already covered by past patterns in the context"
+    )
 
 
 class FeedbackCodifier(dspy.Signature):
@@ -44,6 +47,17 @@ class FeedbackCodifier(dspy.Signature):
     - Automated checks
     - Process improvements
     - Reusable patterns
+
+    ## Anti-Recursion & Deduplication Protocol
+
+    CRITICAL: YOU MUST PREVENT REDUNDANCY IN THE KNOWLEDGE BASE.
+    1. **Check Existing Learnings**: Analyze the 'Past Learnings' provided in the project context.
+    2. **Avoid Duplication**: If the current feedback is already covered by an existing pattern,
+       do NOT create a new improvement. Instead, mark 'is_novel' as False.
+    3. **Consolidate**: If the feedback adds a small detail to an existing pattern, create an
+       improvement that UPDATES or CONSOLIDATES the existing document rather than appending.
+    4. **novelty**: Only mark 'is_novel' as True if the feedback represents a fundamentally
+       new insight or a significant deviation from known patterns.
 
     ## Codification Protocol
 

@@ -5,19 +5,21 @@ The `review` command orchestrates a team of specialized AI agents to review your
 ## Usage
 
 ```bash
-uv run python cli.py review [TARGET] [OPTIONS]
+compounding review [TARGET] [OPTIONS]
 ```
 
 ### Arguments
 
-- `TARGET`: What to review. Defaults to `latest` (local uncommitted changes).
-    -   `latest` / `local`: Reviews changes in your current working directory (git diff).
-    -   `PR_ID` / `PR_URL`: Reviews a specific GitHub Pull Request (requires `gh` CLI).
-    -   `BRANCH_NAME`: Reviews changes on a specific branch compared to main.
+- `TARGET`: What to review. Defaults to `latest`.
+    -   `latest` / `local`: Reviews changes in your current working directory (staged/unstaged).
+    -   `86` (ID): Reviews PR #86.
+    -   `https://.../pull/86` (URL): Reviews the specific PR.
+    -   `dev` (Branch): Reviews the `dev` branch vs `main`.
 
 ### Options
 
 - `--project` / `-p`: Review the **entire project** code, not just the diff/changes. useful for initial audits or periodic deep scans.
+- `--agent` / `-a`: Filter which agents run during the review. You can provide a specific agent name (e.g., `SecuritySentinel`) or a pattern.
     
 ### Default Exclusions
 
@@ -30,15 +32,15 @@ The review process automatically ignores the following:
 ```bash
 # Workflow 1: Pre-commit check (Local)
 # Review changes I just made before committing
-uv run python cli.py review
+compounding review
 
 # Workflow 2: PR Review
 # Review a pull request
-uv run python cli.py review https://github.com/my/repo/pull/123
+compounding review https://github.com/my/repo/pull/123
 
 # Workflow 3: Full Audit
 # Deep scan of the whole codebase
-uv run python cli.py review --project
+compounding review --project
 ```
 
 ## The Agent Squad

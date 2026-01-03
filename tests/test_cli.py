@@ -18,7 +18,7 @@ def mock_workflows():
         patch("cli.run_plan") as m_plan,
         patch("cli.run_unified_work") as m_work,
         patch("cli.run_review") as m_review,
-        patch("cli.run_generate_command") as m_gen,
+        patch("cli.run_generate_agent") as m_gen,
         patch("cli.run_codify") as m_codify,
     ):
         yield {
@@ -26,7 +26,7 @@ def mock_workflows():
             "plan": m_plan,
             "work": m_work,
             "review": m_review,
-            "generate_command": m_gen,
+            "generate_agent": m_gen,
             "codify": m_codify,
         }
 
@@ -62,13 +62,13 @@ def test_work_command(mock_workflows):
 def test_review_command(mock_workflows):
     result = runner.invoke(app, ["review", "123", "--project"])
     assert result.exit_code == 0
-    mock_workflows["review"].assert_called_once_with("123", project=True)
+    mock_workflows["review"].assert_called_once_with("123", project=True, agent_filter=None)
 
 
-def test_generate_command(mock_workflows):
-    result = runner.invoke(app, ["generate-command", "new feature"])
+def test_generate_agent_command(mock_workflows):
+    result = runner.invoke(app, ["generate-agent", "new feature"])
     assert result.exit_code == 0
-    mock_workflows["generate_command"].assert_called_once_with(
+    mock_workflows["generate_agent"].assert_called_once_with(
         description="new feature", dry_run=False
     )
 
@@ -100,3 +100,89 @@ def test_status_command():
         assert "System Diagnostics" in result.stdout
         assert "System OK" in result.stdout
         m_status.assert_called_once()
+
+
+# ============================================================================
+# Integration tests - verify output content
+# ============================================================================
+
+
+class TestAgentFilterValidation:
+    """Tests for the validate_agent_filters function in CLI."""
+
+    def test_review_with_valid_agent_filter(self, mock_workflows):
+        """Valid agent names should be passed through."""
+        result = runner.invoke(app, ["review", "latest", "--agent", "Security-Sentinel"])
+        assert result.exit_code == 0
+        mock_workflows["review"].assert_called_once_with(
+            "latest", project=False, agent_filter=["Security-Sentinel"]
+        )
+
+    def test_review_with_multiple_agents(self, mock_workflows):
+        """Multiple valid agent names should all be passed."""
+        result = runner.invoke(
+            app, ["review", "latest", "--agent", "Security", "--agent", "Performance"]
+        )
+        assert result.exit_code == 0
+        mock_workflows["review"].assert_called_once_with(
+            "latest", project=False, agent_filter=["Security", "Performance"]
+        )
+
+    def test_review_with_invalid_agent_filter_special_chars(self, mock_workflows):
+        """Agent names with special chars should be rejected."""
+        result = runner.invoke(app, ["review", "--agent", "Security; rm -rf /"])
+        # Should exit without calling review (no valid filters)
+        assert result.exit_code == 0
+        mock_workflows["review"].assert_not_called()
+
+    def test_review_with_mixed_valid_invalid(self, mock_workflows):
+        """Only valid filters should be passed through."""
+        result = runner.invoke(
+            app, ["review", "latest", "--agent", "Valid-Agent", "--agent", "bad<script>"]
+        )
+        assert result.exit_code == 0
+        mock_workflows["review"].assert_called_once_with(
+            "latest", project=False, agent_filter=["Valid-Agent"]
+        )
+
+
+class TestHelpOutput:
+    """Tests verifying help text is displayed correctly."""
+
+    def test_help_shows_commands(self):
+        """Main help should list all commands."""
+        result = runner.invoke(app, ["--help"])
+        assert result.exit_code == 0
+        assert "review" in result.stdout
+        assert "plan" in result.stdout
+        assert "work" in result.stdout
+        assert "triage" in result.stdout
+        assert "generate-agent" in result.stdout
+        assert "index" in result.stdout
+        assert "status" in result.stdout
+
+    def test_review_help(self):
+        """Review command help should show options."""
+        result = runner.invoke(app, ["review", "--help"])
+        assert result.exit_code == 0
+        assert "--project" in result.stdout
+        assert "--agent" in result.stdout
+
+    def test_work_help(self):
+        """Work command help should show options."""
+        result = runner.invoke(app, ["work", "--help"])
+        assert result.exit_code == 0
+        assert "--dry-run" in result.stdout
+        assert "--sequential" in result.stdout
+        assert "--in-place" in result.stdout
+
+    def test_generate_agent_help(self):
+        """Generate-agent command help should show options."""
+        result = runner.invoke(app, ["generate-agent", "--help"])
+        assert result.exit_code == 0
+        assert "--dry-run" in result.stdout
+        assert "DESCRIPTION" in result.stdout
+
+
+class TestDeprecatedCommands:
+    """Tests for backward-compatible deprecated commands."""

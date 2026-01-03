@@ -5,7 +5,7 @@ The `work` command is the core engine of the Compounding Engineering system. It 
 ## Usage
 
 ```bash
-uv run python cli.py work [PATTERN] [OPTIONS]
+compounding work [PATTERN] [OPTIONS]
 ```
 
 ### Arguments
@@ -31,30 +31,30 @@ uv run python cli.py work [PATTERN] [OPTIONS]
 
 ```bash
 # Work on a specific todo
-uv run python cli.py work 001
+compounding work 001
 
 # Execute a plan
-uv run python cli.py work plans/auth_system.md
+compounding work plans/auth_system.md
 ```
 
 ### 2. Batch Processing
 
 ```bash
 # Work on all 'High Priority' (P1) items in parallel
-uv run python cli.py work p1
+compounding work p1
 
 # Work on security-related items
-uv run python cli.py work security
+compounding work security
 ```
 
 ### 3. Safe Mode
 
 ```bash
 # Run in an isolated worktree to prevent messing up your current state
-uv run python cli.py work p1 --worktree
+compounding work p1 --worktree
 
 # Preview what would happen
-uv run python cli.py work 001 --dry-run
+compounding work 001 --dry-run
 ```
 
 ## How It Works

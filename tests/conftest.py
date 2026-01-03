@@ -12,17 +12,7 @@ def reset_registry():
     """Reset the ServiceRegistry status before each test."""
     from config import registry
 
-    # Clear status to ensure clean state
-    registry.status.clear()
-    registry.status.update(
-        {
-            "qdrant_available": None,
-            "openai_key_available": None,
-            "embeddings_ready": None,
-            "learnings_ensured": False,
-            "codebase_ensured": False,
-        }
-    )
+    registry.reset()
 
 
 @pytest.fixture

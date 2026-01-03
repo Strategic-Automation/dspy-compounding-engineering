@@ -224,7 +224,7 @@ Finds existing architectural patterns to reuse.
 
 ```python
 from agents.review.security_sentinel import SecuritySentinel
-from utils.knowledge_base import KnowledgeBase
+from utils.knowledge import KnowledgeBase
 
 kb = KnowledgeBase()
 agent = SecuritySentinel(kb=kb)  # KB context auto-injected
@@ -242,7 +242,7 @@ for finding in findings:
 
 ```python
 from agents.workflow.task_executor import TaskExecutor
-from utils.project_context import ProjectContext
+from utils.context import ProjectContext
 
 context = ProjectContext().get_context()
 executor = TaskExecutor()

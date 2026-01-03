@@ -123,7 +123,14 @@ DSPY_LM_MAX_TOKENS=4096
 
 # Timeout in seconds
 DSPY_LM_TIMEOUT=120
+
+# Max tokens for documentation fetching (paging support)
+DOCS_MAX_TOKENS=32768
 ```
+
+### Documentation Paging
+
+When documentation content exceeds `DOCS_MAX_TOKENS`, it is automatically truncated. The agent receives a warning with instructions on how to fetch the next "page" of content using an `offset_tokens` parameter. This prevents context window overflows while still allowing access to massive documentation sites.
 
 ### Knowledge Base Settings
 
@@ -136,6 +143,31 @@ KB_MAX_RETRIEVED=10
 # Similarity threshold for retrieval (0.0 - 1.0)
 KB_SIMILARITY_THRESHOLD=0.6
 ```
+
+### Embedding Configuration
+
+Configure how the system generates vectors for semantic search and code indexing:
+
+```bash
+# Provider: openai, fastembed, openrouter, or ollama
+EMBEDDING_PROVIDER=openai
+
+# Model name (must match provider)
+EMBEDDING_MODEL=text-embedding-3-small
+
+# Custom API base if using local proxies or OpenRouter
+EMBEDDING_BASE_URL=https://...
+```
+
+**Supported Local Models:**
+
+-   **Mxbai**: `mxbai-embed-large:latest` (1024 dims) - High performance local embedding.
+-   **Nomic**: `nomic-embed-text` (768 dims).
+-   **Jina**: `jinaai/jina-embeddings-v2-small-en` (512 dims).
+
+!!! tip "FastEmbed Fallback"
+    If no `OPENAI_API_KEY` is found, the system automatically falls back to **FastEmbed** using the Jina small model for local execution.
+
 
 ## Verifying Configuration
 

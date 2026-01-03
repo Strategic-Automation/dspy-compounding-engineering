@@ -1,9 +1,9 @@
-from typing import List
+from typing import ClassVar, List, Optional, Set
 
 import dspy
 from pydantic import Field
 
-from agents.review.schema import ReviewFinding, ReviewReport
+from agents.schema import ReviewFinding, ReviewReport
 
 
 class SimplicityFinding(ReviewFinding):
@@ -61,7 +61,10 @@ class CodeSimplicityReviewer(dspy.Signature):
     3. For each complex section, propose a simpler alternative
     """
 
+    __agent_name__: ClassVar[str] = "Code Simplicity Reviewer"
+    __agent_category__: ClassVar[str] = "simplicity"
+    __agent_severity__: ClassVar[str] = "p3"
+    applicable_languages: ClassVar[Optional[Set[str]]] = None
+
     code_diff: str = dspy.InputField(desc="The code changes to review")
-    simplification_analysis: SimplicityReport = dspy.OutputField(
-        desc="Structured simplicity analysis report"
-    )
+    review_report: SimplicityReport = dspy.OutputField(desc="Structured simplicity analysis report")

@@ -8,7 +8,7 @@ from utils.knowledge.indexer import CodebaseIndexer
 
 @pytest.fixture
 def mock_qdrant_client():
-    with patch("utils.knowledge.core.QdrantClient") as mock_client_cls:
+    with patch("qdrant_client.QdrantClient") as mock_client_cls:
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
         yield mock_client
@@ -28,7 +28,7 @@ def test_knowledge_base_recreates_collection_on_mismatch(temp_dir, monkeypatch):
 
     # Mock dependencies
     with (
-        patch("utils.knowledge.core.QdrantClient") as mock_client_cls,
+        patch("qdrant_client.QdrantClient") as mock_client_cls,
         patch("utils.knowledge.core.EmbeddingProvider") as mock_provider_cls,
     ):
         mock_client = MagicMock()
@@ -50,7 +50,7 @@ def test_knowledge_base_recreates_collection_on_mismatch(temp_dir, monkeypatch):
 
         # Initialize KnowledgeBase
         # Mismatch - should disable vector DB by default
-        kb = KnowledgeBase()
+        kb = KnowledgeBase(qdrant_client=mock_client)
         assert kb.vector_db_available is False
         mock_client.delete_collection.assert_not_called()
 
