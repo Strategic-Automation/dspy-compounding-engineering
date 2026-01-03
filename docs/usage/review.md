@@ -19,6 +19,7 @@ compounding review [TARGET] [OPTIONS]
 ### Options
 
 - `--project` / `-p`: Review the **entire project** code, not just the diff/changes. useful for initial audits or periodic deep scans.
+- `--agent` / `-a`: Filter which agents run during the review. You can provide a specific agent name (e.g., `SecuritySentinel`) or a pattern.
     
 ### Default Exclusions
 

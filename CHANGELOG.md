@@ -2,20 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.1.3] - 2026-01-02
+## [0.1.3] - 2026-01-03
 
 ### Added
+- **GitHub Issue Planning**: The `plan` command now accepts GitHub issue IDs or URLs (e.g., `compounding plan 30`).
+- **Documentation Paging**: Token-based pagination for large documentation with `offset_tokens` support.
+- **Search Limits**: Added `limit` argument to `search_codebase` tool (default 50 results).
+- **LRU Cache**: In-memory caching for documentation fetches to reduce API calls.
 - **Internet Search Tool**: Integrated DuckDuckGo search for research agents.
 - **Dynamic Agent Discovery**: Implemented automatic discovery and generation of specialized agents.
 - **Langfuse Integration**: Added observability and tracing for DSPy calls.
 - **Generalize Review Context**: Added support for reviewing local branches, specific files, and unstaged changes (`latest`).
 
+### Changed
+- Simplified imports in `agents/schema/__init__.py`.
+- Refactored `GitService.get_diff` into smaller helper methods for maintainability.
+- Refactored `_gather_review_context` in `workflows/review.py` for reduced complexity.
+
 ### Fixed
+- Safe config parsing with try/except for integer environment variables.
+- Max pagination limit (10 pages) to prevent unbounded fetching.
+- Removed dead code in `best_practices_researcher.py`.
 - Pydantic recursion issues with safe model serialization.
 - DuckDuckGo search import and dependency updates.
 - Worktree creation logic for better local development support.
 
 ## [0.1.2] - 2025-12-30
+
 
 ### Added
 - **Security Hardening**: Implemented PII scrubbing and safe command execution via `SecretScrubber`.

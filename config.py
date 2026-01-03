@@ -215,11 +215,21 @@ class AppConfig:
     def __init__(self):
         self.load()
 
+    @staticmethod
+    def _parse_int_env(key: str, default: int) -> int:
+        """Safely parse an integer environment variable with a fallback."""
+        try:
+            return int(os.getenv(key, str(default)))
+        except ValueError:
+            return default
+
     def load(self):
         """Load settings from environment variables."""
-        self.context_window_limit = int(os.getenv("CONTEXT_WINDOW_LIMIT", "128000"))
-        self.context_output_reserve = int(os.getenv("CONTEXT_OUTPUT_RESERVE", "4096"))
-        self.default_max_tokens = int(os.getenv("DSPY_MAX_TOKENS", "16384"))
+        self.context_window_limit = self._parse_int_env("CONTEXT_WINDOW_LIMIT", 128000)
+        self.context_output_reserve = self._parse_int_env("CONTEXT_OUTPUT_RESERVE", 4096)
+        self.docs_max_tokens = self._parse_int_env("DOCS_MAX_TOKENS", 32768)
+        self.default_max_tokens = self._parse_int_env("DSPY_MAX_TOKENS", 16384)
+
         self.quiet = bool(os.getenv("COMPOUNDING_QUIET"))
         self.log_path = os.getenv("COMPOUNDING_LOG_PATH", "compounding.log")
         self.log_level = os.getenv("COMPOUNDING_LOG_LEVEL", "INFO")

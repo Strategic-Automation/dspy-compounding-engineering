@@ -186,4 +186,3 @@ class TestHelpOutput:
 
 class TestDeprecatedCommands:
     """Tests for backward-compatible deprecated commands."""
-

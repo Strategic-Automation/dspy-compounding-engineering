@@ -70,75 +70,91 @@ class GitService:
     def get_diff(target: str = "HEAD") -> str:
         """Get git diff for a target (commit, branch, staged, or file path)."""
         try:
-            # 1. Handle PR IDs, URLs, or special 'staged' keyword
+            # 1. Handle special keywords and PRs
             if target == "staged":
-                cmd = ["git", "diff", "--staged", "-M", "--", "."]
-                for ignore in GitService.IGNORE_FILES:
-                    cmd.append(f":!{ignore}")
-                result = run_safe_command(cmd, capture_output=True, text=True, check=True)
-                return result.stdout
+                return GitService._get_staged_diff()
 
             if target.startswith("http") or target.isdigit():
                 return GitService.get_pr_diff(target)
 
             # 2. Check if target is a file path that exists
             if os.path.isfile(target):
-                # Try to get git diff first
-                cmd = ["git", "diff", "-M", "HEAD", "--", target]
-                result = run_safe_command(cmd, capture_output=True, text=True, check=True)
-                diff = result.stdout
+                return GitService._get_path_diff(target)
 
-                if not diff:
-                    # If no diff, it might be untracked or identical to HEAD
-                    # Check if it's tracked
-                    tracked = run_safe_command(
-                        ["git", "ls-files", "--error-unmatch", target],
-                        capture_output=True,
-                        check=False,
-                    ).returncode == 0
-                    if not tracked:
-                        # Construct a "new file" diff
-                        try:
-                            # Path traversal protection
-                            abs_path = os.path.abspath(target)
-                            cwd = os.getcwd()
-                            if not abs_path.startswith(cwd):
-                                logger.error(f"Path traversal blocked: {target}")
-                                return ""
+            # 3. Default to branch/commit/tag diff
+            return GitService._get_branch_diff(target)
 
-                            with open(abs_path, "r") as f:
-                                content = f.read()
-                            lines = content.splitlines()
-                            diff = (
-                                f"diff --git a/{target} b/{target}\n"
-                                f"new file mode 100644\n"
-                                f"--- /dev/null\n"
-                                f"+++ b/{target}\n"
-                                f"@@ -0,0 +1,{len(lines)} @@\n"
-                            )
-                            diff += "\n".join([f"+{line}" for line in lines])
-                        except Exception as e:
-                            logger.error(f"Error reading untracked file {target}: {e}")
-                            return ""
-                
-                # Add "File: " header for language detection in workflow
-                if diff:
-                    diff = f"File: {target}\n\n{diff}"
-                return diff
-
-            # 3. Otherwise treat as a git ref (branch, commit, or 'latest')
-            # Added -M for rename detection
-            cmd = ["git", "diff", "-M", target, "--", "."]
-
-            # Append exclusions
-            for ignore in GitService.IGNORE_FILES:
-                cmd.append(f":!{ignore}")
-
-            result = run_safe_command(cmd, capture_output=True, text=True, check=True)
-            return result.stdout
-        except subprocess.CalledProcessError as e:
-            logger.debug(f"Git diff failed for target '{target}': {e.stderr}")
+        except Exception as e:
+            logger.debug(f"Git diff failed for target '{target}': {e}")
             return ""
+
+    @staticmethod
+    def _get_staged_diff() -> str:
+        """Helper to get staged diff."""
+        cmd = ["git", "diff", "--staged", "-M", "--", "."]
+        for ignore in GitService.IGNORE_FILES:
+            cmd.append(f":!{ignore}")
+        result = run_safe_command(cmd, capture_output=True, text=True, check=True)
+        return result.stdout
+
+    @staticmethod
+    def _get_path_diff(target: str) -> str:
+        """Helper to get diff for a specific file path."""
+        cmd = ["git", "diff", "-M", "HEAD", "--", target]
+        result = run_safe_command(cmd, capture_output=True, text=True, check=True)
+        diff = result.stdout
+
+        if not diff:
+            # Check if it's tracked
+            tracked = (
+                run_safe_command(
+                    ["git", "ls-files", "--error-unmatch", target],
+                    capture_output=True,
+                    check=False,
+                ).returncode
+                == 0
+            )
+            if not tracked:
+                # Construct a "new file" diff
+                try:
+                    with open(target, "r") as f:
+                        content = f.read()
+                    lines = content.splitlines()
+                    diff = (
+                        f"diff --git a/{target} b/{target}\n"
+                        f"new file mode 100644\n"
+                        f"--- /dev/null\n"
+                        f"+++ b/{target}\n"
+                        f"@@ -0,0 +1,{len(lines)} @@\n"
+                    )
+                    diff += "\n".join([f"+{line}" for line in lines])
+                except Exception as e:
+                    logger.error(f"Error reading untracked file {target}: {e}")
+                    return ""
+
+        if diff:
+            diff = f"File: {target}\n\n{diff}"
+        return diff
+
+    @staticmethod
+    def _get_branch_diff(target: str) -> str:
+        """Helper to get diff for a branch, commit, or tag."""
+        # Use simple diff for HEAD, merge-base diff for others
+        if target == "HEAD":
+            cmd = ["git", "diff", "-M", "HEAD", "--", "."]
+        else:
+            cmd = ["git", "diff", "-M", f"HEAD...{target}", "--", "."]
+
+        for ignore in GitService.IGNORE_FILES:
+            cmd.append(f":!{ignore}")
+
+        result = run_safe_command(cmd, capture_output=True, text=True, check=False)
+        if result.returncode != 0 and target != "HEAD":
+            # Fallback to direct diff for non-HEAD targets if merge-base fails
+            cmd[3] = f"HEAD..{target}"
+            result = run_safe_command(cmd, capture_output=True, text=True, check=True)
+
+        return result.stdout
 
     @staticmethod
     def get_file_status_summary(target: str = "HEAD") -> str:
@@ -184,13 +200,30 @@ class GitService:
                 "--json",
                 "title,body,author,number,url,headRefName,headRepositoryOwner",
             ]
-            # We'll parse the JSON output in the caller or add json import here
             import json
 
             result = run_safe_command(cmd, capture_output=True, text=True, check=True)
             return json.loads(result.stdout)
         except subprocess.CalledProcessError as e:
             raise RuntimeError(f"Failed to fetch PR details: {e.stderr}") from e
+
+    @staticmethod
+    def get_issue_details(issue_id_or_url: str) -> dict:
+        """Fetch issue details (title, body) using gh CLI."""
+        if not shutil.which("gh"):
+            raise RuntimeError("GitHub CLI (gh) is not installed")
+
+        try:
+            # Check if it's a URL or ID
+            target = str(issue_id_or_url)
+            cmd = ["gh", "issue", "view", target, "--json", "title,body,number"]
+            import json
+
+            result = run_safe_command(cmd, capture_output=True, text=True, check=True)
+            return json.loads(result.stdout)
+        except subprocess.CalledProcessError as e:
+            logger.debug(f"Failed to fetch issue details: {e.stderr}")
+            return {}
 
     @staticmethod
     def get_current_branch() -> str:
@@ -245,10 +278,10 @@ class GitService:
             local_review_branch = f"review-pr-{pr_number}"
             # Standard GitHub ref for PR heads
             ref = f"pull/{pr_number}/head:{local_review_branch}"
-            
+
             logger.info(f"Fetching {ref} into isolated branch...", to_cli=True)
-            
-            # Note: We fetch from 'origin'. If the PR is from a fork, 
+
+            # Note: We fetch from 'origin'. If the PR is from a fork,
             # refs/pull/ID/head still exists on the upstream 'origin'.
             run_safe_command(["git", "fetch", "origin", ref, "-f"], check=True)
 

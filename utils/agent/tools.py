@@ -18,12 +18,15 @@ def get_documentation_tool() -> dspy.Tool:
     """Returns a tool for fetching external documentation from URLs."""
     fetcher = DocumentationFetcher()
 
-    def fetch_documentation(url: str) -> str:
+    def fetch_documentation(url: str, offset_tokens: int = 0) -> str:
         """
         Fetches and parses official documentation from a given URL.
         Use this to get up-to-date API references, guides, and examples.
+        If the content is truncated, use 'offset_tokens' to read the next segment.
         """
-        return fetcher.fetch(url)
+        from config import settings
+
+        return fetcher.fetch(url, max_tokens=settings.docs_max_tokens, offset_tokens=offset_tokens)
 
     return dspy.Tool(fetch_documentation)
 
@@ -66,12 +69,12 @@ def get_internet_search_tool() -> dspy.Tool:
 def get_codebase_search_tool(base_dir: str = ".") -> dspy.Tool:
     """Returns a tool for searching strings/patterns in project files."""
 
-    def search_codebase(query: str, path: str = ".") -> str:
+    def search_codebase(query: str, path: str = ".", limit: int = 50) -> str:
         """
         Search for a string or pattern in project files using grep.
         Returns matching lines with file paths and line numbers.
         """
-        return search_files(query=query, path=path, regex=False, base_dir=base_dir)
+        return search_files(query=query, path=path, regex=False, base_dir=base_dir, limit=limit)
 
     return dspy.Tool(search_codebase)
 
