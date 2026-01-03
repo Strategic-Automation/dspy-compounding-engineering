@@ -85,6 +85,19 @@ cp .env.example .env
 uv sync
 ```
 
+### Repo-Agnostic Installation (Recommended)
+
+To use `compounding` in **other repositories**, install it globally using `uv tool`:
+
+```bash
+# Install globally from source
+uv tool install .
+# or from git once published
+# uv tool install git+https://github.com/Strategic-Automation/dspy-compounding-engineering.git
+```
+
+This exposes the `compounding` command globally, allowing you to run it inside any project folder.
+
 ### Vector Database Setup (Qdrant)
 
 This project uses [Qdrant](https://qdrant.tech/) for semantic search. A Docker Compose configuration is provided.
