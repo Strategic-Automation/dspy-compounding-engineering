@@ -72,3 +72,21 @@ def test_jina_failure_fallback_to_local(mock_get, mock_jina):
     assert "# Local Title" in result
     mock_jina.assert_called_once()
     mock_get.assert_called_once()
+
+
+@patch("utils.web.documentation.DocumentationFetcher._get_playwright")
+def test_fetch_via_playwright_success(mock_get_playwright):
+    # Setup mock playwright structure
+    mock_playwright = MagicMock()
+    mock_get_playwright.return_value = mock_playwright
+    mock_p = mock_playwright.return_value.__enter__.return_value
+    mock_browser = mock_p.chromium.launch.return_value
+    mock_page = mock_browser.new_page.return_value
+    mock_page.content.return_value = "<html><body><h1>Playwright Title</h1></body></html>"
+
+    fetcher = DocumentationFetcher(use_jina=False)
+    result = fetcher.fetch("https://example.com/docs")
+
+    assert "# Playwright Title" in result
+    mock_page.goto.assert_called_once()
+    mock_browser.close.assert_called_once()
