@@ -37,6 +37,9 @@ class DocumentationFetcher:
     Supports high-quality conversion via r.jina.ai and local fallback.
     """
 
+    MAX_PAGES = 10  # Maximum pages per document to prevent unbounded fetching
+    _fetch_cache: dict = {}  # LRU-like cache for fetched content
+
     def __init__(self, use_jina: bool = True, timeout: int = 10):
         self.use_jina = use_jina
         self.timeout = timeout
@@ -176,11 +179,18 @@ class DocumentationFetcher:
         total_tokens = len(tokens)
 
         if offset_tokens >= total_tokens:
-            msg = f"Offset {offset_tokens} tokens is beyond document length ({total_tokens} tokens)."
+            msg = (
+                f"Offset {offset_tokens} tokens is beyond document length ({total_tokens} tokens)."
+            )
             return f"Error: {msg}"
 
         # Calculate range
         start = offset_tokens
+        max_page = self.MAX_PAGES  # Limit pages to prevent abuse
+        current_page = (offset_tokens // max_tokens) + 1 if max_tokens else 1
+        if current_page > max_page:
+            return f"Error: Maximum pagination limit ({max_page} pages) exceeded."
+
         end = min(start + max_tokens, total_tokens) if max_tokens else total_tokens
 
         # Slice and decode
@@ -203,20 +213,27 @@ class DocumentationFetcher:
     def _fetch_via_jina(self, url: str, max_tokens: Optional[int] = None) -> Optional[str]:
         """
         Fetch via r.jina.ai for high-quality markdown.
+        Uses simple in-memory caching to avoid repeated fetches.
         """
-        # Note: We send the URL to Jina as a string. Jina performs the fetch.
-        # We've already validated the URL is safe (not local) in self.fetch().
+        # Check cache first
+        if url in self._fetch_cache:
+            logger.info(f"Using cached content for {url}")
+            return self._fetch_cache[url]
+
         jina_url = f"https://r.jina.ai/{url}"
         headers = {}
         if max_tokens:
-            # Jina supports X-Return-Format: markdown and optionally length limits
-            # though we do truncation locally to be safe.
             headers["X-Return-Format"] = "markdown"
 
         with httpx.Client(timeout=self.timeout) as client:
             response = client.get(jina_url, headers=headers)
             response.raise_for_status()
-            return response.text
+            content = response.text
+            # Cache the result (limit cache size to 50 entries)
+            if len(self._fetch_cache) >= 50:
+                self._fetch_cache.pop(next(iter(self._fetch_cache)))
+            self._fetch_cache[url] = content
+            return content
 
     def _fetch_locally(self, url: str) -> str:
         """
