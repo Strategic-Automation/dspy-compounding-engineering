@@ -79,7 +79,7 @@ cd dspy-compounding-engineering
 
 # Configure environment
 cp .env.example .env
-# Edit .env with your API keys (OpenAI, Anthropic, or Ollama)
+# Edit .env with your API keys (OpenAI, Anthropic, Gemini, etc.)
 
 # Install dependencies
 uv sync

@@ -30,7 +30,7 @@ The tool resolves configuration from multiple locations in a prioritized sequenc
 5. **User Home `.env`**: Final fallback.
 
 !!! advice "Multi-Repo Best Practice"
-    Store your secret API keys in the **Tool Global Config** (`~/.config/compounding/.env`) and use **Local `.env`** files in each project to specify the `DSPY_LM_MODEL` that works best for that repository's language or complexity.
+Store your secret API keys in the **Tool Global Config** (`~/.config/compounding/.env`) and use **Local `.env`** files in each project to specify the `DSPY_LM_MODEL` that works best for that repository's language or complexity.
 
 ## LLM Provider Options
 
@@ -64,10 +64,7 @@ DSPY_LM_MODEL=qwen2.5-coder:32b
 OLLAMA_BASE_URL=http://localhost:11434/v1
 ```
 
-!!! info "Ollama Setup"
-    1. Install Ollama from [ollama.ai](https://ollama.ai)
-    2. Pull a model: `ollama pull qwen2.5-coder:32b`
-    3. Ollama runs automatically on `localhost:11434`
+!!! info "Ollama Setup" 1. Install Ollama from [ollama.ai](https://ollama.ai) 2. Pull a model: `ollama pull qwen2.5-coder:32b` 3. Ollama runs automatically on `localhost:11434`
 
 **Recommended models for coding:**
 
@@ -86,27 +83,45 @@ DSPY_LM_PROVIDER=openrouter
 DSPY_LM_MODEL=anthropic/claude-3.5-sonnet
 ```
 
-OpenRouter provides access to:
+## LLM Provider Configuration
 
-- Anthropic Claude models
-- OpenAI GPT models
-- Google Gemini
-- Meta Llama
-- And many more...
+The system supports multiple LLM providers via DSPy (LiteLLM backend).
 
-[Get an API key](https://openrouter.ai/) | [Browse models](https://openrouter.ai/models)
+### Google Gemini
 
-## Model Selection Guide
+- Provider: gemini
+- Required: GOOGLE_API_KEY
+- Example model: gemini/gemini-1.5-pro
 
-Choose based on your priorities:
+### Cohere
 
-| Priority | Recommended Provider | Model |
-|----------|---------------------|-------|
-| **Best Quality** | Anthropic | `claude-3-5-sonnet-20241022` |
-| **Fast & Good** | OpenAI | `gpt-4-turbo` |
-| **Privacy** | Ollama | `qwen2.5-coder:32b` |
-| **Cost-Effective** | OpenRouter | `anthropic/claude-3-haiku` |
-| **Free** | Ollama | `qwen2.5-coder:7b` |
+- Provider: cohere
+- Required: COHERE_API_KEY
+
+### Azure OpenAI (Experimental)
+
+- Provider: azure
+- Required:
+  - AZURE_API_KEY
+  - AZURE_API_BASE
+  - AZURE_API_VERSION
+- Note: Deployment names are used as model identifiers.
+
+### Together AI
+
+- Provider: together
+- Required: TOGETHERAI_API_KEY
+
+### Replicate
+
+- Provider: replicate
+- Required: REPLICATE_API_KEY
+
+### LM Studio (Local)
+
+- Provider: lmstudio
+- No API key required
+- Default base URL: http://localhost:1234/v1
 
 ## Advanced Configuration
 
@@ -161,13 +176,12 @@ EMBEDDING_BASE_URL=https://...
 
 **Supported Local Models:**
 
--   **Mxbai**: `mxbai-embed-large:latest` (1024 dims) - High performance local embedding.
--   **Nomic**: `nomic-embed-text` (768 dims).
--   **Jina**: `jinaai/jina-embeddings-v2-small-en` (512 dims).
+- **Mxbai**: `mxbai-embed-large:latest` (1024 dims) - High performance local embedding.
+- **Nomic**: `nomic-embed-text` (768 dims).
+- **Jina**: `jinaai/jina-embeddings-v2-small-en` (512 dims).
 
 !!! tip "FastEmbed Fallback"
-    If no `OPENAI_API_KEY` is found, the system automatically falls back to **FastEmbed** using the Jina small model for local execution.
-
+If no `OPENAI_API_KEY` is found, the system automatically falls back to **FastEmbed** using the Jina small model for local execution.
 
 ## Verifying Configuration
 
@@ -186,7 +200,7 @@ You should see output indicating your LM is initialized:
 ## Next Steps
 
 !!! success "Configuration Complete!"
-    Your environment is ready to use.
+Your environment is ready to use.
 
 Continue to **[Quick Start](quickstart.md)** to run your first workflow.
 

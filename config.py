@@ -192,7 +192,14 @@ class ServiceRegistry:
             "openai": "OPENAI_API_KEY",
             "openrouter": "OPENROUTER_API_KEY",
             "anthropic": "ANTHROPIC_API_KEY",
-            "ollama": "True",  # Ollama doesn't need a key
+            "ollama": "True",
+            "google": "GOOGLE_API_KEY",
+            "gemini": "GOOGLE_API_KEY",
+            "cohere": "COHERE_API_KEY",
+            "azure": "AZURE_API_KEY",
+            "together": "TOGETHERAI_API_KEY",
+            "replicate": "REPLICATE_API_KEY",
+            "lmstudio": "True",
         }
         env_var = key_map.get(provider)
         if env_var == "True":
@@ -470,6 +477,53 @@ def configure_dspy(env_file: str | None = None):
             api_base="https://openrouter.ai/api/v1",
             max_tokens=max_tokens,
         )
+
+    # accept both "google" and "gemini" for better UX
+    elif provider in ["google", "gemini"]:
+        api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            raise ValueError("GOOGLE_API_KEY or GEMINI_API_KEY not set.")
+        lm = dspy.LM(model=f"gemini/{model_name}", api_key=api_key, max_tokens=max_tokens)
+
+    elif provider == "cohere":
+        api_key = os.getenv("COHERE_API_KEY")
+        if not api_key:
+            raise ValueError("COHERE_API_KEY not set.")
+        lm = dspy.LM(model=f"cohere/{model_name}", api_key=api_key, max_tokens=max_tokens)
+
+    elif provider == "azure":
+        api_key = os.getenv("AZURE_API_KEY")
+        api_base = os.getenv("AZURE_API_BASE")
+        api_version = os.getenv("AZURE_API_VERSION")
+        if not api_key:
+            raise ValueError("AZURE_API_KEY not set.")
+        if not api_base:
+            raise ValueError("AZURE_API_BASE is required for Azure OpenAI.")
+        if not api_version:
+            raise ValueError("AZURE_API_VERSION is required for Azure OpenAI.")
+        lm = dspy.LM(
+            model=f"azure/{model_name}",
+            api_key=api_key,
+            api_base=api_base,
+            api_version=api_version,
+            max_tokens=max_tokens,
+        )
+
+    elif provider == "together":
+        api_key = os.getenv("TOGETHERAI_API_KEY")
+        if not api_key:
+            raise ValueError("TOGETHERAI_API_KEY not set.")
+        lm = dspy.LM(model=f"together_ai/{model_name}", api_key=api_key, max_tokens=max_tokens)
+
+    elif provider == "replicate":
+        api_key = os.getenv("REPLICATE_API_KEY")
+        if not api_key:
+            raise ValueError("REPLICATE_API_KEY not set.")
+        lm = dspy.LM(model=f"replicate/{model_name}", api_key=api_key, max_tokens=max_tokens)
+
+    elif provider == "lmstudio":
+        api_base = os.getenv("LMSTUDIO_BASE_URL", "http://localhost:1234/v1")
+        lm = dspy.LM(model=f"openai/{model_name}", api_base=api_base, max_tokens=max_tokens)
 
     else:
         raise ValueError(f"Unsupported provider: {provider}")
