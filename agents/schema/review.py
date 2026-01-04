@@ -15,6 +15,8 @@ class ReviewFinding(BaseModel):
 
 
 class ReviewReport(BaseModel):
+    """Schema for final multi-agent review report."""
+
     summary: str = Field(..., description="High-level assessment summary")
     findings: List[ReviewFinding] = Field(default_factory=list)
     analysis: str = Field(

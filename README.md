@@ -19,12 +19,14 @@ This CLI tool provides AI-powered development tools for code review, planning, a
 ## Features
 
 - **🧠 Compounding Engineering**: True learning system where every operation makes the next one easier
+
   - **Auto-Learning**: Every todo resolution automatically codifies learnings
   - **KB Auto-Injection**: Past learnings automatically inform all AI operations
   - **Pattern Recognition**: Similar issues are prevented based on past resolutions
   - **Knowledge Accumulation**: System gets smarter with every use
 
 - **🔍 Multi-Agent Code Review**: Run 10+ specialized review agents in parallel
+
   - **Security Sentinel**: Detects vulnerabilities (SQLi, XSS, etc.)
   - **Performance Oracle**: Identifies bottlenecks and O(n) issues
   - **Architecture Strategist**: Reviews design patterns and SOLID principles
@@ -33,18 +35,22 @@ This CLI tool provides AI-powered development tools for code review, planning, a
   - And many more...
 
 - **🤖 ReAct File Editing**: Intelligent file operations with reasoning
+
   - **Smart Context Gathering**: Relevance-scored file selection and token budget management
   - **Iterative Reasoning**: Think → Act → Observe → Iterate pattern
   - **Zero Hallucination**: Direct file manipulation, not text generation
 
 - **🛡️ Secure Work Execution**: Safely execute AI-generated plans
+
   - **Isolated Worktrees**: High-level isolation for safe parallel execution via `--worktree`
   - **Parallel Processing**: Multi-threaded todo resolution with `--workers`
   - **Auto-Codification**: Every resolution creates learnings for future use
 
 - **📋 Smart Planning**: Transform feature descriptions into detailed plans
+
   - Repository research & pattern analysis
-  - Framework documentation integration
+  - **🌐 Internet Search**: Access live sources and current standards
+  - **Documentation Fetcher**: Deep-read official documentation from URLs
   - SpecFlow user journey analysis
   - **KB-Informed**: Plans leverage past architectural decisions
 
@@ -79,14 +85,29 @@ cp .env.example .env
 uv sync
 ```
 
+### Repo-Agnostic Installation (Recommended)
+
+To use `compounding` in **other repositories**, install it globally using `uv tool`:
+
+```bash
+# Install globally from source
+uv tool install .
+# or from git once published
+# uv tool install git+https://github.com/Strategic-Automation/dspy-compounding-engineering.git
+```
+
+This exposes the `compounding` command globally, allowing you to run it inside any project folder.
+
 ### Vector Database Setup (Qdrant)
 
 This project uses [Qdrant](https://qdrant.tech/) for semantic search. A Docker Compose configuration is provided.
 
 1. **Start Qdrant**:
+
    ```bash
    docker compose up -d qdrant
    ```
+
    This will start Qdrant on `localhost:6333`.
 
 2. **Configure Embeddings**:
@@ -100,27 +121,27 @@ The repository includes a small wrapper script `uvx` that runs the CLI via `uv r
 
 ```bash
 ./uvx -h
-./uvx generate-command "create a command to list large files"
+./uvx generate-agent "create an agent to check for hardcoded secrets"
 ```
 
 The script is in the repository root and is executable; run it from the repo directory.
 
-You can also prefix commands with `compounding`, for example `./uvx compounding generate-command`.
+You can also prefix commands with `compounding`, for example `./uvx compounding generate-agent`.
 
 ## Example run
 
-Quick example using the temporary runner `uvx` to see the `generate-command` help:
+Quick example using the temporary runner `uvx` to see the `generate-agent` help:
 
 ```bash
-./uvx generate-command -h
+./uvx generate-agent -h
 ```
 
 Expected excerpt:
 
 ```
-Usage: cli.py generate-command [OPTIONS] DESCRIPTION
+Usage: compounding generate-agent [OPTIONS] DESCRIPTION
 
-Generate a new CLI command from a natural language description.
+Generate a new Review Agent from a natural language description.
 
 Options:
   --dry-run  -n   Show what would be created without writing files
@@ -169,7 +190,7 @@ graph LR
     KB -->|Auto-Inject| B
     KB -->|Auto-Inject| C
     KB -->|Auto-Inject| D
-    
+
     style KB fill:#4CAF50,stroke:#333,stroke-width:3px
     style D fill:#FFC107,stroke:#333,stroke-width:2px
 ```
@@ -193,6 +214,7 @@ graph LR
 See our [detailed Roadmap](https://strategic-automation.github.io/dspy-compounding-engineering/roadmap/) for upcoming features.
 
 Key focus areas:
+
 - **GitHub Integration**: Create Issues, post PR comments, manage Projects (Partially Completed)
 - **Vector Embeddings**: Upgrade from keyword matching to semantic similarity (Completed)
 - **Smart Context**: Intelligent relevance-scored gathering (Completed)
@@ -225,6 +247,7 @@ OPENROUTER_API_KEY=sk-or-...
 # Context Limits (Optional)
 CONTEXT_WINDOW_LIMIT=128000
 CONTEXT_OUTPUT_RESERVE=4096
+DOCS_MAX_TOKENS=32768  # Limit for documentation fetching (default: 32k)
 ```
 
 ## Multi-Source Configuration
@@ -239,19 +262,28 @@ The tool will warn you if multiple conflicting configuration files are detected.
 
 ## Usage
 
+> [!TIP]
+> If you have installed the tool via `uv tool install --from .`, you can use the `compounding` command directly. Otherwise, use `uv run python cli.py`.
+
 ### 1. Review Code
 
-Run a comprehensive multi-agent review on your current changes:
+Run a comprehensive multi-agent review on your current changes or a specific PR:
 
 ```bash
 # Review latest local changes
-uv run python cli.py review
+compounding review
+
+# Review a specific PR ID
+compounding review 86
+
+# Review a specific branch
+compounding review dev
+
+# Review a full PR URL (requires gh cli)
+compounding review https://github.com/user/repo/pull/123
 
 # Review entire project (not just changes)
-uv run python cli.py review --project
-
-# Review a specific PR (requires gh cli)
-uv run python cli.py review https://github.com/user/repo/pull/123
+compounding review --project
 ```
 
 > **Note:** The review process automatically ignores lock files (e.g., `uv.lock`, `package-lock.json`) and standard binary/cache directories to reduce noise.
@@ -261,7 +293,7 @@ uv run python cli.py review https://github.com/user/repo/pull/123
 Process the findings generated by the review:
 
 ```bash
-uv run python cli.py triage
+compounding triage
 ```
 
 - **Yes**: Approve and convert to ready todo
@@ -275,23 +307,23 @@ Unified command for resolving todos or executing plans using ReAct agents:
 
 ```bash
 # Resolve all P1 priority todos
-uv run python cli.py work p1
+compounding work p1
 
 # Resolve specific todo by ID
-uv run python cli.py work 001
+compounding work 001
 
 # Execute a plan file
-uv run python cli.py work plans/feature.md
+compounding work plans/feature.md
 
 # Preview changes without applying (dry run)
-uv run python cli.py work p1 --dry-run
+compounding work p1 --dry-run
 
 # Use isolated worktree (safe parallel execution)
-uv run python cli.py work p1 --worktree
+compounding work p1 --worktree
 
 # Control parallelization
-uv run python cli.py work p2 --sequential  # Sequential execution
-uv run python cli.py work p2 --workers 5   # 5 parallel workers
+compounding work p2 --sequential  # Sequential execution
+compounding work p2 --workers 5   # 5 parallel workers
 ```
 
 This will:
@@ -303,24 +335,29 @@ This will:
 5. Mark todos as complete (`*-complete-*.md`)
 6. Clean up worktrees automatically
 
-### 4. Generate Commands
+### 4. Generate Agents
 
-Generate shell commands from natural language descriptions:
+Generate new review agents from natural language descriptions:
 
 ```bash
-# Generate a command
-uv run python cli.py generate-command "find all Python files modified in the last week"
+# Generate a new agent
+compounding generate-agent "Check for SQL injection vulnerabilities"
 
-# Execute the generated command (use with caution)
-uv run python cli.py generate-command "list large files" --execute
+# Preview without creating files
+compounding generate-agent "Ensure all Python functions have docstrings" --dry-run
 ```
 
 ### 5. Plan New Features
 
-Generate a detailed implementation plan:
+Generate a detailed implementation plan from a description or GitHub issue:
 
 ```bash
-uv run python cli.py plan "Add user authentication with OAuth"
+# Plan from a natural language description
+compounding plan "Add user authentication with OAuth"
+
+# Plan from a GitHub issue (ID or URL)
+compounding plan 30
+compounding plan https://github.com/user/repo/issues/30
 ```
 
 ### 6. Codify Learnings
@@ -328,8 +365,8 @@ uv run python cli.py plan "Add user authentication with OAuth"
 Capture and codify learnings into the knowledge base:
 
 ```bash
-uv run python cli.py codify "Always validate user input before database operations"
-uv run python cli.py codify "Use factory pattern for agent creation" --source retro
+compounding codify "Always validate user input before database operations"
+compounding codify "Use factory pattern for agent creation" --source retro
 ```
 
 ## Architecture
@@ -337,28 +374,33 @@ uv run python cli.py codify "Use factory pattern for agent creation" --source re
 The system is built on a layered architecture designed for modularity and compounding intelligence:
 
 ### 1. Interface Layer (CLI)
+
 - **Entry Point**: `cli.py` uses `Typer` to provide a robust command-line interface.
 - **Commands**: Maps user intents (e.g., `review`, `work`) to specific workflows.
 
 ### 2. Orchestration Layer (Workflows)
+
 - **Logic**: Python scripts in `workflows/` orchestrate complex multi-step processes.
 - **Responsibility**: Manages state, handles user interaction, and coordinates agents.
 - **Key Workflows**:
-    - **Unified Work**: Combines planning and execution using ReAct loops.
-    - **Review Pipeline**: Parallelizes multiple specialized review agents.
-    - **Triage System**: Manages findings and prioritizes work.
+  - **Unified Work**: Combines planning and execution using ReAct loops.
+  - **Review Pipeline**: Parallelizes multiple specialized review agents.
+  - **Triage System**: Manages findings and prioritizes work.
 
 ### 3. Intelligence Layer (DSPy Agents)
+
 - **Signatures**: Declarative definitions of AI tasks in `agents/`.
 - **Modules**: `dspy.Module` implementations that chain thoughts and actions.
 - **Optimization**: Agents are optimized via DSPy teleprompters.
 
 ### 4. Knowledge Layer (Compounding Engine)
+
 - **Storage**: JSON-based knowledge base in `.knowledge/`.
 - **Retrieval**: `KBPredict` wrapper automatically injects relevant context into agent calls.
 - **Learning**: `LearningExtractor` codifies outcomes from every task into reusable patterns.
 
 ### 5. Infrastructure Layer (Utilities)
+
 - **Git Service**: Manages isolated worktrees for safe execution.
 - **Project Context**: Efficiently gathers and token-limits codebase context.
 - **Todo Service**: Standardizes the unit of work (Markdown-based todos).
@@ -375,14 +417,14 @@ Based on the [Compounding Engineering](https://every.to/source-code/my-ai-had-al
 
 ## Comparison with Original Plugin
 
-| Feature | Original Plugin | This DSPy Edition |
-|---------|-----------------|-------------------|
-| **Runtime** | Claude Code Plugin | Standalone Python CLI |
-| **LLM** | Claude Only | OpenAI, Anthropic, Ollama |
-| **Execution** | Direct File Edit | **Secure Git Worktrees** |
-| **Integration**| GitHub App | Local-First CLI |
-| **Learning** | Manual CLAUDE.md | **Automatic KB Injection** |
-| **Codification** | Manual | **Automatic on every resolution** |
+| Feature          | Original Plugin    | This DSPy Edition                 |
+| ---------------- | ------------------ | --------------------------------- |
+| **Runtime**      | Claude Code Plugin | Standalone Python CLI             |
+| **LLM**          | Claude Only        | OpenAI, Anthropic, Ollama         |
+| **Execution**    | Direct File Edit   | **Secure Git Worktrees**          |
+| **Integration**  | GitHub App         | Local-First CLI                   |
+| **Learning**     | Manual CLAUDE.md   | **Automatic KB Injection**        |
+| **Codification** | Manual             | **Automatic on every resolution** |
 
 ## Contributing
 

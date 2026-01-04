@@ -5,17 +5,34 @@ The `plan` command helps you transform high-level feature descriptions into deta
 ## Usage
 
 ```bash
-uv run python cli.py plan "FEATURE_DESCRIPTION"
+compounding plan "FEATURE_DESCRIPTION"
 ```
 
-### Arguments
+- `FEATURE_DESCRIPTION`: A natural language description, a GitHub issue ID (e.g., `30` or `#30`), or a full GitHub issue URL.
 
-- `FEATURE_DESCRIPTION`: A natural language description of the feature you want to implement. Be as specific or as high-level as you like.
+## Planning from GitHub Issues
+
+The `plan` command can directly ingest GitHub issues to jumpstart the planning process.
+
+### By Issue ID
+```bash
+compounding plan 30
+```
+
+### By Issue URL
+```bash
+compounding plan https://github.com/user/repo/issues/30
+```
+
+When an issue is provided:
+1.  **Issue Fetching**: The tool uses the `gh` CLI to fetch the issue title and body.
+2.  **Context Building**: The issue content is used as the primary feature description for the planning agents.
+3.  **Automatic Naming**: The resulting plan file is named based on the issue title (e.g., `plans/p2-add-uv-based-installer.md`).
 
 ## Example
 
 ```bash
-uv run python cli.py plan "Add a new user settings page with dark mode toggle and email notification preferences"
+compounding plan "Add a new user settings page with dark mode toggle and email notification preferences"
 ```
 
 ## How It Works

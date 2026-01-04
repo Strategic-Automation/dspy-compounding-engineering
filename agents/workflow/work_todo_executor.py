@@ -1,14 +1,6 @@
 import dspy
 
-from utils.io import (
-    create_file,
-    edit_file_lines,
-    get_project_context,
-    get_system_status,
-    list_directory,
-    read_file_range,
-    search_files,
-)
+from utils.agent.tools import get_todo_resolver_tools
 
 
 class TodoResolutionSignature(dspy.Signature):
@@ -38,17 +30,17 @@ class TodoResolutionSignature(dspy.Signature):
     configuration files (like pyproject.toml) can break the entire system.
 
     You have access to the following tools:
-    - list_directory(path): List files and directories.
-    - search_files(query, path, regex): Search for string/regex in files.
-    - read_file_range(file_path, start_line, end_line): Read specific lines.
-    - edit_file_lines(file_path, edits): Edit specific lines. 'edits' is a list of dicts with
+    - list_dir(path): List files and directories.
+    - search_codebase(query, path): Search for string/regex in files.
+    - read_file(file_path, start_line, end_line): Read specific lines.
+    - edit_file(file_path, edits): Edit specific lines. 'edits' is a list of dicts with
       'start_line', 'end_line', 'content'.
-    - create_file(file_path, content): Create a new file with content.
-    - get_project_context(task): Gather relevant file contents based on a task description.
+    - create_new_file(file_path, content): Create a new file with content.
+    - gather_context(task): Gather relevant file contents based on a task description.
       Use this if you need to find where a specific logic is implemented.
     - get_system_status(): Check if Qdrant and API keys are available.
 
-    CRITICAL: When using edit_file_lines, the 'content' MUST NOT include the surrounding lines
+    CRITICAL: When using edit_file, the 'content' MUST NOT include the surrounding lines
     (context) unless you INTEND to duplicate them.
     - If you want to replace line 10, 'edits' should be [{'start_line': 10, 'end_line': 10,
       'content': 'new_line_10_content'}].
@@ -61,7 +53,7 @@ class TodoResolutionSignature(dspy.Signature):
          the file.
        - If it does, you MUST replace the existing definition (using the correct line range)
          instead of appending a new one.
-       - Use 'search_files' or 'read_file_range' to find the exact line numbers of the existing
+       - Use 'search_codebase' or 'read_file' to find the exact line numbers of the existing
          code before editing.
     """
 
@@ -78,42 +70,30 @@ class TodoResolutionSignature(dspy.Signature):
 
 
 class ReActTodoResolver(dspy.Module):
+    """
+    ReAct-based todo resolver that uses centralized tools from
+    utils/agent/tools.py for consistent codebase exploration and editing.
+    """
+
     def __init__(self, base_dir: str = "."):
         super().__init__()
+        from utils.knowledge import KBPredict
 
-        # Define tools with base_dir bound and metadata preserved
-        def bind_tool(func):
-            def wrapper(*args, **kwargs):
-                return func(*args, base_dir=base_dir, **kwargs)
-
-            wrapper.__name__ = func.__name__
-            wrapper.__doc__ = func.__doc__
-            return wrapper
-
-        self.tools = [
-            bind_tool(list_directory),
-            bind_tool(search_files),
-            bind_tool(read_file_range),
-            bind_tool(edit_file_lines),
-            bind_tool(create_file),
-            bind_tool(get_project_context),
-            get_system_status,
-        ]
-
-        # Create ReAct agent
-        self.react_agent = dspy.ReAct(
-            signature=TodoResolutionSignature, tools=self.tools, max_iters=15
+        self.tools = get_todo_resolver_tools(base_dir)
+        react = dspy.ReAct(signature=TodoResolutionSignature, tools=self.tools, max_iters=15)
+        self.predictor = KBPredict.wrap(
+            react,
+            kb_tags=["work", "work-resolutions", "code-review", "triage-decisions"],
         )
 
     def _sanitize_input(self, text: str) -> str:
         """Sanitize input text to remove potentially dangerous characters."""
         if not text:
             return ""
-        # Basic sanitization: remove null bytes and control characters (except newlines/tabs)
-        # and ensure utf-8 encoding compatibility
+        # Basic sanitization: remove null bytes and control characters
         return "".join(ch for ch in text if ch == "\n" or ch == "\t" or ord(ch) >= 32)
 
     def forward(self, todo_content: str, todo_id: str):
         """Resolve todo using ReAct reasoning."""
         clean_content = self._sanitize_input(todo_content)
-        return self.react_agent(todo_content=clean_content, todo_id=todo_id)
+        return self.predictor(todo_content=clean_content, todo_id=todo_id)

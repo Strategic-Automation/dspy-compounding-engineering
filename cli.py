@@ -1,15 +1,15 @@
 import math
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 from rich.console import Console
 
 from config import configure_dspy
-from utils.io import get_system_status
+from utils.io import get_system_status, validate_agent_filters
 from utils.knowledge import KnowledgeBase
 from workflows.codify import run_codify
-from workflows.generate_command import run_generate_command
+from workflows.generate_agent import run_generate_agent
 from workflows.plan import run_plan
 from workflows.review import run_review
 from workflows.triage import run_triage
@@ -22,7 +22,7 @@ app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
 @app.callback()
 def main(
     env_file: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Option(
             "--env-file",
             "-e",
@@ -34,7 +34,7 @@ def main(
             resolve_path=True,
         ),
     ] = None,
-):
+) -> None:
     """
     Compounding Engineering (DSPy Edition)
     """
@@ -42,7 +42,7 @@ def main(
 
 
 @app.command()
-def triage():
+def triage() -> None:
     """
     Triage and categorize findings for the CLI todo system.
     """
@@ -50,16 +50,25 @@ def triage():
 
 
 @app.command()
-def plan(feature_description: str):
+def plan(
+    description: Annotated[
+        str, typer.Argument(..., help="Feature description, GitHub issue ID, or URL")
+    ],
+) -> None:
     """
-    Transform feature descriptions into well-structured project plans.
+    Transform feature descriptions or GitHub issues into project plans.
+
+    Examples:
+        compounding plan "Add user authentication"
+        compounding plan 30
+        compounding plan https://github.com/user/repo/issues/30
     """
-    run_plan(feature_description)
+    run_plan(description)
 
 
 @app.command()
 def work(
-    pattern: Optional[str] = typer.Argument(None, help="Todo ID, plan file, or pattern"),
+    pattern: str | None = typer.Argument(None, help="Todo ID, plan file, or pattern"),
     dry_run: bool = typer.Option(False, "--dry-run", "-n", help="Dry run mode"),
     sequential: bool = typer.Option(
         False,
@@ -75,7 +84,7 @@ def work(
         "--in-place/--worktree",
         help="Apply changes in-place to current branch (default) or use isolated worktree",
     ),
-):
+) -> None:
     """
     Unified work command using DSPy ReAct.
 
@@ -108,27 +117,46 @@ def work(
 @app.command()
 def review(
     pr_url_or_id: str = typer.Argument(
-        "latest", help="PR number, URL, branch name, or 'latest' for local changes"
+        "latest",
+        help="PR number (e.g., 86), full URL, branch name, or 'latest' for local changes",
     ),
     project: bool = typer.Option(
         False, "--project", "-p", help="Review entire project instead of just changes"
     ),
-):
+    agent: Annotated[
+        list[str] | None,
+        typer.Option("--agent", "-a", help="Run only specific review agents (name or pattern)"),
+    ] = None,
+) -> None:
     """
     Perform exhaustive multi-agent code reviews.
 
+    Args:
+        pr_url_or_id: The target to review. Can be:
+            - A PR ID (e.g., 86)
+            - A full URL (e.g., https://github.com/user/project/pull/86)
+            - A branch name (e.g., dev)
+            - 'latest' (the default) to review unstaged/local changes
+
     Examples:
         compounding review              # Review local changes
+        compounding review 86           # Review PR #86
+        compounding review dev          # Review differences against dev
         compounding review --project    # Review entire project
-        compounding review 123          # Review PR #123
+        compounding review -a Security  # Run only security agent
     """
-    run_review(pr_url_or_id, project=project)
+    # Sanitize and validate agent filter
+    safe_agent_filter = validate_agent_filters(agent) if agent else None
+    if agent and safe_agent_filter is None:
+        return
+
+    run_review(pr_url_or_id, project=project, agent_filter=safe_agent_filter)
 
 
 @app.command()
-def generate_command(
+def generate_agent(
     description: str = typer.Argument(
-        ..., help="Natural language description of what the command should do"
+        ..., help="Natural language description of what the review agent should check for"
     ),
     dry_run: bool = typer.Option(
         False,
@@ -136,20 +164,20 @@ def generate_command(
         "-n",
         help="Show what would be created without writing files",
     ),
-):
+) -> None:
     """
-    Generate a new CLI command from a natural language description.
+    Generate a new Review Agent from a natural language description.
 
-    This meta-command creates new commands for the Compounding Engineering plugin.
-    It analyzes the description, designs an appropriate workflow and agents,
-    and generates all necessary code.
+    This meta-command creates new review agents for the multi-agent review system.
+    It analyzes the description, designs an appropriate scanning protocol,
+    and generates the agent code in agents/review/.
 
     Examples:
-        compounding generate-command "Create a command to format code"
-        compounding generate-command "Add a lint command that checks Python style"
-        compounding generate-command --dry-run "Create a deployment workflow"
+        compounding generate-agent "Check for SQL injection vulnerabilities"
+        compounding generate-agent "Ensure all Python functions have docstrings"
+        compounding generate-agent --dry-run "Audit for frontend race conditions"
     """
-    run_generate_command(description=description, dry_run=dry_run)
+    run_generate_agent(description=description, dry_run=dry_run)
 
 
 @app.command()
@@ -161,7 +189,7 @@ def codify(
         "-s",
         help="Source of the feedback (e.g., 'review', 'retro')",
     ),
-):
+) -> None:
     """
     Codify feedback into the knowledge base.
 
@@ -182,7 +210,7 @@ def compress_kb(
     dry_run: bool = typer.Option(
         False, "--dry-run", "-n", help="Show stats without modifying the file"
     ),
-):
+) -> None:
     """
     Compress the AI knowledge base (AI.md) using LLM.
 
@@ -203,11 +231,11 @@ def compress_kb(
 
 @app.command()
 def index(
-    root_dir: Annotated[str, typer.Option("--dir", "-d", help="Root directory to index")] = ".",
+    root_dir: str = typer.Option(".", "--dir", "-d", help="Root directory to index"),
     recreate: Annotated[
         bool, typer.Option("--recreate", "-r", help="Force recreation of the vector collection")
     ] = False,
-):
+) -> None:
     """
     Index the codebase for semantic search using Vector Embeddings.
     Use this to enable agents to find relevant code snippets.
@@ -218,7 +246,7 @@ def index(
 
 
 @app.command()
-def status():
+def status() -> None:
     """
     Check the current status of external services (Qdrant, API keys).
     """
