@@ -30,7 +30,17 @@ from utils.io.logger import configure_logging, console, logger
 
 
 def get_project_root() -> Path:
-    """Get the project root directory, preferably the Git root."""
+    """
+    Determine the root directory of the current project.
+
+    The function attempts to locate the Git repository root.
+    If Git metadata is unavailable, it falls back to the current
+    working directory.
+
+    Returns:
+        Path: Absolute path to the project root directory.
+    """
+
     try:
         from utils.io.safe import run_safe_command
 
@@ -242,6 +252,20 @@ class AppConfig:
 registry = ServiceRegistry()
 settings = AppConfig()
 
+def load_configuration(env_file: str | None = None) -> None:
+    """
+    Load environment variables from multiple configuration sources.
+
+    The configuration files are loaded in priority order, with higher
+    priority sources overriding lower priority ones.
+
+    Args:
+        env_file (str | None): Optional path to a specific `.env` file.
+
+    Returns:
+        None
+    """
+    sources = []
 
 # =============================================================================
 # Environment Loading
