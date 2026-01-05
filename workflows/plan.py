@@ -32,24 +32,33 @@ def _save_stage_output(plans_dir: str, safe_name: str, stage: str, content: str)
     console.print(f"[dim]  → Saved {stage}.md[/dim]")
 
 
-def run_plan(feature_description: str):
-    """Orchestrate the planning process."""
+def _handle_github_issue(feature_description: str) -> tuple[str, dict]:
+    """Handle fetching details if description is a GitHub issue."""
     from utils.git.service import GitService
 
-    # 0. Handle GitHub Issues
-    target_description = feature_description
     issue_details = {}
-
-    # Simple check for issue pattern: #123, 123, or github.com/.../issues/123
+    target_description = feature_description
     is_issue = False
+
     if feature_description.isdigit() or feature_description.startswith("#"):
         is_issue = True
-    elif "github.com" in feature_description and "/issues/" in feature_description:
-        is_issue = True
+    elif "github.com" in feature_description:
+        from urllib.parse import urlparse
+
+        try:
+            parsed = urlparse(feature_description)
+            if parsed.netloc in ["github.com", "www.github.com"] and "/issues/" in parsed.path:
+                is_issue = True
+        except Exception:
+            pass
 
     if is_issue:
         with console.status(f"Fetching GitHub issue {feature_description}..."):
             issue_id = feature_description.lstrip("#")
+            # If it's a URL, the git service should handle extraction or we do it here
+            if "/" in issue_id:
+                issue_id = issue_id.rstrip("/").split("/")[-1]
+
             issue_details = GitService.get_issue_details(issue_id)
             if issue_details:
                 title = issue_details.get("title", "")
@@ -60,6 +69,50 @@ def run_plan(feature_description: str):
             else:
                 msg = f"⚠ Could not fetch issue {feature_description}. Treating as raw description."
                 console.print(f"[yellow]{msg}[/yellow]")
+
+    return target_description, issue_details
+
+
+def _handle_todo_file(feature_description: str, target_description: str) -> str:
+    """Read todo file content if applicable."""
+    is_todo_file = feature_description.endswith(".md") and (
+        "todo" in feature_description.lower()
+        or feature_description.startswith("todos/")
+        or any(p in feature_description for p in ["-p1-", "-p2-", "-p3-"])
+    )
+    if is_todo_file:
+        todo_path = feature_description
+        if not os.path.isabs(todo_path):
+            if os.path.exists(todo_path):
+                pass
+            elif os.path.exists(os.path.join("todos", todo_path)):
+                todo_path = os.path.join("todos", todo_path)
+
+        if os.path.exists(todo_path):
+            try:
+                with open(todo_path, "r") as f:
+                    todo_content = f.read()
+                console.print(f"[green]✓ Read todo file: {todo_path}[/green]")
+                return (
+                    f"CODE REVIEW FINDING (from {feature_description}):\n\n"
+                    f"{todo_content}\n\n"
+                    "TASK: Create an implementation plan to address the finding above. "
+                    "Focus on the specific code changes needed."
+                )
+            except Exception as e:
+                console.print(f"[yellow]⚠ Could not read todo file: {e}[/yellow]")
+
+    return target_description
+
+
+def run_plan(feature_description: str):
+    """Orchestrate the planning process."""
+    # 0. Handle Inputs
+    target_description, issue_details = _handle_github_issue(feature_description)
+
+    # 0b. Handle Todo Files if not already handled by issue logic
+    if not issue_details:
+        target_description = _handle_todo_file(feature_description, target_description)
 
     plans_dir = "plans"
     os.makedirs(plans_dir, exist_ok=True)

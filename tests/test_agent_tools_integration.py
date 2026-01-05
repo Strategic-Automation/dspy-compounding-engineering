@@ -50,13 +50,15 @@ def test_internet_search_tool_execution():
     """Test the execution of the internet search tool (with mocks)."""
     tool = get_internet_search_tool()
 
-    mock_results = [{"title": "Test Title", "url": "https://test.com", "source": "DuckDuckGo"}]
+    mock_results = [
+        {"title": "Test Title", "url": "https://example.com/search?q=test", "source": "DuckDuckGo"}
+    ]
 
     with patch("utils.search.ddg_search.search_web", return_value=mock_results):
         result = tool.func("test query")
 
         assert "Test Title" in result
-        assert "https://test.com" in result
+        assert "https://example.com/search?q=test" in result
         assert "DuckDuckGo" in result
 
 

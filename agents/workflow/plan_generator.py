@@ -15,10 +15,21 @@ class PlanGenerator(dspy.Signature):
     4. Keep the tone professional, technical, and concise.
     5. No emojis or decorative formatting.
 
-    **Goal:** Create a comprehensive, well-structured implementation plan.
+    **SCOPE CONSTRAINTS:**
+    6. Match the scope of changes to the severity of the finding:
+       - P1 CRITICAL: Focused fix only, minimal changes to solve the immediate problem
+       - P2 IMPORTANT: Moderate changes, stay within affected files and their tests
+       - P3 NICE-TO-HAVE: Can propose broader improvements if warranted
+    7. Prefer MINIMAL changes that solve the problem over comprehensive rewrites.
+    8. Do NOT propose new files, schemas, or configurations unless explicitly requested.
+    9. Implementation steps should be actionable by a single developer in < 2 hours.
+    10. If research suggests multiple approaches, pick the simplest one that meets the need.
+
+    **Goal:** Create a focused, actionable implementation plan with minimal scope.
     """
 
     feature_description = dspy.InputField(desc="The feature description")
     research_summary = dspy.InputField(desc="Combined research findings")
     spec_flow_analysis = dspy.InputField(desc="SpecFlow analysis results")
     plan_report: PlanReport = dspy.OutputField(desc="The structured implementation plan")
+
