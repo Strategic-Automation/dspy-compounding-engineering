@@ -49,6 +49,8 @@ def _handle_github_issue(feature_description: str) -> tuple[str, dict]:
             if parsed.netloc in ["github.com", "www.github.com"] and "/issues/" in parsed.path:
                 is_issue = True
         except Exception:
+            # Intentionally ignore URL parsing errors and treat the description as not being
+            # a GitHub issue URL. This preserves current behavior for malformed inputs.
             pass
 
     if is_issue:
