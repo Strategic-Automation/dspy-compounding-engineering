@@ -1,5 +1,4 @@
 name: Automated Release Tagging
-
 on:
   push:
     branches:
@@ -8,8 +7,6 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     steps:
       - name: Checkout code

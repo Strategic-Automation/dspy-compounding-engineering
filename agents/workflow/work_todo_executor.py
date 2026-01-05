@@ -55,6 +55,21 @@ class TodoResolutionSignature(dspy.Signature):
          instead of appending a new one.
        - Use 'search_codebase' or 'read_file' to find the exact line numbers of the existing
          code before editing.
+
+    5. DIFF-FIRST WORKFLOW:
+       - BEFORE editing, read the exact lines you plan to change
+       - COMPARE the old content with your intended new content mentally
+       - Only edit if the change is necessary and correct
+       - AFTER editing, read the same lines again to confirm
+
+    6. NEWLINE FORMATTING:
+       - When writing multi-line content, use ACTUAL line breaks in your content string
+       - Do NOT use literal escape sequences like the two characters backslash-n
+       - Each line of code should be on its own line in your content
+       - Example of CORRECT multi-line content:
+         'def foo():
+             return bar'
+       - Example of WRONG content: 'def foo():\\n    return bar'
     """
 
     todo_content: str = dspy.InputField(desc="Content of the todo file")

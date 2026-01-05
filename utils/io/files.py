@@ -67,8 +67,9 @@ def _run_git_grep(query: str, safe_path: str, regex: bool, limit: int = 50) -> O
         )
         if process.returncode == 0:
             return _format_grep_result(process, max_lines=limit)
-    except Exception:
-        pass
+    except Exception as e:
+        msg = f"[dim]Note: git grep failed (likely not a git repo or no matches): {e}[/dim]"
+        console.print(msg)
     return None
 
 
@@ -169,6 +170,74 @@ def read_file_range(
         return f"Error reading file: {str(e)}"
 
 
+def _normalize_llm_escapes(content: str) -> str:
+    """Normalize escaped newlines/tabs from LLM output to actual characters.
+
+    LLMs sometimes generate literal backslash-n sequences instead of actual
+    newlines when constructing multi-line code edits. This function converts
+    them to real newlines.
+
+    Uses regex with raw strings to ensure we match the exact two-character
+    sequence (backslash followed by 'n').
+    """
+    import re
+
+    if not content:
+        return content
+
+    # Match literal backslash followed by 'n' (two characters, not escape sequence)
+    # The raw string r'\\n' matches the two-character sequence: \ followed by n
+    content = re.sub(r'\\n', '\n', content)
+    content = re.sub(r'\\t', '\t', content)
+    # Handle escaped quotes
+    content = re.sub(r'\\"', '"', content)
+    content = re.sub(r"\\'", "'", content)
+
+    return content
+
+
+def _validate_file_syntax(file_path: str, content: str) -> tuple:
+    """Validate file syntax before writing.
+
+    Returns (is_valid, error_message) tuple.
+    """
+    ext = Path(file_path).suffix.lower()
+
+    if ext == ".py":
+        try:
+            import ast
+            ast.parse(content)
+            return (True, "")
+        except SyntaxError as e:
+            return (False, f"Python syntax error at line {e.lineno}: {e.msg}")
+
+    if ext == ".json":
+        try:
+            import json
+            json.loads(content)
+            return (True, "")
+        except json.JSONDecodeError as e:
+            return (False, f"JSON syntax error: {e}")
+
+    if ext in (".yaml", ".yml"):
+        try:
+            import yaml
+            yaml.safe_load(content)
+            return (True, "")
+        except yaml.YAMLError as e:
+            return (False, f"YAML syntax error: {e}")
+
+    if ext == ".toml":
+        try:
+            import tomllib
+            tomllib.loads(content)
+            return (True, "")
+        except Exception as e:
+            return (False, f"TOML syntax error: {e}")
+
+    return (True, "")  # No validation for unknown types
+
+
 def edit_file_lines(  # noqa: C901
     file_path: str,
     edits: List[Dict[str, Union[int, str]]],
@@ -216,6 +285,9 @@ def edit_file_lines(  # noqa: C901
             end = edit["end_line"]
             content = edit["content"]
 
+            # CRITICAL: Normalize escaped newlines from LLM output
+            content = _normalize_llm_escapes(content)
+
             # Validate range
             if start < 1 or end < start:
                 return f"Error: Invalid line range {start}-{end}"
@@ -235,8 +307,14 @@ def edit_file_lines(  # noqa: C901
 
             lines[start - 1 : end] = new_lines
 
+        # Validate syntax before writing
+        final_content = "".join(lines)
+        is_valid, error = _validate_file_syntax(file_path, final_content)
+        if not is_valid:
+            return f"Error: Edit would create syntax errors - {error}"
+
         # Write back
-        safe_write(file_path, "".join(lines), base_dir)
+        safe_write(file_path, final_content, base_dir)
         return f"Successfully applied {len(edits)} edits to {file_path}"
 
     except Exception as e:
