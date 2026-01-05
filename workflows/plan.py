@@ -1,5 +1,6 @@
 import os
 import re
+from urllib.parse import urlparse
 
 from rich.console import Console
 
@@ -42,9 +43,7 @@ def _handle_github_issue(feature_description: str) -> tuple[str, dict]:
 
     if feature_description.isdigit() or feature_description.startswith("#"):
         is_issue = True
-    elif "github.com" in feature_description:
-        from urllib.parse import urlparse
-
+    else:
         try:
             parsed = urlparse(feature_description)
             if parsed.netloc in ["github.com", "www.github.com"] and "/issues/" in parsed.path:
