@@ -58,7 +58,7 @@ def test_internet_search_tool_execution():
         result = tool.func("test query")
 
         assert "Test Title" in result
-        assert "https://test.com" in result
+        assert "https://example.com/search?q=test" in result
         assert "DuckDuckGo" in result
 
 

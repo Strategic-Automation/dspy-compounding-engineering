@@ -41,6 +41,9 @@ class InterceptHandler(logging.Handler):
 
 def configure_logging(log_path: Optional[str] = None):
     """Configures Loguru and intercept handlers. Lazily called or via bootstrap."""
+    if getattr(configure_logging, "configured", False):
+        return
+
     global LOG_FILE
 
     # Use environment override, passed path, or default
@@ -113,6 +116,8 @@ def configure_logging(log_path: Optional[str] = None):
     ]
     for library in noisy_libs:
         logging.getLogger(library).setLevel(logging.WARNING)
+
+    configure_logging.configured = True
 
 
 
