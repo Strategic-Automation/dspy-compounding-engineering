@@ -124,8 +124,7 @@ def discover_reviewers() -> list[tuple[str, Type[dspy.Signature], Optional[Set[s
     - applicable_languages: Set of languages or None
     """
     reviewers = []
-    import agents.review as review_pkg
-
+    review_pkg = importlib.import_module("agents.review")
     package_path = os.path.dirname(review_pkg.__file__)
 
     for _, module_name, is_pkg in pkgutil.iter_modules([package_path]):

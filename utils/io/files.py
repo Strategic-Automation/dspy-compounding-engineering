@@ -67,7 +67,8 @@ def _run_git_grep(query: str, safe_path: str, regex: bool, limit: int = 50) -> O
         )
         if process.returncode == 0:
             return _format_grep_result(process, max_lines=limit)
-    except Exception:
+    except Exception as e:
+        console.print(f"[dim]Git grep failed (falling back to standard grep): {e}[/dim]")
         pass
     return None
 

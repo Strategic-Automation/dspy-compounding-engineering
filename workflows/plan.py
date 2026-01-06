@@ -1,5 +1,6 @@
 import os
 import re
+from urllib.parse import urlparse
 
 from rich.console import Console
 
@@ -45,7 +46,14 @@ def run_plan(feature_description: str):
     if feature_description.isdigit() or feature_description.startswith("#"):
         is_issue = True
     elif "github.com" in feature_description and "/issues/" in feature_description:
-        is_issue = True
+        try:
+            parsed = urlparse(feature_description)
+            # Verify netloc strictly to prevent substring attacks
+            if parsed.netloc in ["github.com", "www.github.com"] and "/issues/" in parsed.path:
+                is_issue = True
+        except Exception as e:
+            console.print(f"[dim]Failed to parse URL in description: {e}[/dim]")
+            pass
 
     if is_issue:
         with console.status(f"Fetching GitHub issue {feature_description}..."):
