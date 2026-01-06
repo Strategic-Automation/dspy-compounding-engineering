@@ -20,10 +20,3 @@ def test_token_counter_caching():
     c2 = counter.count_tokens(text)
 
     assert c1 == c2
-
-
-def test_token_estimation():
-    counter = TokenCounter()
-    text = "12345678"
-    # 8 chars / 4 = 2 tokens est
-    assert counter.estimate_tokens(text) == 2

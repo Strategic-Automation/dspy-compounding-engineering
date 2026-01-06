@@ -1,15 +1,17 @@
 """DuckDuckGo search implementation for research agents."""
 
+from typing import Optional
+
 from ddgs import DDGS
 
 
-def search_web(query: str, max_results: int = 5) -> list[dict]:
+def search_web(query: str, max_results: Optional[int] = None) -> list[dict]:
     """
     Search the web using DuckDuckGo.
 
     Args:
         query: The search query string
-        max_results: Maximum number of results to return (default: 5)
+        max_results: Maximum number of results to return (default: settings.web_search_limit)
 
     Returns:
         List of search results, each containing:
@@ -19,7 +21,12 @@ def search_web(query: str, max_results: int = 5) -> list[dict]:
     """
     try:
         # DDGS().text() returns generator, we limit and convert to list
-        ddgs = DDGS(timeout=10)
+        from config import settings
+
+        if max_results is None:
+            max_results = settings.web_search_limit
+
+        ddgs = DDGS(timeout=settings.web_search_timeout)
         raw_results = ddgs.text(query, max_results=max_results)
 
         # Convert to our standard format

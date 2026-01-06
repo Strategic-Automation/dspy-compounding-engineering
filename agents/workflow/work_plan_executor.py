@@ -1,5 +1,6 @@
 import dspy
 
+from config import settings
 from utils.agent.tools import get_todo_resolver_tools
 
 
@@ -78,7 +79,11 @@ class ReActPlanExecutor(dspy.Module):
         from utils.knowledge import KBPredict
 
         self.tools = get_todo_resolver_tools(base_dir)
-        react = dspy.ReAct(signature=PlanExecutionSignature, tools=self.tools, max_iters=20)
+        react = dspy.ReAct(
+            signature=PlanExecutionSignature,
+            tools=self.tools,
+            max_iters=settings.executor_max_iters,
+        )
         self.predictor = KBPredict.wrap(
             react,
             kb_tags=["work", "work-resolutions", "code-review", "triage-decisions"],

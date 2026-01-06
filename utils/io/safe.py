@@ -34,9 +34,6 @@ def validate_path(path: str, base_dir: str = ".") -> str:
     return full_path
 
 
-COMMAND_ALLOWLIST = {"git", "gh", "grep", "ruff", "uv", "python"}
-
-
 def run_safe_command(
     cmd: List[str],
     cwd: Optional[str] = None,
@@ -57,7 +54,16 @@ def run_safe_command(
 
     # Get the base executable name (handle paths if necessary)
     executable = os.path.basename(cmd[0])
-    if executable not in COMMAND_ALLOWLIST:
+
+    try:
+        from config import settings
+
+        allowlist = settings.command_allowlist
+    except (ImportError, AttributeError):
+        # Bootstrapping fallback if config is not yet fully loaded
+        allowlist = {"git", "gh", "grep", "ruff", "uv", "python"}
+
+    if executable not in allowlist:
         raise ValueError(f"Command '{executable}' is not in the security allowlist.")
 
     return subprocess.run(
@@ -96,30 +102,6 @@ def safe_delete(file_path: str, base_dir: str = ".") -> None:
         console.print(f"[yellow]Path not found:[/yellow] {safe_path}")
 
 
-def safe_apply_operations(operations: list[dict], base_dir: str = ".") -> None:
-    """Safely apply a list of file operations (create/modify/delete)."""
-    for op in operations:
-        action = op.get("action")
-        if action in ("create", "modify"):
-            safe_write(op["file_path"], op["content"], base_dir)
-        elif action == "delete":
-            safe_delete(op["file_path"], base_dir)
-        else:
-            console.print(f"[yellow]Unknown action skipped:[/yellow] {action}")
-
-
-def skip_ai_commands(
-    commands: list, reason: str = "AI-generated commands disabled for security"
-) -> None:
-    """Log and skip AI-generated commands."""
-    if commands:
-        console.print(f"[bold yellow]{reason}: {len(commands)} command(s) skipped[/bold yellow]")
-        for cmd in commands[:3]:  # Show first few
-            console.print(f"  - {cmd}")
-        if len(commands) > 3:
-            console.print(f"  ... and {len(commands) - 3} more")
-
-
 def validate_agent_filters(agent_filters: list[str]) -> list[str] | None:
     """
     Validate and sanitize agent filter terms.
@@ -130,13 +112,13 @@ def validate_agent_filters(agent_filters: list[str]) -> list[str] | None:
     Returns:
         Sanitized list of valid filters, or None if no valid filters remain
     """
+    from config import settings
     from utils.io.logger import logger
 
     valid_filters = []
     for term in agent_filters:
-        # Enforce strict allow-list: alphanumeric, hyphen, underscore
-        # Prevents regex or logging injection
-        if not re.match(r"^[a-zA-Z0-9\-_]+$", term):
+        # Use centralized regex from settings
+        if not re.match(settings.agent_filter_regex, term):
             logger.warning(f"Filtering term '{term}' contains invalid characters, skipping.")
             continue
         if len(term) > 50:

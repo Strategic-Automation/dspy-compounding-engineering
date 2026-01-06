@@ -37,8 +37,11 @@ class InterceptHandler(logging.Handler):
         loguru_logger.opt(depth=depth, exception=record.exc_info).log(level, msg)
 
 
+<<<<<<< HEAD
+=======
 
 
+>>>>>>> origin/dev
 def configure_logging(log_path: Optional[str] = None):
     """Configures Loguru and intercept handlers. Lazily called or via bootstrap."""
     if getattr(configure_logging, "configured", False):
@@ -47,10 +50,16 @@ def configure_logging(log_path: Optional[str] = None):
     global LOG_FILE
 
     # Use environment override, passed path, or default
-    env_path = os.getenv("COMPOUNDING_LOG_PATH")
-    if env_path:
-        LOG_FILE = env_path
-    elif log_path:
+    # We follow the settings priority if available
+    try:
+        from config import settings
+
+        LOG_FILE = settings.log_file
+    except ImportError:
+        # Fallback if config isn't fully loaded or for bootstrapping
+        LOG_FILE = os.getenv("COMPOUNDING_LOG_PATH", "compounding.log")
+
+    if log_path:
         LOG_FILE = log_path
 
     # Ensure path is absolute for portability across nested directories
@@ -118,7 +127,10 @@ def configure_logging(log_path: Optional[str] = None):
         logging.getLogger(library).setLevel(logging.WARNING)
 
     configure_logging.configured = True
+<<<<<<< HEAD
+=======
 
+>>>>>>> origin/dev
 
 
 class SystemLogger:

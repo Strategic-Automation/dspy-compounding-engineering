@@ -53,10 +53,3 @@ class TokenCounter:
         _TOKEN_CACHE[target_model][content_hash] = count
 
         return count
-
-    def estimate_tokens(self, text: str) -> int:
-        """
-        Fast estimation (char count / 4).
-        Good for rough checks before expensive counting.
-        """
-        return len(text) // 4

@@ -49,14 +49,14 @@ class FrameworkDocsResearcherModule(dspy.Module):
 
     def __init__(self, base_dir: str = "."):
         super().__init__()
+        from config import settings
+
         self.tools = get_research_tools(base_dir)
-        self.agent = dspy.ReAct(FrameworkDocsResearcher, tools=self.tools, max_iters=5)
+        self.agent = dspy.ReAct(
+            FrameworkDocsResearcher, tools=self.tools, max_iters=settings.agent_max_iters
+        )
 
     def forward(self, framework_or_library: str, previous_research: str = None):
-        # Basic validation to ensure robustness
-        if previous_research and not isinstance(previous_research, str):
-            previous_research = str(previous_research)
-
         logger.info(f"Starting Framework Docs Research for: {framework_or_library}")
         return self.agent(
             framework_or_library=framework_or_library, previous_research=previous_research

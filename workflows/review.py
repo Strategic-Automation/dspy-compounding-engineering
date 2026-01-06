@@ -13,6 +13,7 @@ from rich.markdown import Markdown
 from rich.progress import Progress
 from rich.table import Table
 
+from config import settings
 from utils.context import ProjectContext
 from utils.git import GitService
 from utils.io.logger import console, logger
@@ -392,7 +393,9 @@ def _execute_review_agents(code_diff: str, agent_filter: Optional[list[str]] = N
     with Progress() as progress:
         task = progress.add_task("[cyan]Running agents...", total=len(review_agents))
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=settings.review_max_workers
+        ) as executor:
             future_to_agent = {
                 executor.submit(run_single_agent, name, cls, code_diff): (name, category, severity)
                 for name, cls, category, severity in review_agents

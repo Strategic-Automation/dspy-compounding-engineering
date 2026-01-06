@@ -5,8 +5,6 @@ from typing import Any
 from openai import OpenAI
 
 from config import (
-    DENSE_FALLBACK_MODEL_NAME,
-    SPARSE_MODEL_NAME,
     resolve_embedding_config,
     settings,
 )
@@ -46,55 +44,23 @@ class EmbeddingProvider:
         ) = resolve_embedding_config()
 
         # API Key Resolution
-        self.embedding_api_key = os.getenv("EMBEDDING_API_KEY")
-        if not self.embedding_api_key:
-            if self.embedding_provider == "openrouter":
-                self.embedding_api_key = os.getenv("OPENROUTER_API_KEY")
-            else:
-                self.embedding_api_key = os.getenv("OPENAI_API_KEY")
+        primary_key = (
+            "OPENROUTER_API_KEY" if self.embedding_provider == "openrouter" else "OPENAI_API_KEY"
+        )
+        self.embedding_api_key = os.getenv("EMBEDDING_API_KEY") or os.getenv(primary_key)
 
         # Auto-detect fallback if no API key for cloud providers
-        is_cloud = self.embedding_provider in ["openai", "openrouter"]
-        if is_cloud and not self.embedding_api_key:
+        if self.embedding_provider in ["openai", "openrouter"] and not self.embedding_api_key:
             if not settings.quiet:
                 console.print(
                     f"[yellow]No API key found for {self.embedding_provider}. "
                     "Falling back to FastEmbed (local embeddings).[/yellow]"
                 )
             self.embedding_provider = "fastembed"
-            self.embedding_model_name = DENSE_FALLBACK_MODEL_NAME
+            self.embedding_model_name = settings.dense_fallback_model_name
 
-        if self.embedding_provider == "openrouter" and not self.embedding_base_url:
-            self.embedding_base_url = "https://openrouter.ai/api/v1"
-
-        DIMENSION_MAP = {
-            "text-embedding-3-small": 1536,
-            "text-embedding-3-large": 3072,
-            "text-embedding-ada-002": 1536,
-            # mxbai models
-            "mxbai-embed-large:latest": 1024,
-            # Nomic Models
-            "nomic-embed-text": 768,
-            "all-MiniLM-L6-v2": 384,
-            "all-MiniLM-L12-v2": 384,
-            "jinaai/jina-embeddings-v2-small-en": 512,
-            "jinaai/jina-embeddings-v2-base-en": 768,
-        }
-
-        # Simplified lookup
-        name = self.embedding_model_name
-        self.vector_size = DIMENSION_MAP.get(name)
-
-        if not self.vector_size:
-            # Fallback heuristics
-            if "nomic" in name.lower():
-                self.vector_size = 768
-            elif "minilm" in name.lower():
-                self.vector_size = 384
-            elif "mxbai-embed-large:latest" in self.embedding_model_name.lower():
-                self.vector_size = 1024
-            else:
-                self.vector_size = 1536
+        # Use centralized vector size detection
+        self.vector_size = settings.get_vector_size(self.embedding_model_name)
 
     def _get_cached_model(self, key: str, loader_func: Any, model_name: str) -> Any:
         """Generic thread-safe model caching helper with granular locking."""
@@ -127,18 +93,17 @@ class EmbeddingProvider:
         try:
             return self._get_cached_model(f"dense_{model_name}", TextEmbedding, model_name)
         except Exception:
-            # Fallback to Jina small if failed
-            if model_name == DENSE_FALLBACK_MODEL_NAME:
+            # Fallback to current dense fallback if failed
+            if model_name == settings.dense_fallback_model_name:
                 raise
-            return self._get_fastembed_model(DENSE_FALLBACK_MODEL_NAME)
+            return self._get_fastembed_model(settings.dense_fallback_model_name)
 
     def _get_sparse_model(self) -> Any:
         """Get or initialize a SparseTextEmbedding model from global cache."""
         from fastembed import SparseTextEmbedding
 
-        return self._get_cached_model(
-            f"sparse_{SPARSE_MODEL_NAME}", SparseTextEmbedding, SPARSE_MODEL_NAME
-        )
+        model_name = settings.sparse_model_name
+        return self._get_cached_model(f"sparse_{model_name}", SparseTextEmbedding, model_name)
 
     def _init_clients(self) -> None:
         """Initialize remote API or local model clients."""

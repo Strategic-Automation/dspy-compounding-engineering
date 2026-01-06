@@ -11,10 +11,10 @@ from typing import List, Optional, Tuple
 
 from rich.console import Console
 
-from config import CONTEXT_OUTPUT_RESERVE, CONTEXT_WINDOW_LIMIT, TIER_1_FILES, get_project_root
+from config import get_project_root, settings
 from utils.context.scorer import RelevanceScorer
 from utils.io.logger import logger
-from utils.io.safe import validate_path
+from utils.io.safe import run_safe_command, validate_path
 from utils.security.scrubber import scrubber
 from utils.token.counter import TokenCounter
 
@@ -58,7 +58,7 @@ class ProjectContext:
         except Exception as e:
             console.log(f"[warning]Failed to list project files in '{self.base_dir}': {e}")
 
-        key_files = ["README.md", "pyproject.toml", "package.json", "requirements.txt"]
+        key_files = settings.project_key_files
         for kf in key_files:
             kf_path = os.path.join(self.base_dir, kf)
             if os.path.exists(kf_path):
@@ -71,22 +71,24 @@ class ProjectContext:
 
         return "\n".join(context_parts) if context_parts else "No project context available"
 
-    def gather_project_files(self, max_file_size: int = 50000) -> str:
-        """
-        Legacy method alias for backward compatibility.
-        """
-        return self.gather_smart_context(task="", max_file_size=max_file_size)
-
     def gather_smart_context(
         self,
         task: str = "",
-        max_file_size: int = 50000,
-        budget: int = CONTEXT_WINDOW_LIMIT - CONTEXT_OUTPUT_RESERVE,
+        max_file_size: Optional[int] = None,
+        budget: Optional[int] = None,
     ) -> str:
         """
         Gather project files intelligently based on task relevance and token budget.
         Uses a two-pass approach: 1. Filter by metadata/score, 2. Lazy load and fill budget.
         """
+        from config import settings
+
+        if budget is None:
+            budget = settings.context_window_limit - settings.context_output_reserve
+
+        if max_file_size is None:
+            max_file_size = settings.project_context_max_file_size
+
         project_content = []
         current_tokens = 0
 
@@ -94,31 +96,18 @@ class ProjectContext:
         # (filepath, score, mtime, size)
         candidates: List[Tuple[str, float, float, int]] = []
 
-        code_extensions = {".py", ".js", ".ts", ".tsx", ".jsx", ".rb", ".go", ".rs", ".java", ".kt"}
-        config_extensions = {".toml", ".yaml", ".yml", ".json"}
-        skip_dirs = {
-            ".git",
-            ".venv",
-            "venv",
-            "node_modules",
-            "__pycache__",
-            ".pytest_cache",
-            "dist",
-            "build",
-            ".tox",
-            ".mypy_cache",
-            "worktrees",
-            ".ruff_cache",
-        }
-        skip_files = {"uv.lock", "package-lock.json", "yarn.lock", "poetry.lock", "Gemfile.lock"}
+        code_extensions = settings.code_extensions
+        config_extensions = settings.config_extensions
+        skip_dirs = settings.skip_dirs
+        skip_files = settings.skip_files
 
         # Walk and collect candidates
         candidates = self._collect_context_candidates(
             code_extensions, config_extensions, skip_dirs, skip_files, task, max_file_size
         )
 
-        # 2. Sort by Relevance
-        candidates.sort(key=lambda x: x[1], reverse=True)
+        # 2. Sort by Relevance (Score DESC, Path ASC for determinstic behavior)
+        candidates.sort(key=lambda x: (-x[1], x[0]))
 
         # 3. Second Pass: Lazy Load, Scrub, and Fill Budget
         included_count = 0
@@ -172,26 +161,79 @@ class ProjectContext:
     ) -> List[Tuple[str, float, float, int]]:
         """Collect and score candidates based on metadata."""
         candidates = []
-        for root, dirs, files in os.walk(self.base_dir):
-            dirs[:] = [d for d in dirs if d not in skip_dirs]
-            for filename in files:
-                if filename in skip_files:
-                    continue
-                ext = os.path.splitext(filename)[1].lower()
-                if ext in code_ext or ext in config_ext or filename in TIER_1_FILES:
+
+        # Try to use git to respect .gitignore
+        git_files = self._get_git_files()
+
+        if git_files is not None:
+            for filepath in git_files:
+                candidate = self._process_file_candidate(
+                    filepath, code_ext, config_ext, skip_files, task, max_file_size
+                )
+                if candidate:
+                    candidates.append(candidate)
+        else:
+            # Fallback to manual walk
+            for root, dirs, files in os.walk(self.base_dir):
+                dirs[:] = [d for d in dirs if d not in skip_dirs]
+                for filename in files:
                     filepath = os.path.join(root, filename)
-                    if not self._is_safe_path(filepath):
-                        continue
-                    try:
-                        stat = os.stat(filepath)
-                        if stat.st_size > max_file_size * 2:
-                            continue
-                        rel_path = os.path.relpath(filepath, self.base_dir)
-                        score = self.scorer.score_path(rel_path, task)
-                        candidates.append((filepath, score, stat.st_mtime, stat.st_size))
-                    except Exception as e:
-                        logger.warning(f"Failed to stat {filepath}: {e}")
+                    candidate = self._process_file_candidate(
+                        filepath, code_ext, config_ext, skip_files, task, max_file_size
+                    )
+                    if candidate:
+                        candidates.append(candidate)
         return candidates
+
+    def _process_file_candidate(
+        self,
+        filepath: str,
+        code_ext: set,
+        config_ext: set,
+        skip_files: set,
+        task: str,
+        max_file_size: int,
+    ) -> Optional[Tuple[str, float, float, int]]:
+        """Helper to validte and score a single file candidate."""
+        filename = os.path.basename(filepath)
+        if filename in skip_files:
+            return None
+
+        # Use settings from module scope (imported at top) or lazy import if needed.
+        # Assuming settings is available via self or global import.
+        # Using global settings as per existing code structure.
+
+        ext = os.path.splitext(filename)[1].lower()
+        if ext in code_ext or ext in config_ext or filename in settings.tier_1_files:
+            if not self._is_safe_path(filepath):
+                return None
+            try:
+                stat = os.stat(filepath)
+                if stat.st_size > max_file_size * 2:
+                    return None
+                rel_path = os.path.relpath(filepath, self.base_dir)
+                score = self.scorer.score_path(rel_path, task)
+                return (filepath, score, stat.st_mtime, stat.st_size)
+            except Exception as e:
+                logger.warning(f"Failed to stat {filepath}: {e}")
+                return None
+        return None
+
+    def _get_git_files(self) -> Optional[List[str]]:
+        """Fetch all non-ignored files using git ls-files."""
+        try:
+            # -c: cached (tracked)
+            # -o: others (untracked)
+            # --exclude-standard: respect .gitignore
+            cmd = ["git", "ls-files", "-c", "-o", "--exclude-standard"]
+            result = run_safe_command(
+                cmd, cwd=self.base_dir, capture_output=True, text=True, check=True
+            )
+            files = [f for f in result.stdout.splitlines() if f.strip()]
+            return [os.path.join(self.base_dir, f) for f in files]
+        except Exception as e:
+            logger.debug(f"Git not available or not a repo at {self.base_dir}: {e}")
+            return None
 
     def _is_safe_path(self, filepath: str) -> bool:
         """Security: Ensure filepath is within base_dir."""

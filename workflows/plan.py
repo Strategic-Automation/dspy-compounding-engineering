@@ -9,6 +9,7 @@ from agents.research.framework_docs_researcher import FrameworkDocsResearcherMod
 from agents.research.repo_research_analyst import RepoResearchAnalystModule
 from agents.workflow.plan_generator import PlanGenerator
 from agents.workflow.spec_flow_analyzer import SpecFlowAnalyzer
+from config import settings
 from utils.knowledge import KBPredict, KnowledgeBase
 
 console = Console()
@@ -44,13 +45,16 @@ def _handle_github_issue(feature_description: str) -> tuple[str, dict]:
     if feature_description.isdigit() or feature_description.startswith("#"):
         is_issue = True
     else:
+        from urllib.parse import urlparse
+
         try:
             parsed = urlparse(feature_description)
-            if parsed.netloc in ["github.com", "www.github.com"] and "/issues/" in parsed.path:
+            # Check for valid GitHub issue URL structure
+            is_github = parsed.netloc in ["github.com", "www.github.com"]
+            has_issue_path = "/issues/" in parsed.path
+            if parsed.scheme in ["http", "https"] and is_github and has_issue_path:
                 is_issue = True
         except Exception:
-            # Intentionally ignore URL parsing errors and treat the description as not being
-            # a GitHub issue URL. This preserves current behavior for malformed inputs.
             pass
 
     if is_issue:
@@ -132,7 +136,9 @@ def run_plan(feature_description: str):
     kb = KnowledgeBase()
 
     with console.status("Scanning project structure..."):
-        semantic_results = kb.search_codebase(target_description, limit=5)
+        semantic_results = kb.search_codebase(
+            target_description, limit=settings.search_limit_codebase
+        )
         if semantic_results:
             console.print(f"[dim]Found {len(semantic_results)} semantic code matches[/dim]")
 
