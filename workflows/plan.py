@@ -1,7 +1,6 @@
 import os
 import re
 
-
 from rich.console import Console
 
 from agents.research.best_practices_researcher import BestPracticesResearcherModule
