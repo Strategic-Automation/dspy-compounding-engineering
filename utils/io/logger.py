@@ -37,11 +37,7 @@ class InterceptHandler(logging.Handler):
         loguru_logger.opt(depth=depth, exception=record.exc_info).log(level, msg)
 
 
-<<<<<<< HEAD
-=======
 
-
->>>>>>> origin/dev
 def configure_logging(log_path: Optional[str] = None):
     """Configures Loguru and intercept handlers. Lazily called or via bootstrap."""
     if getattr(configure_logging, "configured", False):
@@ -127,10 +123,7 @@ def configure_logging(log_path: Optional[str] = None):
         logging.getLogger(library).setLevel(logging.WARNING)
 
     configure_logging.configured = True
-<<<<<<< HEAD
-=======
 
->>>>>>> origin/dev
 
 
 class SystemLogger:
