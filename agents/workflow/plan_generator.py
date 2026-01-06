@@ -32,4 +32,3 @@ class PlanGenerator(dspy.Signature):
     research_summary = dspy.InputField(desc="Combined research findings")
     spec_flow_analysis = dspy.InputField(desc="SpecFlow analysis results")
     plan_report: PlanReport = dspy.OutputField(desc="The structured implementation plan")
-

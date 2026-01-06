@@ -37,12 +37,13 @@ class DocumentationFetcher:
     Supports high-quality conversion via r.jina.ai and local fallback.
     """
 
-    MAX_PAGES = 10  # Maximum pages per document to prevent unbounded fetching
     _fetch_cache: dict = {}  # LRU-like cache for fetched content
 
-    def __init__(self, use_jina: bool = True, timeout: int = 10):
+    def __init__(self, use_jina: bool = True, timeout: Optional[int] = None):
+        from config import settings
+
         self.use_jina = use_jina
-        self.timeout = timeout
+        self.timeout = timeout if timeout is not None else settings.web_search_timeout
 
     def _is_ip_private(self, ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
         """
@@ -186,7 +187,9 @@ class DocumentationFetcher:
 
         # Calculate range
         start = offset_tokens
-        max_page = self.MAX_PAGES  # Limit pages to prevent abuse
+        from config import settings
+
+        max_page = settings.documentation_max_pages  # Limit pages to prevent abuse
         current_page = (offset_tokens // max_tokens) + 1 if max_tokens else 1
         if current_page > max_page:
             return f"Error: Maximum pagination limit ({max_page} pages) exceeded."
@@ -220,7 +223,9 @@ class DocumentationFetcher:
             logger.info(f"Using cached content for {url}")
             return self._fetch_cache[url]
 
-        jina_url = f"https://r.jina.ai/{url}"
+        from config import settings
+
+        jina_url = f"{settings.jina_reader_url}{url}"
         headers = {}
         if max_tokens:
             headers["X-Return-Format"] = "markdown"

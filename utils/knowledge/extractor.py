@@ -50,7 +50,9 @@ def codify_learning(
         # Run FeedbackCodifier Agent with Typed Output
         # Now wrapped with KBPredict to enable compounding learnings during codification phase.
         # This allows the codifier to see existing patterns to avoid duplicates or refine them.
-        kb_tags = [category, "code-review-patterns", "triage-sessions", "work-resolutions"]
+        from config import settings
+
+        kb_tags = [category] + settings.kb_codify_tags
         codifier_cot = dspy.ChainOfThought(FeedbackCodifier)
         codifier = KBPredict.wrap(codifier_cot, kb_tags=kb_tags)
 
@@ -77,7 +79,10 @@ def codify_learning(
         codified_data = codified_obj.model_dump(mode="python")
 
         # Add metadata
-        codified_data["original_feedback"] = context[:1000]  # Truncate to avoid bloat
+        # Add metadata
+        codified_data["original_feedback"] = context[
+            : settings.codify_context_truncation
+        ]  # Truncate to avoid bloat
         codified_data["source"] = source
         codified_data["category"] = category
 
@@ -128,7 +133,9 @@ def _build_review_context(findings: list, todos_created: int, by_agent: dict) ->
         for finding in agent_findings:
             review_text = str(finding.get("review", ""))
             if review_text:
-                summary_parts.append(f"\n{review_text[:800]}...")
+                from config import settings
+
+                summary_parts.append(f"\n{review_text[: settings.review_finding_truncation]}...")
 
     summary_parts.append("\n\n## Pattern Extraction Focus:")
     summary_parts.extend(
@@ -214,7 +221,11 @@ def codify_triage_decision(
         context_parts.append(f"Proposed Solution: {proposed_solution}")
 
     # Include excerpt of finding (truncated)
-    context_parts.append(f"\nFinding (excerpt): {finding_content[:500]}")
+    from config import settings
+
+    context_parts.append(
+        f"\nFinding (excerpt): {finding_content[: settings.triage_finding_truncation]}"
+    )
 
     context = "\n".join(context_parts)
 

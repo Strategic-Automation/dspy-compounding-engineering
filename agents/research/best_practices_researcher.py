@@ -1,6 +1,7 @@
 import dspy
 
 from agents.schema import BestPracticesReport
+from config import settings
 from utils.agent.tools import get_research_tools
 from utils.io.logger import logger
 
@@ -50,7 +51,9 @@ class BestPracticesResearcherModule(dspy.Module):
     def __init__(self, base_dir: str = "."):
         super().__init__()
         self.tools = get_research_tools(base_dir)
-        self.agent = dspy.ReAct(BestPracticesResearcher, tools=self.tools, max_iters=5)
+        self.agent = dspy.ReAct(
+            BestPracticesResearcher, tools=self.tools, max_iters=settings.agent_max_iters
+        )
 
     def forward(self, topic: str, repo_research: str = None):
         logger.info(f"Starting Best Practices Research for: {topic}")

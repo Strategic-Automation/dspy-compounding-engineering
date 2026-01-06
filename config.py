@@ -14,10 +14,7 @@ import subprocess
 import sys
 import threading
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    pass
+from typing import Any
 
 import dspy
 from dotenv import load_dotenv
@@ -64,19 +61,20 @@ def get_project_hash() -> str:
 
 
 def resolve_embedding_config() -> tuple[str, str, str | None]:
-    """Determine embedding provider, model, and base URL from environment."""
-    lm_provider = os.getenv("DSPY_LM_PROVIDER", "openai")
-    raw_provider = os.getenv("EMBEDDING_PROVIDER")
-    model_name = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
-    base_url = os.getenv("EMBEDDING_BASE_URL", None)
+    """Determine embedding provider, model, and base URL from centralized settings."""
+    # Priority auto-override for OpenRouter
+    if (
+        settings.dspy_lm_provider == "openrouter"
+        and os.getenv("OPENROUTER_API_KEY")
+        and not os.getenv("EMBEDDING_PROVIDER")
+    ):
+        return "openrouter", settings.embedding_model, settings.embedding_base_url
 
-    if raw_provider:
-        return raw_provider, model_name, base_url
-
-    if lm_provider == "openrouter" and os.getenv("OPENROUTER_API_KEY"):
-        return "openrouter", model_name, base_url
-
-    return "openai", model_name, base_url
+    return (
+        settings.embedding_provider,
+        settings.embedding_model,
+        settings.embedding_base_url,
+    )
 
 
 # =============================================================================
@@ -247,29 +245,160 @@ class AppConfig:
         self.dspy_lm_provider = os.getenv("DSPY_LM_PROVIDER", "openai")
         self.dspy_lm_model = os.getenv("DSPY_LM_MODEL", "gpt-4.1")
 
+        # Embedding Settings
+        self.embedding_provider = os.getenv("EMBEDDING_PROVIDER", "openai")
+        self.embedding_model = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
+        self.embedding_base_url = os.getenv("EMBEDDING_BASE_URL")
+
+        # Smart Defaults for Base URLs
+        if not self.embedding_base_url:
+            if self.embedding_provider == "openrouter":
+                self.embedding_base_url = "https://openrouter.ai/api/v1"
+            elif self.embedding_provider == "openai":
+                self.embedding_base_url = "https://api.openai.com/v1"
+        self.sparse_model_name = os.getenv("SPARSE_MODEL_NAME", "Qdrant/bm25")
+        self.dense_fallback_model_name = os.getenv(
+            "DENSE_FALLBACK_MODEL_NAME", "jinaai/jina-embeddings-v2-small-en"
+        )
+
+        # Knowledge Base Settings
+        self.knowledge_dir_name = os.getenv("KNOWLEDGE_DIR", ".knowledge")
+        self.kb_sync_batch_size = self._parse_int_env("KB_SYNC_BATCH_SIZE", 50)
+        self.kb_sanitize_limit = self._parse_int_env("KB_SANITIZE_LIMIT", 30000)
+        self.kb_compress_ratio = float(os.getenv("KB_COMPRESS_RATIO", "0.5"))
+
+        # CLI & Agent Settings
+        self.cli_max_workers = self._parse_int_env("COMPOUNDING_WORKERS", 3)
+        self.agent_max_iters = self._parse_int_env("COMPOUNDING_AGENT_MAX_ITERS", 5)
+        self.generator_max_iters = self._parse_int_env("COMPOUNDING_GENERATOR_MAX_ITERS", 10)
+        self.executor_max_iters = self._parse_int_env("COMPOUNDING_EXECUTOR_MAX_ITERS", 20)
+        self.review_max_workers = self._parse_int_env("COMPOUNDING_REVIEW_WORKERS", 5)
+
+        # Search & Knowledge Limits
+        self.search_limit_codebase = self._parse_int_env("COMPOUNDING_SEARCH_LIMIT_CODEBASE", 5)
+        self.web_search_limit = self._parse_int_env("COMPOUNDING_WEB_SEARCH_LIMIT", 5)
+        self.search_limit_default = self._parse_int_env("COMPOUNDING_SEARCH_LIMIT_DEFAULT", 50)
+        self.indexer_file_limit = self._parse_int_env("COMPOUNDING_INDEXER_FILE_LIMIT", 10000)
+        self.kb_legacy_search_limit = self._parse_int_env(
+            "COMPOUNDING_KB_LEGACY_SEARCH_LIMIT", 1000
+        )
+
+        # Timeouts & Third-Party URLs
+        self.file_lock_timeout = self._parse_int_env("COMPOUNDING_FILE_LOCK_TIMEOUT", 10)
+        self.web_search_timeout = self._parse_int_env("COMPOUNDING_WEB_SEARCH_TIMEOUT", 10)
+        self.jina_reader_url = os.getenv("COMPOUNDING_JINA_READER_URL", "https://r.jina.ai/")
+        self.documentation_max_pages = self._parse_int_env("COMPOUNDING_DOC_MAX_PAGES", 10)
+        self.agent_filter_regex = os.getenv("COMPOUNDING_AGENT_FILTER_REGEX", r"^[a-zA-Z0-9\-_ ]+$")
+
+        # Project Context Settings
+        self.project_context_max_file_size = self._parse_int_env(
+            "COMPOUNDING_PROJECT_CONTEXT_MAX_FILE_SIZE", 50000
+        )
+        self.project_key_files = ["README.md", "pyproject.toml", "package.json", "requirements.txt"]
+
+        # Knowledge Base Codification Settings
+        self.kb_codify_tags = ["code-review-patterns", "triage-sessions", "work-resolutions"]
+        self.codify_context_truncation = 1000
+        self.review_finding_truncation = 800
+        self.triage_finding_truncation = 500
+
+        # Embedding Metadata
+        self.embedding_dimension_map = {
+            "text-embedding-3-small": 1536,
+            "text-embedding-3-large": 3072,
+            "text-embedding-ada-002": 1536,
+            "mxbai-embed-large:latest": 1024,
+            "nomic-embed-text": 768,
+            "all-MiniLM-L6-v2": 384,
+            "all-MiniLM-L12-v2": 384,
+            "jinaai/jina-embeddings-v2-small-en": 512,
+            "jinaai/jina-embeddings-v2-base-en": 768,
+        }
+
+        # File and Context Settings
+        self.tier_1_files = {
+            "README.md",
+            "ARCHITECTURE.md",
+            "CONTRIBUTING.md",
+            "TODO.md",
+            "AI.md",
+            "pyproject.toml",
+            "package.json",
+            "requirements.txt",
+            ".env.example",
+            "config.py",
+            "cli.py",
+            "main.py",
+        }
+
+        # Centralized path and exclusion settings
+        self.code_extensions = {
+            ".py",
+            ".js",
+            ".ts",
+            ".tsx",
+            ".jsx",
+            ".rb",
+            ".go",
+            ".rs",
+            ".java",
+            ".kt",
+        }
+        self.config_extensions = {".toml", ".yaml", ".yml", ".json"}
+        self.skip_dirs = {
+            ".git",
+            ".venv",
+            "venv",
+            "node_modules",
+            "__pycache__",
+            ".pytest_cache",
+            "dist",
+            "build",
+            ".tox",
+            ".mypy_cache",
+            "worktrees",
+            ".ruff_cache",
+            "qdrant_storage",
+            "site",
+            "plans",
+            "todos",
+            ".knowledge",
+        }
+        self.skip_files = {
+            "uv.lock",
+            "package-lock.json",
+            "yarn.lock",
+            "poetry.lock",
+            "Gemfile.lock",
+        }
+        self.log_file = os.getenv("COMPOUNDING_LOG_PATH", "compounding.log")
+        self.command_allowlist = set(
+            os.getenv("COMMAND_ALLOWLIST", "git,gh,grep,ruff,uv,python").split(",")
+        )
+
+    def get_vector_size(self, model_name: str) -> int:
+        """Detect vector size for a given model name with heuristics."""
+        size = self.embedding_dimension_map.get(model_name)
+        if size:
+            return size
+
+        # Heuristics
+        lower_name = model_name.lower()
+        if "nomic" in lower_name:
+            return 768
+        if "minilm" in lower_name:
+            return 384
+        if "mxbai" in lower_name:
+            return 1024
+        if "jina" in lower_name:
+            return 512 if "small" in lower_name else 768
+
+        return 1536  # Safe default for OpenAI-style embeddings
+
 
 # Global Registry and Config instances
 registry = ServiceRegistry()
 settings = AppConfig()
-
-def load_configuration(env_file: str | None = None) -> None:
-    """
-    Load environment variables from multiple configuration sources.
-
-    The configuration files are loaded in priority order, with higher
-    priority sources overriding lower priority ones.
-
-    Args:
-        env_file (str | None): Optional path to a specific `.env` file.
-
-    Returns:
-        None
-    """
-    sources = []
-
-# =============================================================================
-# Environment Loading
-# =============================================================================
 
 
 def load_configuration(env_file: str | None = None) -> None:
@@ -283,7 +412,6 @@ def load_configuration(env_file: str | None = None) -> None:
         env_file,
         os.getenv("COMPOUNDING_ENV"),
         root / ".env",
-        Path.cwd() / ".env",
         config_dir / ".env",
         home / ".env",
     ]
@@ -308,44 +436,6 @@ def load_configuration(env_file: str | None = None) -> None:
         elif path_val == env_file:
             console.print(f"[bold red]Error:[/bold red] Env file '{env_file}' not found.")
             sys.exit(1)
-
-
-# =============================================================================
-# Context & Token Configuration
-# =============================================================================
-
-# These are kept as properties that pull from the global 'settings' instance
-# to maintain backward compatibility while centralizing loading.
-
-
-def get_context_window_limit():
-    return settings.context_window_limit
-
-
-def get_context_output_reserve():
-    return settings.context_output_reserve
-
-
-def get_default_max_tokens():
-    return settings.default_max_tokens
-
-
-CONTEXT_WINDOW_LIMIT = settings.context_window_limit
-CONTEXT_OUTPUT_RESERVE = settings.context_output_reserve
-DEFAULT_MAX_TOKENS = settings.default_max_tokens
-
-TIER_1_FILES = [
-    "pyproject.toml",
-    "README.md",
-    "Dockerfile",
-    "docker-compose.yml",
-    "requirements.txt",
-    "package.json",
-]
-
-# Sparse and Fallback Models
-SPARSE_MODEL_NAME = "Qdrant/bm25"
-DENSE_FALLBACK_MODEL_NAME = "jinaai/jina-embeddings-v2-small-en"
 
 
 # =============================================================================
@@ -406,7 +496,7 @@ def get_model_max_tokens(model_name: str, provider: str = "openai") -> int:
 
         model_info = litellm.get_model_info(lookup_name)
         max_output = model_info.get("max_output_tokens") or model_info.get(
-            "max_tokens", DEFAULT_MAX_TOKENS
+            "max_tokens", settings.default_max_tokens
         )
         result = min(max_output, 32768)
         console.print(f"[dim]Model {lookup_name}: max_tokens={max_output}, using {result}[/dim]")
@@ -420,8 +510,10 @@ def get_model_max_tokens(model_name: str, provider: str = "openai") -> int:
         if or_result:
             return or_result
 
-    console.print(f"[dim]Model {model_name}: using default max_tokens={DEFAULT_MAX_TOKENS}[/dim]")
-    return DEFAULT_MAX_TOKENS
+    console.print(
+        f"[dim]Model {model_name}: using default max_tokens={settings.default_max_tokens}[/dim]"
+    )
+    return settings.default_max_tokens
 
 
 # =============================================================================

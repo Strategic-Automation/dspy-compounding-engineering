@@ -205,7 +205,9 @@ def atomic_update_todo(file_path: str, update_fn: Callable[[dict, str], tuple[di
         True if successful, False otherwise
     """
     lock_path = f"{file_path}.lock"
-    lock = FileLock(lock_path, timeout=10)
+    from config import settings
+
+    lock = FileLock(lock_path, timeout=settings.file_lock_timeout)
 
     try:
         with lock:

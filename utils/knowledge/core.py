@@ -44,7 +44,9 @@ class KnowledgeBase(CollectionManagerMixin):
         from config import get_project_hash, get_project_root, registry
 
         if knowledge_dir is None:
-            knowledge_dir = os.path.join(str(get_project_root()), ".knowledge")
+            from config import settings
+
+            knowledge_dir = os.path.join(str(get_project_root()), settings.knowledge_dir_name)
 
         self.knowledge_dir = os.path.abspath(knowledge_dir)
         self._ensure_knowledge_dir()
@@ -112,7 +114,9 @@ class KnowledgeBase(CollectionManagerMixin):
         # Remove null bytes and control characters (except common whitespace)
         text = "".join(ch for ch in text if ch == "\n" or ch == "\r" or ch == "\t" or ch >= " ")
         # Limit length to prevent DOS/OOM (approx 8k tokens safe limit)
-        return text[:30000]
+        from config import settings
+
+        return text[: settings.kb_sanitize_limit]
 
     def _ensure_knowledge_dir(self):
         """Ensure the knowledge directory exists."""
@@ -129,8 +133,12 @@ class KnowledgeBase(CollectionManagerMixin):
             registry_flag="learnings_ensured",
         )
 
-    def _sync_to_qdrant(self, batch_size: int = 50):
+    def _sync_to_qdrant(self, batch_size: Optional[int] = None):
         """Sync all local JSON files to Qdrant with batching."""
+        from config import settings
+
+        if batch_size is None:
+            batch_size = settings.kb_sync_batch_size
         if not self.vector_db_available:
             return
 
@@ -354,9 +362,14 @@ class KnowledgeBase(CollectionManagerMixin):
             return self._legacy_search(query, tags, limit)
 
     def _legacy_search(
-        self, query: str = "", tags: List[str] = None, limit: int = 5
+        self, query: str = "", tags: List[str] = None, limit: Optional[int] = None
     ) -> List[Dict[str, Any]]:
         """Legacy disk-based search (fallback)."""
+        from config import settings
+
+        if limit is None:
+            limit = settings.search_limit_codebase
+
         results = []
         files = glob.glob(os.path.join(self.knowledge_dir, "*.json"))
         files.sort(reverse=True)
@@ -389,7 +402,9 @@ class KnowledgeBase(CollectionManagerMixin):
 
     def get_all_learnings(self) -> List[Dict[str, Any]]:
         """Retrieve all learnings."""
-        return self._legacy_search(limit=1000)
+        from config import settings
+
+        return self._legacy_search(limit=settings.kb_legacy_search_limit)
 
     def get_context_string(self, query: str = "", tags: List[str] = None) -> str:
         """

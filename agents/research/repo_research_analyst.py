@@ -45,13 +45,13 @@ class RepoResearchAnalystModule(dspy.Module):
 
     def __init__(self, base_dir: str = "."):
         super().__init__()
+        from config import settings
+
         self.tools = get_research_tools(base_dir)
-        self.agent = dspy.ReAct(RepoResearchAnalyst, tools=self.tools, max_iters=5)
+        self.agent = dspy.ReAct(
+            RepoResearchAnalyst, tools=self.tools, max_iters=settings.agent_max_iters
+        )
 
     def forward(self, feature_description: str):
-        # Basic validation to ensure robustness
-        if not isinstance(feature_description, str):
-            feature_description = str(feature_description)
-
         logger.info(f"Starting Repo Research for: {feature_description}")
         return self.agent(feature_description=feature_description)

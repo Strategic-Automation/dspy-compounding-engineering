@@ -8,6 +8,7 @@ from agents.research.framework_docs_researcher import FrameworkDocsResearcherMod
 from agents.research.repo_research_analyst import RepoResearchAnalystModule
 from agents.workflow.plan_generator import PlanGenerator
 from agents.workflow.spec_flow_analyzer import SpecFlowAnalyzer
+from config import settings
 from utils.knowledge import KBPredict, KnowledgeBase
 
 console = Console()
@@ -134,7 +135,9 @@ def run_plan(feature_description: str):
     kb = KnowledgeBase()
 
     with console.status("Scanning project structure..."):
-        semantic_results = kb.search_codebase(target_description, limit=5)
+        semantic_results = kb.search_codebase(
+            target_description, limit=settings.search_limit_codebase
+        )
         if semantic_results:
             console.print(f"[dim]Found {len(semantic_results)} semantic code matches[/dim]")
 

@@ -43,7 +43,7 @@ class TestReviewWorkflowIntegration:
     def mock_git_diff(self):
         """Mock git diff to ensure there's always something to review."""
         from unittest.mock import patch
-        
+
         sample_diff = """diff --git a/test.py b/test.py
 new file mode 100644
 index 0000000..e69de29
@@ -53,9 +53,13 @@ index 0000000..e69de29
 +print("Hello World")
 """
         sample_summary = "A  test.py"
-        
-        with patch("utils.git.service.GitService.get_diff", return_value=sample_diff), \
-             patch("utils.git.service.GitService.get_file_status_summary", return_value=sample_summary):
+
+        with (
+            patch("utils.git.service.GitService.get_diff", return_value=sample_diff),
+            patch(
+                "utils.git.service.GitService.get_file_status_summary", return_value=sample_summary
+            ),
+        ):
             yield
 
     def test_review_latest_runs_and_completes(self):

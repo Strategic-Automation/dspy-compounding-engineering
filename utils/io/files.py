@@ -79,18 +79,10 @@ def _run_standard_grep(query: str, safe_path: str, regex: bool, limit: int = 50)
     if not regex:
         cmd.append("-F")
 
-    # Exclude large/irrelevant directories
-    exclude_dirs = [
-        ".venv",
-        "qdrant_storage",
-        ".git",
-        "site",
-        "__pycache__",
-        ".knowledge",
-        ".pytest_cache",
-        "plans",
-        "todos",
-    ]
+    from config import settings
+
+    # Exclude large/irrelevant directories from centralized config
+    exclude_dirs = list(settings.skip_dirs)
     for d in exclude_dirs:
         cmd.append(f"--exclude-dir={d}")
 
@@ -108,12 +100,21 @@ def _run_standard_grep(query: str, safe_path: str, regex: bool, limit: int = 50)
 
 
 def search_files(
-    query: str, path: str = ".", regex: bool = False, base_dir: str = ".", limit: int = 50
+    query: str,
+    path: str = ".",
+    regex: bool = False,
+    base_dir: str = ".",
+    limit: Optional[int] = None,
 ) -> str:
     """
     Search for a string or regex in files at the given path.
     Uses git grep if available, otherwise falls back to grep -r with exclusions.
     """
+    from config import settings
+
+    if limit is None:
+        limit = settings.search_limit_default
+
     try:
         safe_path = validate_path(path, base_dir)
 
@@ -187,8 +188,8 @@ def _normalize_llm_escapes(content: str) -> str:
 
     # Match literal backslash followed by 'n' (two characters, not escape sequence)
     # The raw string r'\\n' matches the two-character sequence: \ followed by n
-    content = re.sub(r'\\n', '\n', content)
-    content = re.sub(r'\\t', '\t', content)
+    content = re.sub(r"\\n", "\n", content)
+    content = re.sub(r"\\t", "\t", content)
     # Handle escaped quotes
     content = re.sub(r'\\"', '"', content)
     content = re.sub(r"\\'", "'", content)
@@ -206,6 +207,7 @@ def _validate_file_syntax(file_path: str, content: str) -> tuple:
     if ext == ".py":
         try:
             import ast
+
             ast.parse(content)
             return (True, "")
         except SyntaxError as e:
@@ -214,6 +216,7 @@ def _validate_file_syntax(file_path: str, content: str) -> tuple:
     if ext == ".json":
         try:
             import json
+
             json.loads(content)
             return (True, "")
         except json.JSONDecodeError as e:
@@ -222,6 +225,7 @@ def _validate_file_syntax(file_path: str, content: str) -> tuple:
     if ext in (".yaml", ".yml"):
         try:
             import yaml
+
             yaml.safe_load(content)
             return (True, "")
         except yaml.YAMLError as e:
@@ -230,6 +234,7 @@ def _validate_file_syntax(file_path: str, content: str) -> tuple:
     if ext == ".toml":
         try:
             import tomllib
+
             tomllib.loads(content)
             return (True, "")
         except Exception as e:

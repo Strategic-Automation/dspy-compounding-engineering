@@ -15,6 +15,7 @@ from rich.prompt import Confirm
 from rich.syntax import Syntax
 
 from agents.workflow.agent_generator import AgentGenerator
+from config import settings
 from utils.agent.tools import get_research_tools
 
 console = Console()
@@ -194,7 +195,7 @@ def run_generate_agent(description: str, dry_run: bool = False):
         valid_categories = ", ".join(sorted(VALID_CATEGORIES))
 
         # Use ReAct to allow the generator to use tools
-        generator = dspy.ReAct(AgentGenerator, tools=tools, max_iters=10)
+        generator = dspy.ReAct(AgentGenerator, tools=tools, max_iters=settings.generator_max_iters)
         result = generator(
             agent_description=description,
             existing_agents=existing_agents,

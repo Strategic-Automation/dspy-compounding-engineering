@@ -9,7 +9,7 @@ import glob
 import os
 import subprocess
 import uuid
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
@@ -68,6 +68,8 @@ class CodebaseIndexer(CollectionManagerMixin):
         indexed_files = {}
         offset = None
 
+        from config import settings
+
         while True:
             # Scroll through points to get paths and mtimes
             # We filter for points that are the 'first chunk' (chunk_index=0) to avoid duplicates
@@ -83,7 +85,7 @@ class CodebaseIndexer(CollectionManagerMixin):
                             )
                         ]
                     ),
-                    limit=10000,  # Should be enough for most repos
+                    limit=settings.indexer_file_limit,
                     with_payload=True,
                     with_vectors=False,
                     offset=offset,
@@ -295,12 +297,17 @@ class CodebaseIndexer(CollectionManagerMixin):
 
         return False
 
-    def search_codebase(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
+    def search_codebase(self, query: str, limit: Optional[int] = None) -> List[Dict[str, Any]]:
         """
         Search for relevant code snippets.
         """
         if not self.vector_db_available:
             return []
+
+        from config import settings
+
+        if limit is None:
+            limit = settings.search_limit_codebase
 
         try:
             query_vector = self.embedding_provider.get_embedding(query)

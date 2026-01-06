@@ -5,7 +5,7 @@ from typing import Annotated
 import typer
 from rich.console import Console
 
-from config import configure_dspy
+from config import configure_dspy, settings
 from utils.io import get_system_status, validate_agent_filters
 from utils.knowledge import KnowledgeBase
 from workflows.codify import run_codify
@@ -77,7 +77,7 @@ def work(
         help="Execute todos sequentially instead of in parallel",
     ),
     max_workers: int = typer.Option(
-        3, "--workers", "-w", help="Maximum number of parallel workers"
+        settings.cli_max_workers, "--workers", "-w", help="Maximum number of parallel workers"
     ),
     in_place: bool = typer.Option(
         True,
@@ -206,7 +206,12 @@ def codify(
 
 @app.command()
 def compress_kb(
-    ratio: float = typer.Option(0.5, "--ratio", "-r", help="Target compression ratio (0.0 to 1.0)"),
+    ratio: float = typer.Option(
+        settings.kb_compress_ratio,
+        "--ratio",
+        "-r",
+        help="Target compression ratio (0.0 to 1.0)",
+    ),
     dry_run: bool = typer.Option(
         False, "--dry-run", "-n", help="Show stats without modifying the file"
     ),
