@@ -1,44 +1,60 @@
 import dspy
 
+from agents.schema import BestPracticesReport
+from config import settings
+from utils.agent.tools import get_research_tools
+from utils.io.logger import logger
+
 
 class BestPracticesResearcher(dspy.Signature):
     """
-    You are an expert technology researcher specializing in discovering, analyzing, and synthesizing
-    best practices from authoritative sources. Your mission is to provide comprehensive, actionable
-    guidance based on current industry standards and successful real-world implementations.
+    You are an expert technology researcher. Your mission is to provide actionable
+    best practices based on industry standards and repo context.
 
-    When researching best practices, you will:
+    **STRICT OUTPUT PROTOCOL:**
+    1. Provide ONLY the requested fields.
+    2. Use `[[ ## next_thought ## ]]` followed by your reasoning.
+    3. Use `[[ ## next_tool_name ## ]]` followed by the tool name.
+    4. Use `[[ ## next_tool_args ## ]]` followed by a JSON dict of arguments.
+    5. CRITICAL: Always use DOUBLE brackets `[[` and `]]`. Do NOT use single brackets.
+    6. Do NOT include notes or instructions like "# note: ..." in output fields.
 
-    1. **Leverage Multiple Sources**:
-       - Access official documentation
-       - Analyze well-regarded open source projects
-       - Look for style guides, conventions, and standards
+    **Core Focus:**
+    - Analyze `repo_research` to avoid redundancy.
+    - Research official documentation and authoritative standards.
+    - Synthesize findings into clear guidance.
+    - Identify implementation patterns and anti-patterns.
 
-    2. **Evaluate Information Quality**:
-       - Prioritize official documentation and widely-adopted standards
-       - Consider the recency of information
-       - Cross-reference multiple sources
-
-    3. **Synthesize Findings**:
-       - Organize discoveries into clear categories
-       - Provide specific examples
-       - Explain the reasoning behind each best practice
-       - Highlight technology-specific considerations
-
-    4. **Deliver Actionable Guidance**:
-       - Present findings in a structured format
-       - Include code examples or templates
-       - Provide links to authoritative sources
-
-    **Output Format:**
-
-    Structure your findings as:
-
-    1. **Summary**: Brief overview
-    2. **Key Best Practices**: Categorized list
-    3. **Examples**: Code or structure examples
-    4. **References**: Links to sources
+    **Example Step:**
+    [[ ## next_thought ## ]] Looking for Python style guides.
+    [[ ## next_tool_name ## ]] internet_search
+    [[ ## next_tool_args ## ]] {"query": "official python style guide PEP 8"}
     """
 
     topic = dspy.InputField(desc="The topic or technology to research best practices for")
-    research_findings = dspy.OutputField(desc="The synthesized best practices findings")
+    repo_research = dspy.InputField(
+        desc="Existing research about the repository structure and conventions (optional)",
+        default=None,
+    )
+    research_report: BestPracticesReport = dspy.OutputField(
+        desc="The synthesized best practices report"
+    )
+
+
+class BestPracticesResearcherModule(dspy.Module):
+    """
+    Module that implements BestPracticesResearcher using dspy.ReAct for
+    sophisticated reasoning over best practices. Uses centralized tools
+    from utils/agent/tools.py.
+    """
+
+    def __init__(self, base_dir: str = "."):
+        super().__init__()
+        self.tools = get_research_tools(base_dir)
+        self.agent = dspy.ReAct(
+            BestPracticesResearcher, tools=self.tools, max_iters=settings.agent_max_iters
+        )
+
+    def forward(self, topic: str, repo_research: str = None):
+        logger.info(f"Starting Best Practices Research for: {topic}")
+        return self.agent(topic=topic, repo_research=repo_research)

@@ -158,9 +158,9 @@ Creates:
 
 ---
 
-### generate_command.py
+### generate_agent.py
 
-**Function**: `run_generate_command(description: str, dry_run: bool = False)`
+**Function**: `run_generate_agent(description: str, dry_run: bool = False)`
 
 Meta-command to generate new CLI commands from natural language.
 
@@ -176,7 +176,7 @@ Meta-command to generate new CLI commands from natural language.
 
 **Example**:
 ```bash
-uv run python cli.py generate-command "Create a command to format all Python files"
+uv run python cli.py generate-agent "Create a command to format all Python files"
 ```
 
 Generates:
@@ -191,7 +191,7 @@ All workflows use these common patterns:
 
 ### Knowledge Base Integration
 ```python
-from utils.knowledge_base import KnowledgeBase
+from utils.knowledge import KnowledgeBase
 
 kb = KnowledgeBase()
 learnings = kb.retrieve_relevant(query="security review", max_results=5)
@@ -200,7 +200,7 @@ learnings = kb.retrieve_relevant(query="security review", max_results=5)
 
 ### Git Operations
 ```python
-from utils.git_service import GitService
+from utils.git import GitService
 
 # Get diff
 diff = GitService.get_diff("HEAD")
@@ -211,7 +211,7 @@ GitService.create_feature_worktree("feature-x", "worktrees/feature-x")
 
 ### Project Context
 ```python
-from utils.project_context import ProjectContext
+from utils.context import ProjectContext
 
 context = ProjectContext(base_dir=".").get_context()
 # Returns: README + pyproject.toml + file tree
@@ -219,7 +219,7 @@ context = ProjectContext(base_dir=".").get_context()
 
 ### Todo Service
 ```python
-from utils.todo_service import create_finding_todo, complete_todo
+from utils.todo import create_finding_todo, complete_todo
 
 # Create
 todo_path = create_finding_todo(finding_dict, todos_dir="todos")
@@ -250,7 +250,7 @@ except Exception as e:
 Template:
 ```python
 from rich.console import Console
-from utils.knowledge_base import KnowledgeBase
+from utils.knowledge import KnowledgeBase
 
 console = Console()
 

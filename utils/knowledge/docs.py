@@ -172,7 +172,7 @@ class KnowledgeDocumentation:
             new_size = len(compressed_content)
             reduction = (1 - new_size / current_size) * 100
             msg = (
-                f"✓ AI.md compressed: {current_size:,} → {new_size:,} chars "
+                f"AI.md compressed: {current_size:,} → {new_size:,} chars "
                 f"({reduction:.1f}% reduction)"
             )
             self._log(msg, color="green", silent=silent)

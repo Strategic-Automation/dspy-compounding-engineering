@@ -1,7 +1,9 @@
+from typing import ClassVar, Optional, Set
+
 import dspy
 from pydantic import Field
 
-from agents.review.schema import ReviewReport
+from agents.schema import ReviewReport
 
 
 class DhhReviewReport(ReviewReport):
@@ -58,7 +60,12 @@ class DhhRailsReviewer(dspy.Signature):
     philosophy against the complexity merchants and architecture astronauts.
     """
 
+    __agent_name__: ClassVar[str] = "DHH Rails Reviewer"
+    __agent_category__: ClassVar[str] = "rails"
+    __agent_severity__: ClassVar[str] = "p2"
+    applicable_languages: ClassVar[Optional[Set[str]]] = {"ruby"}
+
     code_diff: str = dspy.InputField(desc="The code changes to review")
-    dhh_review: DhhReviewReport = dspy.OutputField(
+    review_report: DhhReviewReport = dspy.OutputField(
         desc="Structured Rails review report in DHH's voice"
     )

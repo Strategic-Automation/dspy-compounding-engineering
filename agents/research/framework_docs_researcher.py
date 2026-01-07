@@ -1,41 +1,63 @@
 import dspy
 
+from agents.schema import FrameworkDocsReport
+from utils.agent.tools import get_research_tools
+from utils.io.logger import logger
+
 
 class FrameworkDocsResearcher(dspy.Signature):
     """
-    You are a meticulous Framework Documentation Researcher specializing in gathering comprehensive
-    technical documentation and best practices for software libraries and frameworks. Your
-    expertise lies in efficiently collecting, analyzing, and synthesizing documentation from
-    multiple sources to provide developers with the exact information they need.
+    You are a documentation specialist. Your mission is to extract practical, version-aware
+    knowledge from official library/framework documentation.
 
-    **Your Core Responsibilities:**
+    **STRICT OUTPUT PROTOCOL:**
+    1. Provide ONLY the requested fields.
+    2. Use `[[ ## next_thought ## ]]` followed by your reasoning.
+    3. Use `[[ ## next_tool_name ## ]]` followed by the tool name.
+    4. Use `[[ ## next_tool_args ## ]]` followed by a JSON dict of arguments.
+    5. CRITICAL: Always use DOUBLE brackets `[[` and `]]`. Do NOT use single brackets.
+    6. Do NOT include notes or instructions like "# note: ..." in output fields.
 
-    1. **Documentation Gathering**:
-       - Fetch official framework and library documentation
-       - Identify version-specific documentation
-       - Extract relevant API references, guides, and examples
+    **Core Focus:**
+    - Review `previous_research` to fill technical gaps.
+    - Analyze API references and configuration options.
+    - Highlight version-specific features and migrations.
+    - Document practical usage examples.
 
-    2. **Best Practices Identification**:
-       - Analyze documentation for recommended patterns and anti-patterns
-       - Identify version-specific constraints and deprecations
-       - Extract performance considerations and security best practices
-
-    3. **Source Code Analysis**:
-       - Explore gem/library source code if needed
-       - Read through README files and changelogs
-
-    **Output Format:**
-
-    Structure your findings as:
-
-    1. **Summary**: Brief overview of the framework/library and its purpose
-    2. **Version Information**: Current version and any relevant constraints
-    3. **Key Concepts**: Essential concepts needed to understand the feature
-    4. **Implementation Guide**: Step-by-step approach with code examples
-    5. **Best Practices**: Recommended patterns from official docs and community
-    6. **Common Issues**: Known problems and their solutions
-    7. **References**: Links to documentation and source files
+    **Example Step:**
+    [[ ## next_thought ## ]] Fetching documentation for the library.
+    [[ ## next_tool_name ## ]] fetch_documentation
+    [[ ## next_tool_args ## ]] {"url": "https://example.com/docs"}
     """
 
     framework_or_library = dspy.InputField(desc="The framework, library, or feature to research")
-    documentation_summary = dspy.OutputField(desc="The comprehensive documentation summary")
+    previous_research = dspy.InputField(
+        desc="Existing research findings from repo or best practices (optional)",
+        default=None,
+    )
+    documentation_report: FrameworkDocsReport = dspy.OutputField(
+        desc="The comprehensive documentation report"
+    )
+
+
+class FrameworkDocsResearcherModule(dspy.Module):
+    """
+    Module that implements FrameworkDocsResearcher using dspy.ReAct for
+    thorough documentation research. Uses centralized tools from
+    utils/agent/tools.py.
+    """
+
+    def __init__(self, base_dir: str = "."):
+        super().__init__()
+        from config import settings
+
+        self.tools = get_research_tools(base_dir)
+        self.agent = dspy.ReAct(
+            FrameworkDocsResearcher, tools=self.tools, max_iters=settings.agent_max_iters
+        )
+
+    def forward(self, framework_or_library: str, previous_research: str = None):
+        logger.info(f"Starting Framework Docs Research for: {framework_or_library}")
+        return self.agent(
+            framework_or_library=framework_or_library, previous_research=previous_research
+        )

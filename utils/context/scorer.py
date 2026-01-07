@@ -10,7 +10,7 @@ It utilizes tiered logic:
 
 import os
 
-from config import TIER_1_FILES
+from config import settings
 
 
 class RelevanceScorer:
@@ -54,7 +54,7 @@ class RelevanceScorer:
         filename = os.path.basename(filepath)
 
         # TIER 1: Critical Files
-        if filename in TIER_1_FILES:
+        if filename in settings.tier_1_files:
             return 1.0
 
         # TIER 2: Heuristic Relevance

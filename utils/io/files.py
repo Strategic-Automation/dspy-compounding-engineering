@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, List, Union
+from typing import Dict, List, Optional, Union
 
 from rich.console import Console
 
@@ -36,38 +36,95 @@ def list_directory(path: str, base_dir: str = ".") -> str:
         return f"Error listing directory: {str(e)}"
 
 
-def search_files(query: str, path: str = ".", regex: bool = False, base_dir: str = ".") -> str:
+def _format_grep_result(process, max_lines: int = 50) -> str:
+    """Format grep process output with a line limit."""
+    if process.returncode == 0:
+        lines = process.stdout.splitlines()
+        if len(lines) > max_lines:
+            return "\n".join(lines[:max_lines]) + f"\n... and {len(lines) - max_lines} more matches"
+        return process.stdout
+    elif process.returncode == 1:
+        return "No matches found."
+    else:
+        return f"Error searching files: {process.stderr}"
+
+
+def _run_git_grep(query: str, safe_path: str, regex: bool, limit: int = 50) -> Optional[str]:
+    """Helper to run git grep."""
+    git_cmd = ["git", "grep", "-n"]
+    if not regex:
+        git_cmd.append("-F")
+    git_cmd.append(query)
+    git_cmd.append(".")
+
+    try:
+        process = run_safe_command(
+            git_cmd,
+            cwd=safe_path,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if process.returncode == 0:
+            return _format_grep_result(process, max_lines=limit)
+    except Exception as e:
+        msg = f"[dim]Note: git grep failed (likely not a git repo or no matches): {e}[/dim]"
+        console.print(msg)
+    return None
+
+
+def _run_standard_grep(query: str, safe_path: str, regex: bool, limit: int = 50) -> str:
+    """Helper to run standard grep with exclusions."""
+    cmd = ["grep", "-r", "-n"]
+    if not regex:
+        cmd.append("-F")
+
+    from config import settings
+
+    # Exclude large/irrelevant directories from centralized config
+    exclude_dirs = list(settings.skip_dirs)
+    for d in exclude_dirs:
+        cmd.append(f"--exclude-dir={d}")
+
+    cmd.append(query)
+    cmd.append(safe_path)
+
+    process = run_safe_command(
+        cmd,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    return _format_grep_result(process, max_lines=limit)
+
+
+def search_files(
+    query: str,
+    path: str = ".",
+    regex: bool = False,
+    base_dir: str = ".",
+    limit: Optional[int] = None,
+) -> str:
     """
-    Search for a string or regex in files at the given path using grep.
+    Search for a string or regex in files at the given path.
+    Uses git grep if available, otherwise falls back to grep -r with exclusions.
     """
+    from config import settings
+
+    if limit is None:
+        limit = settings.search_limit_default
+
     try:
         safe_path = validate_path(path, base_dir)
 
-        # Construct grep command
-        cmd = ["grep", "-r", "-n"]  # recursive, line number
-        if not regex:
-            cmd.append("-F")  # fixed string
-        cmd.append(query)
-        cmd.append(safe_path)
+        # 1. Try git grep first
+        git_result = _run_git_grep(query, safe_path, regex, limit=limit)
+        if git_result:
+            return git_result
 
-        # Run grep
-        process = run_safe_command(
-            cmd,
-            capture_output=True,
-            text=True,
-            check=False,  # Don't raise on exit code 1 (no matches)
-        )
-
-        if process.returncode == 0:
-            # Limit output to avoid context overflow
-            lines = process.stdout.splitlines()
-            if len(lines) > 50:
-                return "\n".join(lines[:50]) + f"\n... and {len(lines) - 50} more matches"
-            return process.stdout
-        elif process.returncode == 1:
-            return "No matches found."
-        else:
-            return f"Error searching files: {process.stderr}"
+        # 2. Fallback to standard grep
+        return _run_standard_grep(query, safe_path, regex, limit=limit)
 
     except Exception as e:
         return f"Error executing search: {str(e)}"
@@ -112,6 +169,78 @@ def read_file_range(
 
     except Exception as e:
         return f"Error reading file: {str(e)}"
+
+
+def _normalize_llm_escapes(content: str) -> str:
+    """Normalize escaped newlines/tabs from LLM output to actual characters.
+
+    LLMs sometimes generate literal backslash-n sequences instead of actual
+    newlines when constructing multi-line code edits. This function converts
+    them to real newlines.
+
+    Uses regex with raw strings to ensure we match the exact two-character
+    sequence (backslash followed by 'n').
+    """
+    import re
+
+    if not content:
+        return content
+
+    # Match literal backslash followed by 'n' (two characters, not escape sequence)
+    # The raw string r'\\n' matches the two-character sequence: \ followed by n
+    content = re.sub(r'\\n', '\n', content)
+    content = re.sub(r'\\t', '\t', content)
+    # Handle escaped quotes
+    content = re.sub(r'\\"', '"', content)
+    content = re.sub(r"\\'", "'", content)
+
+    return content
+
+
+def _validate_file_syntax(file_path: str, content: str) -> tuple:
+    """Validate file syntax before writing.
+
+    Returns (is_valid, error_message) tuple.
+    """
+    ext = Path(file_path).suffix.lower()
+
+    if ext == ".py":
+        try:
+            import ast
+
+            ast.parse(content)
+            return (True, "")
+        except SyntaxError as e:
+            return (False, f"Python syntax error at line {e.lineno}: {e.msg}")
+
+    if ext == ".json":
+        try:
+            import json
+
+            json.loads(content)
+            return (True, "")
+        except json.JSONDecodeError as e:
+            return (False, f"JSON syntax error: {e}")
+
+    if ext in (".yaml", ".yml"):
+        try:
+            import yaml
+
+            yaml.safe_load(content)
+            return (True, "")
+        except yaml.YAMLError as e:
+            return (False, f"YAML syntax error: {e}")
+
+    if ext == ".toml":
+        try:
+            import tomllib
+
+            tomllib.loads(content)
+            return (True, "")
+        except Exception as e:
+            return (False, f"TOML syntax error: {e}")
+
+    return (True, "")  # No validation for unknown types
 
 
 def edit_file_lines(  # noqa: C901
@@ -161,6 +290,9 @@ def edit_file_lines(  # noqa: C901
             end = edit["end_line"]
             content = edit["content"]
 
+            # CRITICAL: Normalize escaped newlines from LLM output
+            content = _normalize_llm_escapes(content)
+
             # Validate range
             if start < 1 or end < start:
                 return f"Error: Invalid line range {start}-{end}"
@@ -180,8 +312,14 @@ def edit_file_lines(  # noqa: C901
 
             lines[start - 1 : end] = new_lines
 
+        # Validate syntax before writing
+        final_content = "".join(lines)
+        is_valid, error = _validate_file_syntax(file_path, final_content)
+        if not is_valid:
+            return f"Error: Edit would create syntax errors - {error}"
+
         # Write back
-        safe_write(file_path, "".join(lines), base_dir)
+        safe_write(file_path, final_content, base_dir)
         return f"Successfully applied {len(edits)} edits to {file_path}"
 
     except Exception as e:

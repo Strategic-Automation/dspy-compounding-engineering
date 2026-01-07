@@ -5,8 +5,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from rich.console import Console
 from rich.panel import Panel
 
-from agents.workflow.react_todo_resolver import ReActTodoResolver
-from agents.workflow.work_agent import ReActPlanExecutor
+from agents.workflow.work_plan_executor import ReActPlanExecutor
+from agents.workflow.work_todo_executor import ReActTodoResolver
 from utils.git import GitService
 from utils.todo import (
     analyze_dependencies,

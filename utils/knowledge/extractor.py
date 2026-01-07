@@ -6,13 +6,9 @@ across all workflows (review, triage, work).
 """
 
 import dspy
-from rich.console import Console
 
-from agents.workflow.feedback_codifier import FeedbackCodifier
-
+from ..io.logger import console, logger
 from .core import KnowledgeBase
-
-console = Console()
 
 
 def codify_learning(
@@ -36,11 +32,30 @@ def codify_learning(
         True if learning was successfully codified, False otherwise
     """
     try:
+        # Ensure dspy is configured (e.g. if called from a test or direct import)
+        if not dspy.settings.lm:
+            from config import configure_dspy
+
+            configure_dspy()
+
+        from agents.workflow.feedback_codifier import FeedbackCodifier
+
+        from .module import KBPredict
+
         if not silent:
             console.print(f"[dim cyan]Codifying {category} learnings...[/dim cyan]")
+        logger.info(f"Codifying {category} learnings from {source}")
+        logger.debug(f"Context length: {len(context)} chars. Metadata: {metadata}")
 
         # Run FeedbackCodifier Agent with Typed Output
-        codifier = dspy.ChainOfThought(FeedbackCodifier)
+        # Now wrapped with KBPredict to enable compounding learnings during codification phase.
+        # This allows the codifier to see existing patterns to avoid duplicates or refine them.
+        from config import settings
+
+        kb_tags = [category] + settings.kb_codify_tags
+        codifier_cot = dspy.ChainOfThought(FeedbackCodifier)
+        codifier = KBPredict.wrap(codifier_cot, kb_tags=kb_tags)
+
         result = codifier(
             feedback_content=context,
             feedback_source=source,
@@ -49,6 +64,7 @@ def codify_learning(
 
         # Result should already be the Pydantic object
         codified_obj = result.codified_output
+        logger.debug(f"Agent raw output: {codified_obj}")
 
         if not codified_obj:
             if not silent:
@@ -56,31 +72,39 @@ def codify_learning(
                     f"[dim yellow]⚠ Empty response from FeedbackCodifier for {category}"
                     "[/dim yellow]"
                 )
+            logger.warning(f"Empty response from FeedbackCodifier for {category}")
             return False
 
-        # Convert Pydantic model to dict
-        codified_data = codified_obj.model_dump()
+        # Convert Pydantic model to dict safely
+        codified_data = codified_obj.model_dump(mode="python")
 
         # Add metadata
-        codified_data["original_feedback"] = context[:1000]  # Truncate to avoid bloat
+        # Add metadata
+        codified_data["original_feedback"] = context[
+            : settings.codify_context_truncation
+        ]  # Truncate to avoid bloat
         codified_data["source"] = source
         codified_data["category"] = category
 
         if metadata:
             codified_data.update(metadata)
 
-        # Save to Knowledge Base
+        # Save to Knowledge Base with file-system mutex to prevent race conditions
         kb = KnowledgeBase()
-        kb.save_learning(codified_data, silent=silent)
+
+        with kb.get_lock("codify"):
+            kb.save_learning(codified_data, silent=silent)
 
         if not silent:
             console.print(f"[dim green]✓ Codified {category} learnings[/dim green]")
+        logger.success(f"Codified {category} learnings")
 
         return True
 
     except Exception as e:
         if not silent:
             console.print(f"[yellow]⚠ Could not codify learning: {e}[/yellow]")
+        logger.error(f"Could not codify learning: {e}")
         return False
 
 
@@ -109,7 +133,9 @@ def _build_review_context(findings: list, todos_created: int, by_agent: dict) ->
         for finding in agent_findings:
             review_text = str(finding.get("review", ""))
             if review_text:
-                summary_parts.append(f"\n{review_text[:800]}...")
+                from config import settings
+
+                summary_parts.append(f"\n{review_text[: settings.review_finding_truncation]}...")
 
     summary_parts.append("\n\n## Pattern Extraction Focus:")
     summary_parts.extend(
@@ -141,10 +167,15 @@ def codify_review_findings(findings: list, todos_created: int, silent: bool = Fa
     if not findings:
         return
 
+    logger.debug(f"Processing {len(findings)} findings for review codification")
+
     by_agent = _group_findings_by_agent(findings)
     context = _build_review_context(findings, todos_created, by_agent)
 
     # Codify with emphasis on extracting reusable patterns
+    agents = list(by_agent.keys())
+    tags = ["code-review"] + [a.lower().replace(" ", "-") for a in agents]
+
     success = codify_learning(
         context=context,
         source="review",
@@ -152,7 +183,8 @@ def codify_review_findings(findings: list, todos_created: int, silent: bool = Fa
         metadata={
             "findings_count": len(findings),
             "todos_created": todos_created,
-            "agents_involved": list(by_agent.keys()),
+            "agents_involved": agents,
+            "tags": tags,
         },
         silent=silent,
     )
@@ -189,7 +221,11 @@ def codify_triage_decision(
         context_parts.append(f"Proposed Solution: {proposed_solution}")
 
     # Include excerpt of finding (truncated)
-    context_parts.append(f"\nFinding (excerpt): {finding_content[:500]}")
+    from config import settings
+
+    context_parts.append(
+        f"\nFinding (excerpt): {finding_content[: settings.triage_finding_truncation]}"
+    )
 
     context = "\n".join(context_parts)
 
@@ -202,6 +238,7 @@ def codify_triage_decision(
         },
         silent=True,  # Don't spam during batch triage
     )
+    logger.debug(f"Triaged finding: {decision} (Source len: {len(finding_content)})")
 
 
 def codify_work_outcome(

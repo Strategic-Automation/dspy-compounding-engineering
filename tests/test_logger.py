@@ -5,12 +5,11 @@ from utils.io.logger import SystemLogger
 
 
 def test_logger_info_output():
-    with patch("utils.io.logger.console.print") as mock_print:
+    with patch("utils.io.logger.console.log") as mock_log:
         with patch.dict(os.environ, {"COMPOUNDING_QUIET": "false"}):
-            SystemLogger.info("Test Info")
-            mock_print.assert_called_once()
-            args, _ = mock_print.call_args
-            assert "INFO:" in args[0]
+            SystemLogger.info("Test Info", to_cli=True)
+            mock_log.assert_called_once()
+            args, _ = mock_log.call_args
             assert "Test Info" in args[0]
 
 
