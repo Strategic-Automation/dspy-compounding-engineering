@@ -2,17 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.1.3] - 2026-01-06
+## [0.1.3] - 2026-01-07
 
 ### Added
 
-- **Centralized Configuration**: Moved all hardcoded constants to `AppConfig` for unified management via environment variables.
+- **GitHub Issue Planning**: Integrated `workflows/plan.py` to directly fetch and plan from GitHub issues (#88, #89).
+- **Centralized Internet Search**: Implemented DuckDuckGo integration and added `internet_search` tool (#74, #83).
+- **Documentation Hardening**: Enhanced fetching with Playwright/Jina AI and added paging (#75, #90).
+- **Observability**: Integrated Langfuse for tracing DSPy and LLM calls (#81).
+- **Release Automation**: Fixed CI permission issues for automated release tagging (#95).
+
+### Fixed
+
+- **Security**: Addressed CodeQL alerts for URL sanitization and potential substring attacks.
+- **Code Quality**: Resolved empty except blocks, unused imports, and merge conflicts in development branch.
+- **Review Workflow**: Fixed import inconsistencies and generalized reviewer discovery.
+
+### Contributors
+
+- Dan-StrategicAutomation
+- Saksham Jain
+- ArunaPriyaYanamandra
+- Hrijul Dey
 - **GitHub Issue Planning**: The `plan` command now accepts GitHub issue IDs or URLs (e.g., `compounding plan 30`).
 - **Documentation Paging**: Token-based pagination for large documentation with `offset_tokens` support.
 - **Search Limits**: Added `limit` argument to `search_codebase` tool (default 50 results).
 - **LRU Cache**: In-memory caching for documentation fetches to reduce API calls.
 - **Internet Search Tool**: Integrated DuckDuckGo search for research agents.
-- **Dynamic Agent Discovery**: Implemented automatic discovery and generation of specialized agents.
 - **Langfuse Integration**: Added observability and tracing for DSPy calls.
 - **Generalize Review Context**: Added support for reviewing local branches, specific files, and unstaged changes (`latest`).
 
