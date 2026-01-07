@@ -20,10 +20,10 @@ All notable changes to this project will be documented in this file.
 
 ### Contributors
 
-- Dan-StrategicAutomation
-- Saksham Jain
-- ArunaPriyaYanamandra
-- Hrijul Dey
+- **@Dan-StrategicAutomation**: Core infrastructure, Issue Planning, Observability, and Security Fixes.
+- **@saksham-jain177**: Feat: Centralized internet search tool for research agents (#74, #83).
+- **@hr1juldey**: Feat: MxBai embedding support (#79).
+- **@Priya-Yanamandra**: Docs: Mkdocstrings API documentation for config module (#90).
 - **GitHub Issue Planning**: The `plan` command now accepts GitHub issue IDs or URLs (e.g., `compounding plan 30`).
 - **Documentation Paging**: Token-based pagination for large documentation with `offset_tokens` support.
 - **Search Limits**: Added `limit` argument to `search_codebase` tool (default 50 results).
