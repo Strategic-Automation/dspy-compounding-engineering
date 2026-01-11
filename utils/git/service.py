@@ -322,3 +322,27 @@ class GitService:
 
         except subprocess.CalledProcessError as e:
             raise RuntimeError(f"Failed to create feature worktree: {e.stderr}") from e
+
+    @staticmethod
+    def create_issue(title: str, body: str, labels: list[str] = None) -> dict:
+        """Create a GitHub issue using gh CLI."""
+        if not shutil.which("gh"):
+            raise RuntimeError("GitHub CLI (gh) is not installed")
+
+        try:
+            cmd = ["gh", "issue", "create", "--title", title, "--body", body]
+            if labels:
+                for label in labels:
+                    cmd.extend(["--label", label])
+
+            result = run_safe_command(cmd, capture_output=True, text=True, check=True)
+            issue_url = result.stdout.strip()
+
+            # Extract issue number from URL
+            import re
+            match = re.search(r'/issues/(\d+)$', issue_url)
+            issue_number = int(match.group(1)) if match else None
+
+            return {"url": issue_url, "number": issue_number}
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(f"Failed to create GitHub issue: {e.stderr}") from e
