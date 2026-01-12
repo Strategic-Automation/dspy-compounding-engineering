@@ -631,6 +631,41 @@ def _create_review_todos(findings: list[dict]) -> None:
     _display_todo_summary(created_todos, counts)
 
 
+def _create_review_issues(findings: list[dict]) -> None:
+    """Create GitHub issues for critical findings (P1)."""
+    console.rule("Creating GitHub Issues for Critical Findings")
+
+    created_issues = []
+    for finding in findings:
+        agent_name = finding.get("agent", "Unknown")
+        review_text = finding.get("review", "")
+        severity = finding.get("severity", "p2")
+        category = finding.get("category", "code-review")
+
+        if not review_text or review_text.startswith(("Error:", "Execution failed:")):
+            continue
+        if finding.get("action_required") is False:
+            continue
+        if severity != "p1":
+            continue  # Only create issues for P1 (critical) findings
+
+        title = f"CRITICAL: {agent_name} Finding"
+        body = f"## {agent_name} Review Finding\n\n{review_text}\n\n**Category:** {category}\n**Severity:** {severity.upper()}"
+        labels = [category, f"severity:{severity}", "automated-review"]
+
+        try:
+            issue = GitService.create_issue(title, body, labels)
+            created_issues.append({"url": issue["url"], "agent": agent_name, "severity": severity})
+            console.print(f"  [green]✓[/green] Created issue: [link={issue['url']}]{issue['url']}[/link]")
+        except Exception as e:
+            console.print(f"  [red]✗ Failed to create issue for {agent_name}: {e}[/red]")
+
+    if created_issues:
+        console.print(f"\n[bold]Created {len(created_issues)} GitHub issue(s) for critical findings.[/bold]")
+    else:
+        console.print("[dim]No critical findings requiring GitHub issues.[/dim]")
+
+
 def run_review(
     pr_url_or_id: str, project: bool = False, agent_filter: Optional[list[str]] = None
 ) -> None:
@@ -661,7 +696,10 @@ def run_review(
     # 4. Create Todos
     _create_review_todos(findings)
 
-    # 5. Codify Learnings
+    # 5. Create GitHub Issues
+    _create_review_issues(findings)
+
+    # 6. Codify Learnings
     if findings:
         console.rule("Knowledge Base Update")
         from utils.knowledge import codify_review_findings
@@ -674,7 +712,7 @@ def run_review(
         except Exception as e:
             console.print(f"[yellow]⚠ Could not codify review learnings: {e}[/yellow]")
 
-    # 6. Cleanup
+    # 7. Cleanup
     if worktree_path and os.path.exists(worktree_path):
         console.print(f"\n[yellow]Cleaning up worktree {worktree_path}...[/yellow]")
         try:
