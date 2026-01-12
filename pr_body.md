@@ -1,7 +1,7 @@
 ## Pull Request
 
 ### Description
-This PR implements high-fidelity documentation fetching using Playwright as a fallback mechanism, along with significant code simplification and hardening across the codebase. The changes improve documentation fetching reliability for JavaScript-heavy documentation sites while removing unnecessary complexity from configuration, workflows, and utility modules.
+This PR adds automatic GitHub issue creation for critical (P1) review findings. When the review workflow identifies critical issues, it will automatically create GitHub issues to ensure they are tracked and addressed promptly.
 
 ### Type of Change
 
@@ -9,32 +9,36 @@ This PR implements high-fidelity documentation fetching using Playwright as a fa
 - [x] ✨ New feature (non-breaking change which adds functionality)
 - [ ] 💥 Breaking change (fix or feature that would cause existing functionality to not work as expected)
 - [ ] 📝 Documentation update
-- [x] ♻️ Code refactoring
-- [x] ⚡ Performance improvement
+- [ ] ♻️ Code refactoring
+- [ ] ⚡ Performance improvement
 - [ ] ✅ Test addition or update
 
 ### Changes Made
 
-- **Playwright Integration**: Added Playwright as a dependency for high-fidelity documentation fetching with JS rendering support
-- **Documentation Fetcher Refactoring**: Simplified `DocumentationFetcher` by removing token-based pagination, LRU caching, and complex truncation logic in favor of a cleaner three-tier fallback approach (Jina AI → Playwright → Local parsing)
-- **Configuration Simplification**: Streamlined `config.py` by removing unused settings and simplifying the configuration structure
-- **Workflow Optimization**: Simplified `workflows/plan.py` and `workflows/review.py` with cleaner context handling
-- **Git Service Improvements**: Refactored `utils/git/service.py` for better maintainability
-- **File I/O Hardening**: Simplified `utils/io/files.py` with improved error handling
-- **Knowledge Base Updates**: Enhanced `utils/knowledge/embeddings.py` with better embedding support
-- **Test Cleanup**: Removed outdated tests (`test_documentation_paging.py`, `test_integration_llm.py`, `test_search_limit.py`) and added new `test_documentation_fetcher.py`
+- **GitService.create_issue()**: Added new static method in `utils/git/service.py` to create GitHub issues using the `gh` CLI
+  - Accepts title, body, and optional labels
+  - Returns issue URL and number
+  - Validates `gh` CLI is installed before attempting creation
+  
+- **_create_review_issues()**: Added new function in `workflows/review.py` to automatically create GitHub issues for critical findings
+  - Only creates issues for P1 (critical) severity findings
+  - Skips findings with errors or no action required
+  - Applies appropriate labels: category, severity, and "automated-review"
+  - Displays created issue URLs in the console output
+
+- **Review Workflow Integration**: Updated `run_review()` to call `_create_review_issues()` after creating todos (step 5), with subsequent steps renumbered
 
 ### Related Issues
 
-Closes #75
-Related to #87
+Closes #
+Related to #
 
 ### Testing
 
 - [x] All existing tests pass
-- [x] Added new tests for new functionality
+- [ ] Added new tests for new functionality
 - [x] Manually tested the changes
-- [x] Updated documentation
+- [ ] Updated documentation
 
 #### Test Commands Run
 ```bash
@@ -44,16 +48,16 @@ uv run pytest tests/ -v
 # Run linting
 uv run ruff check .
 
-# Test documentation fetcher specifically
-uv run pytest tests/test_documentation_fetcher.py -v
+# Test review workflow
+uv run python cli.py review <pr-url> --dry-run
 ```
 
 ### Documentation
 
-- [x] Updated relevant documentation in `docs/`
-- [x] Updated README.md (if applicable)
-- [x] Updated docstrings and type hints
-- [ ] No documentation changes needed
+- [ ] Updated relevant documentation in `docs/`
+- [ ] Updated README.md (if applicable)
+- [ ] Updated docstrings and type hints
+- [x] No documentation changes needed
 
 ### Checklist
 
@@ -61,31 +65,38 @@ uv run pytest tests/test_documentation_fetcher.py -v
 - [x] I have performed a self-review of my code
 - [x] I have commented my code, particularly in hard-to-understand areas
 - [x] My changes generate no new warnings or errors
-- [x] I have added tests that prove my fix is effective or that my feature works
+- [ ] I have added tests that prove my fix is effective or that my feature works
 - [x] New and existing unit tests pass locally with my changes
 
 ### Screenshots (if applicable)
-N/A - Backend changes only
+N/A - Backend/CLI changes only
 
 ### Additional Notes
 
-**Key Architecture Changes:**
-1. The documentation fetcher now uses a three-tier fallback strategy:
-   - Primary: Jina AI reader for high-quality markdown conversion
-   - Secondary: Playwright for JavaScript-heavy sites that need rendering
-   - Tertiary: Local BeautifulSoup parsing as final fallback
+**Prerequisites:**
+- Requires GitHub CLI (`gh`) to be installed and authenticated
+- The `gh` CLI must have permissions to create issues in the target repository
 
-2. Removed pagination/paging complexity from documentation fetching - the full document is now fetched and processed in one pass, which simplifies the API and reduces potential edge cases.
+**Behavior:**
+- Only P1 (critical) findings trigger automatic issue creation
+- Issues are labeled with:
+  - The finding category (e.g., `security`, `performance`)
+  - Severity level (`severity:p1`)
+  - `automated-review` tag for tracking
 
-3. This PR includes changes from multiple merged feature branches including:
-   - Internet search tool integration
-   - Dynamic agent discovery
-   - Langfuse observability
-   - Generalized review context support
+**Example Issue Created:**
+```
+Title: CRITICAL: SecuritySentinel Finding
+Body:
+## SecuritySentinel Review Finding
 
-**Dependencies Added:**
-- `playwright` (v1.57.0) - For headless browser-based documentation fetching
+[Review content here]
 
-**Breaking Changes:**
-- `DocumentationFetcher.fetch()` no longer accepts `max_tokens` or `offset_tokens` parameters
-- Removed `settings.documentation_max_pages` and `settings.jina_reader_url` configuration options
+**Category:** security
+**Severity:** P1
+```
+
+**Future Enhancements:**
+- Add configuration option to control which severity levels create issues
+- Add option to assign issues to specific team members
+- Add duplicate detection to avoid creating duplicate issues for the same finding
