@@ -324,7 +324,7 @@ class GitService:
             raise RuntimeError(f"Failed to create feature worktree: {e.stderr}") from e
 
     @staticmethod
-    def create_issue(title: str, body: str, labels: list[str] = None) -> dict:
+    def create_issue(title: str, body: str, labels: list[str] | None = None) -> dict:
         """Create a GitHub issue using gh CLI."""
         if not shutil.which("gh"):
             raise RuntimeError("GitHub CLI (gh) is not installed")
