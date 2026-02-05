@@ -12,6 +12,7 @@ from workflows.codify import run_codify
 from workflows.generate_agent import run_generate_agent
 from workflows.plan import run_plan
 from workflows.review import run_review
+from workflows.sync import run_sync
 from workflows.triage import run_triage
 from workflows.work import run_unified_work
 
@@ -47,6 +48,27 @@ def triage() -> None:
     Triage and categorize findings for the CLI todo system.
     """
     run_triage()
+
+
+@app.command()
+def sync(
+    dry_run: bool = typer.Option(False, "--dry-run", "-n", help="Preview without creating issues"),
+    pattern: str = typer.Option("*", "--pattern", "-p", help="Glob pattern to filter todos"),
+) -> None:
+    """
+    Sync todos to GitHub issues.
+
+    This command parses todos/*.md files with 'pending' or 'ready' status and:
+    - Creates new GitHub issues for todos without a github_issue link
+    - Updates existing issues when todo content has changed
+    - Writes the GitHub issue URL back into the todo frontmatter
+
+    Examples:
+        compounding sync                  # Sync all pending/ready todos
+        compounding sync --dry-run        # Preview what would be created
+        compounding sync -p "*-p1-*"      # Only sync P1 priority todos
+    """
+    run_sync(dry_run=dry_run, pattern=pattern)
 
 
 @app.command()
