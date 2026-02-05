@@ -69,6 +69,17 @@ This adds:
 - pytest and coverage tools
 - Ruff for linting
 
+### 4. High-Fidelity Documentation Fetching (Optional)
+
+For robust fetching from JS-heavy or interactive documentation sites, you should install Playwright browsers:
+
+```bash
+uv run playwright install chromium
+```
+
+!!! tip
+    If Playwright is not installed or browsers are missing, the system will automatically fall back to high-quality conversion via Jina AI or basic static scraping.
+
 ## Next Steps
 
 !!! success "Installation Complete!"

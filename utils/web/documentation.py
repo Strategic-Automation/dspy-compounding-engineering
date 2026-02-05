@@ -154,7 +154,20 @@ class DocumentationFetcher:
                     clean_content = scrubber.scrub(content)
                     return self._truncate_to_limit(clean_content, max_tokens, offset_tokens)
             except Exception as e:
-                logger.warning(f"Jina fetch failed for {url}: {e}. Falling back to local parsing.")
+                logger.warning(f"Jina fetch failed for {url}: {e}. Falling back to high-fidelity local fetch.")
+
+        playwright_sync = self._get_playwright()
+        if playwright_sync:
+            try:
+                content = self._fetch_via_playwright(url, playwright_sync)
+                if content:
+                    logger.success(f"Successfully fetched documentation via Playwright for {url}")
+                    from ..security.scrubber import scrubber
+                    return scrubber.scrub(content)
+            except Exception as e:
+                logger.warning(
+                    f"Playwright fetch failed for {url}: {e}. Falling back to basic local parsing."
+                )
 
         local_content = self._fetch_locally(url)
         from ..security.scrubber import scrubber
@@ -239,6 +252,36 @@ class DocumentationFetcher:
                 self._fetch_cache.pop(next(iter(self._fetch_cache)))
             self._fetch_cache[url] = content
             return content
+
+    def _get_playwright(self):
+        """Helper to get playwright sync_api if available."""
+        try:
+            from playwright.sync_api import sync_playwright
+            return sync_playwright
+        except ImportError:
+            return None
+
+    def _fetch_via_playwright(self, url: str, playwright_sync) -> Optional[str]:
+        """
+        Fetch via Playwright for JS-heavy documentation.
+        """
+        with playwright_sync() as p:
+            # We use chromium as it's the most common/reliable for this
+            browser = p.chromium.launch(headless=True)
+            try:
+                page = browser.new_page()
+                page.goto(url, timeout=self.timeout * 1000, wait_until="networkidle")
+                content = page.content()
+
+                soup = BeautifulSoup(content, "html.parser")
+                # Remove non-content elements
+                for element in soup(["script", "style", "nav", "footer", "header", "aside"]):
+                    element.decompose()
+
+                markdown_content = md(str(soup), heading_style="ATX")
+                return markdown_content.strip()
+            finally:
+                browser.close()
 
     def _fetch_locally(self, url: str) -> str:
         """
