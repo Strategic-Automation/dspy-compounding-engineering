@@ -16,6 +16,7 @@ from rich.table import Table
 from config import settings
 from utils.context import ProjectContext
 from utils.git import GitService
+from utils.github import GitHubService
 from utils.io.logger import console, logger
 from utils.knowledge import KBPredict
 from utils.todo import create_finding_todo
@@ -654,7 +655,7 @@ def _create_review_issues(findings: list[dict]) -> None:
         labels = [category, f"severity:{severity}", "automated-review"]
 
         try:
-            issue = GitService.create_issue(title, body, labels)
+            issue = GitHubService.create_issue(title, body, labels)
             created_issues.append({"url": issue["url"], "agent": agent_name, "severity": severity})
             console.print(f"  [green]✓[/green] Created issue: [link={issue['url']}]{issue['url']}[/link]")
         except Exception as e:
