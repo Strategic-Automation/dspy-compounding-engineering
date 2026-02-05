@@ -22,11 +22,13 @@ class FrameworkDocsResearcher(dspy.Signature):
     - Review `previous_research` to fill technical gaps and identify version-specific needs.
     - Analyze API references, configuration options, and migration guides.
     - Highly prioritize the most recent, official documentation for the specified version.
-    - Leverage high-fidelity fetching tools (like Playwright) to navigate interactive or JS-heavy docs.
+    - Leverage high-fidelity fetching tools (like Playwright) to navigate
+      interactive or JS-heavy docs.
     - Document practical usage examples and common implementation pitfalls.
 
     **Example Step:**
-    [[ ## next_thought ## ]] Fetching the latest v4.x documentation for the library, as it contains critical breaking changes.
+    [[ ## next_thought ## ]] Fetching the latest v4.x documentation for the library,
+    as it contains critical breaking changes.
     [[ ## next_tool_name ## ]] fetch_documentation
     [[ ## next_tool_args ## ]] {"url": "https://example.com/docs/v4.0/api"}
     """

@@ -154,7 +154,9 @@ class DocumentationFetcher:
                     clean_content = scrubber.scrub(content)
                     return self._truncate_to_limit(clean_content, max_tokens, offset_tokens)
             except Exception as e:
-                logger.warning(f"Jina fetch failed for {url}: {e}. Falling back to high-fidelity local fetch.")
+                logger.warning(
+                    f"Jina fetch failed for {url}: {e}. Falling back to high-fidelity local fetch."
+                )
 
         playwright_sync = self._get_playwright()
         if playwright_sync:
@@ -163,6 +165,7 @@ class DocumentationFetcher:
                 if content:
                     logger.success(f"Successfully fetched documentation via Playwright for {url}")
                     from ..security.scrubber import scrubber
+
                     return scrubber.scrub(content)
             except Exception as e:
                 logger.warning(
@@ -257,6 +260,7 @@ class DocumentationFetcher:
         """Helper to get playwright sync_api if available."""
         try:
             from playwright.sync_api import sync_playwright
+
             return sync_playwright
         except ImportError:
             return None

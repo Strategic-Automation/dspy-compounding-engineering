@@ -651,18 +651,25 @@ def _create_review_issues(findings: list[dict]) -> None:
             continue  # Only create issues for P1 (critical) findings
 
         title = f"CRITICAL: {agent_name} Finding"
-        body = f"## {agent_name} Review Finding\n\n{review_text}\n\n**Category:** {category}\n**Severity:** {severity.upper()}"
+        body = (
+            f"## {agent_name} Review Finding\n\n{review_text}\n\n"
+            f"**Category:** {category}\n**Severity:** {severity.upper()}"
+        )
         labels = [category, f"severity:{severity}", "automated-review"]
 
         try:
             issue = GitHubService.create_issue(title, body, labels)
             created_issues.append({"url": issue["url"], "agent": agent_name, "severity": severity})
-            console.print(f"  [green]✓[/green] Created issue: [link={issue['url']}]{issue['url']}[/link]")
+            console.print(
+                f"  [green]✓[/green] Created issue: [link={issue['url']}]{issue['url']}[/link]"
+            )
         except Exception as e:
             console.print(f"  [red]✗ Failed to create issue for {agent_name}: {e}[/red]")
 
     if created_issues:
-        console.print(f"\n[bold]Created {len(created_issues)} GitHub issue(s) for critical findings.[/bold]")
+        console.print(
+            f"\n[bold]Created {len(created_issues)} GitHub issue(s) for critical findings.[/bold]"
+        )
     else:
         console.print("[dim]No critical findings requiring GitHub issues.[/dim]")
 

@@ -188,8 +188,8 @@ def _normalize_llm_escapes(content: str) -> str:
 
     # Match literal backslash followed by 'n' (two characters, not escape sequence)
     # The raw string r'\\n' matches the two-character sequence: \ followed by n
-    content = re.sub(r'\\n', '\n', content)
-    content = re.sub(r'\\t', '\t', content)
+    content = re.sub(r"\\n", "\n", content)
+    content = re.sub(r"\\t", "\t", content)
     # Handle escaped quotes
     content = re.sub(r'\\"', '"', content)
     content = re.sub(r"\\'", "'", content)

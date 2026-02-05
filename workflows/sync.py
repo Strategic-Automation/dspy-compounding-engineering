@@ -94,6 +94,112 @@ def _update_todo_with_github_issue(file_path: str, issue_url: str) -> bool:
         return False
 
 
+def _sync_single_file(
+    file_path: str, dry_run: bool, available_labels: list[str], results: dict
+) -> None:
+    """Process a single todo file and synchronize it with GitHub."""
+    filename = os.path.basename(file_path)
+    try:
+        parsed = parse_todo(file_path)
+        fm = parsed["frontmatter"]
+        body = parsed["body"]
+
+        # Extract metadata
+        existing_issue = fm.get("github_issue")
+        priority = fm.get("priority", "p2")
+        tags = fm.get("tags", [])
+
+        # Build title and body
+        title = _extract_title_from_body(body)
+        issue_body = _build_issue_body(body, file_path)
+
+        # Build labels
+        labels = [_map_priority_to_label(priority)]
+        if available_labels:
+            labels.extend(_map_tags_to_labels(tags, available_labels))
+
+        # Check for existing issue
+        issue_number = _extract_github_issue_number(existing_issue)
+
+        if issue_number:
+            _update_existing_issue(
+                filename, file_path, issue_number, issue_body, title, dry_run, results
+            )
+        else:
+            _create_new_issue(filename, file_path, title, issue_body, labels, dry_run, results)
+
+    except Exception as e:
+        console.print(f"[red]Error processing {filename}: {e}[/red]")
+        results["errors"].append({"file": filename, "error": str(e)})
+
+
+def _update_existing_issue(
+    filename: str,
+    file_path: str,
+    issue_number: int,
+    issue_body: str,
+    title: str,
+    dry_run: bool,
+    results: dict,
+) -> None:
+    """Update an existing GitHub issue."""
+    if dry_run:
+        console.print(f"[cyan]Would update:[/cyan] {filename} → Issue #{issue_number}")
+        results["updated"].append({"file": filename, "issue": issue_number})
+    else:
+        try:
+            GitHubService.update_issue(
+                issue_number=issue_number,
+                body=issue_body,
+                title=title,
+            )
+            console.print(f"[green]Updated:[/green] {filename} → Issue #{issue_number}")
+            results["updated"].append({"file": filename, "issue": issue_number})
+        except Exception as e:
+            console.print(f"[red]Error updating {filename}: {e}[/red]")
+            results["errors"].append({"file": filename, "error": str(e)})
+
+
+def _create_new_issue(
+    filename: str,
+    file_path: str,
+    title: str,
+    issue_body: str,
+    labels: list[str],
+    dry_run: bool,
+    results: dict,
+) -> None:
+    """Create a new GitHub issue."""
+    if dry_run:
+        console.print(f'[cyan]Would create:[/cyan] {filename} → "{title}"')
+        console.print(f"  [dim]Labels: {', '.join(labels)}[/dim]")
+        results["created"].append({"file": filename, "title": title})
+    else:
+        try:
+            result = GitHubService.create_issue(
+                title=title,
+                body=issue_body,
+                labels=labels,
+            )
+            issue_url = result["url"]
+            issue_num = result["number"]
+
+            # Update todo file with issue URL
+            _update_todo_with_github_issue(file_path, issue_url)
+
+            console.print(f"[green]Created:[/green] {filename} → Issue #{issue_num}")
+            results["created"].append(
+                {
+                    "file": filename,
+                    "issue": issue_num,
+                    "url": issue_url,
+                }
+            )
+        except Exception as e:
+            console.print(f"[red]Error creating issue for {filename}: {e}[/red]")
+            results["errors"].append({"file": filename, "error": str(e)})
+
+
 def run_sync(
     dry_run: bool = False,
     pattern: str = "*",
@@ -151,79 +257,7 @@ def run_sync(
     console.print(f"[bold]Found {len(syncable_files)} todos to sync.[/bold]\n")
 
     for file_path in sorted(syncable_files):
-        filename = os.path.basename(file_path)
-
-        try:
-            parsed = parse_todo(file_path)
-            fm = parsed["frontmatter"]
-            body = parsed["body"]
-
-            # Extract metadata
-            existing_issue = fm.get("github_issue")
-            priority = fm.get("priority", "p2")
-            tags = fm.get("tags", [])
-
-            # Build title and body
-            title = _extract_title_from_body(body)
-            issue_body = _build_issue_body(body, file_path)
-
-            # Build labels
-            labels = [_map_priority_to_label(priority)]
-            if available_labels:
-                labels.extend(_map_tags_to_labels(tags, available_labels))
-
-            # Check for existing issue
-            issue_number = _extract_github_issue_number(existing_issue)
-
-            if issue_number:
-                # Update existing issue
-                if dry_run:
-                    console.print(f"[cyan]Would update:[/cyan] {filename} → Issue #{issue_number}")
-                    results["updated"].append({"file": filename, "issue": issue_number})
-                else:
-                    try:
-                        GitHubService.update_issue(
-                            issue_number=issue_number,
-                            body=issue_body,
-                            title=title,
-                        )
-                        console.print(f"[green]Updated:[/green] {filename} → Issue #{issue_number}")
-                        results["updated"].append({"file": filename, "issue": issue_number})
-                    except Exception as e:
-                        console.print(f"[red]Error updating {filename}: {e}[/red]")
-                        results["errors"].append({"file": filename, "error": str(e)})
-            else:
-                # Create new issue
-                if dry_run:
-                    console.print(f"[cyan]Would create:[/cyan] {filename} → \"{title}\"")
-                    console.print(f"  [dim]Labels: {', '.join(labels)}[/dim]")
-                    results["created"].append({"file": filename, "title": title})
-                else:
-                    try:
-                        result = GitHubService.create_issue(
-                            title=title,
-                            body=issue_body,
-                            labels=labels,
-                        )
-                        issue_url = result["url"]
-                        issue_num = result["number"]
-
-                        # Update todo file with issue URL
-                        _update_todo_with_github_issue(file_path, issue_url)
-
-                        console.print(f"[green]Created:[/green] {filename} → Issue #{issue_num}")
-                        results["created"].append({
-                            "file": filename,
-                            "issue": issue_num,
-                            "url": issue_url,
-                        })
-                    except Exception as e:
-                        console.print(f"[red]Error creating issue for {filename}: {e}[/red]")
-                        results["errors"].append({"file": filename, "error": str(e)})
-
-        except Exception as e:
-            console.print(f"[red]Error processing {filename}: {e}[/red]")
-            results["errors"].append({"file": filename, "error": str(e)})
+        _sync_single_file(file_path, dry_run, available_labels, results)
 
     # Print summary
     _print_summary(results, dry_run)
