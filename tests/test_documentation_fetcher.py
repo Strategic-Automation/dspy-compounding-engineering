@@ -10,8 +10,16 @@ def fetcher():
     return DocumentationFetcher(use_jina=False)
 
 
+@patch("utils.web.documentation.DocumentationFetcher._get_playwright")
+@patch("utils.web.documentation.DocumentationFetcher._get_safe_ip")
 @patch("httpx.Client.get")
-def test_fetch_locally_success(mock_get, fetcher):
+def test_fetch_locally_success(mock_get, mock_get_ip, mock_get_playwright, fetcher):
+    # Mock playwright unavailable
+    mock_get_playwright.return_value = None
+
+    # Mock safe IP resolution
+    mock_get_ip.return_value = ("1.2.3.4", None)
+
     # Mock successful HTML response
     mock_response = MagicMock()
     mock_response.status_code = 200
@@ -28,8 +36,16 @@ def test_fetch_locally_success(mock_get, fetcher):
     assert "Nav" not in result
 
 
+@patch("utils.web.documentation.DocumentationFetcher._get_playwright")
+@patch("utils.web.documentation.DocumentationFetcher._get_safe_ip")
 @patch("httpx.Client.get")
-def test_fetch_locally_failure(mock_get, fetcher):
+def test_fetch_locally_failure(mock_get, mock_get_ip, mock_get_playwright, fetcher):
+    # Mock playwright unavailable
+    mock_get_playwright.return_value = None
+
+    # Mock safe IP resolution
+    mock_get_ip.return_value = ("1.2.3.4", None)
+
     # Mock failed response
     mock_response = MagicMock()
     mock_response.status_code = 404
@@ -51,14 +67,22 @@ def test_fetch_via_jina_success(mock_jina):
     mock_jina.assert_called_once()
 
 
+@patch("utils.web.documentation.DocumentationFetcher._get_playwright")
+@patch("utils.web.documentation.DocumentationFetcher._get_safe_ip")
 @patch("utils.web.documentation.DocumentationFetcher._fetch_via_jina")
 @patch("httpx.Client.get")
-def test_jina_failure_fallback_to_local(mock_get, mock_jina):
+def test_jina_failure_fallback_to_local(mock_get, mock_jina, mock_get_ip, mock_get_playwright):
     # Create fetcher with jina enabled
     fetcher = DocumentationFetcher(use_jina=True)
 
     # Mock Jina failure
     mock_jina.side_effect = Exception("Jina service unavailable")
+
+    # Mock playwright unavailable
+    mock_get_playwright.return_value = None
+
+    # Mock safe IP resolution for fallback
+    mock_get_ip.return_value = ("1.2.3.4", None)
 
     # Mock successful local HTML response
     mock_response = MagicMock()

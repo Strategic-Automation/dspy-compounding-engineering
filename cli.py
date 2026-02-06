@@ -257,6 +257,24 @@ def compress_kb(
 
 
 @app.command()
+def garden(
+    dry_run: bool = typer.Option(
+        False, "--dry-run", "-n", help="Simulate gardening without saving changes"
+    ),
+    deep: bool = typer.Option(
+        False, "--deep", "-d", help="Enable deep mode (LLM-based fact extraction). Slow."
+    ),
+) -> None:
+    """
+    Tend to the Knowledge Base: Score, Extract, Tier, and Deduplicate.
+    """
+    from utils.knowledge.gardener import KnowledgeGardeningService
+
+    gardener = KnowledgeGardeningService()
+    gardener.garden(dry_run=dry_run, deep_mode=deep)
+
+
+@app.command()
 def index(
     root_dir: str = typer.Option(".", "--dir", "-d", help="Root directory to index"),
     recreate: Annotated[

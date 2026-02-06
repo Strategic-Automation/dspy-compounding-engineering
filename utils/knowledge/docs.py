@@ -24,7 +24,7 @@ class KnowledgeDocumentation:
     Manages the AI.md documentation file, including generation and compression.
     """
 
-    COMPRESSION_THRESHOLD = 15000
+    COMPRESSION_THRESHOLD = 500  # Always compress if content exists
     LLM_COMPRESSION_MIN_SIZE = 10000
 
     def __init__(self, knowledge_dir: str):
@@ -56,6 +56,34 @@ class KnowledgeDocumentation:
             else:
                 logger.info(message)
 
+    def _resolve_title(self, item: Dict[str, Any]) -> str:
+        """Resolve a suitable title for a learning item."""
+        title = item.get("title") or item.get("feedback_summary")
+        description = item.get("description", "") or item.get("content", "")
+
+        # If we have a good title already, return it
+        if title and title.lower() != "untitled":
+            return title
+
+        # Infer from description or improvements
+        candidate = None
+        if description and isinstance(description, str):
+            candidate = description
+        elif item.get("codified_improvements"):
+            # Try to use the first improvement
+            first_imp = item["codified_improvements"][0]
+            candidate = str(
+                first_imp.get("title") or first_imp.get("description") or first_imp
+            )
+
+        if candidate:
+            # cleanup candidate
+            candidate = str(candidate).split("\n")[0].split(".")[0]
+            title = (candidate[:60] + "...") if len(candidate) > 60 else candidate
+            return title.strip() or "Untitled"
+
+        return "Untitled"
+
     def _generate_markdown(self, learnings: List[Dict[str, Any]]) -> str:
         """Generate the AI.md content from learnings."""
         by_category = {}
@@ -72,9 +100,10 @@ class KnowledgeDocumentation:
         for category, items in sorted(by_category.items()):
             content += f"## {category}\n\n"
             for item in items:
-                title = item.get("title") or item.get("feedback_summary", "Untitled")
+                title = self._resolve_title(item)
+                description = item.get("description", "") or item.get("content", "")
+
                 content += f"### {title}\n"
-                description = item.get("description", "")
                 if description:
                     content += f"{description}\n\n"
                 else:
@@ -94,8 +123,29 @@ class KnowledgeDocumentation:
     def update_ai_md(self, learnings: List[Dict[str, Any]], silent: bool = False):
         """
         Regenerate AI.md from the provided list of learnings.
+        Automatically compresses if content exceeds threshold.
         """
         content = self._generate_markdown(learnings)
+
+        # Check size before writing
+        if len(content) > self.COMPRESSION_THRESHOLD:
+            try:
+                msg = (
+                    f"Content size ({len(content)} chars) exceeds threshold "
+                    f"({self.COMPRESSION_THRESHOLD}). Compressing..."
+                )
+                self._log(msg, color="cyan", silent=silent)
+                # Create backup of previous version if it exists
+                if os.path.exists(self.ai_md_path):
+                    self._create_backup(silent=silent)
+
+                content = self._run_compression(content, ratio=0.5, silent=silent)
+            except Exception as e:
+                self._log(
+                    f"Pre-write compression failed: {e}. Falling back to uncompressed.",
+                    color="yellow",
+                    silent=silent,
+                )
 
         try:
             tmp_path = self.ai_md_path + ".tmp"

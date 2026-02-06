@@ -2,11 +2,12 @@
 Shared utilities for vector database collection management.
 """
 
-from typing import Optional, Tuple
+from typing import TYPE_CHECKING, Optional, Tuple
 
-from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, SparseIndexParams, SparseVectorParams, VectorParams
 from rich.console import Console
+
+if TYPE_CHECKING:
+    from qdrant_client import QdrantClient
 
 console = Console()
 
@@ -16,7 +17,7 @@ class CollectionManagerMixin:
     Mixin to provide shared collection management logic for vector base classes.
     """
 
-    client: QdrantClient
+    client: "QdrantClient"
     vector_db_available: bool
 
     def _safe_ensure_collection(
@@ -103,6 +104,13 @@ class CollectionManagerMixin:
 
     def _create_collection(self, collection_name: str, vector_size: int, enable_sparse: bool):
         """Create a new collection with specified config."""
+        from qdrant_client.models import (
+            Distance,
+            SparseIndexParams,
+            SparseVectorParams,
+            VectorParams,
+        )
+
         try:
             params = {
                 "collection_name": collection_name,
