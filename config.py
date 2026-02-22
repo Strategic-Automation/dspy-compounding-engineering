@@ -246,6 +246,7 @@ class AppConfig:
         self.dspy_lm_model = os.getenv("DSPY_LM_MODEL", "gpt-4.1")
 
         self.mcp_servers = {
+            "compounding": ["python", "-m", "mcp_servers.compounding_server"],
             "file": ["python", "-m", "mcp_servers.file_server"],
             "git": ["python", "-m", "mcp_servers.git_server"],
             "search": ["python", "-m", "mcp_servers.search_server"]
