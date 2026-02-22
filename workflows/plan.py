@@ -53,6 +53,7 @@ def _handle_github_issue(feature_description: str) -> tuple[str, dict]:
             has_issue_path = "/issues/" in parsed.path
             if parsed.scheme in ["http", "https"] and is_github and has_issue_path:
                 is_issue = True
+        except Exception as e:
         except Exception as exc:
             console.print(
                 f"[dim]  → Unable to parse GitHub issue from description: {exc}. "

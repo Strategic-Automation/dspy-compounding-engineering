@@ -83,9 +83,6 @@ cp .env.example .env
 
 # Install dependencies
 uv sync
-
-# Install Playwright browsers (Required for high-fidelity documentation fetching)
-uv run playwright install chromium
 ```
 
 ### Repo-Agnostic Installation (Recommended)

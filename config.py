@@ -267,13 +267,6 @@ class AppConfig:
         self.kb_sanitize_limit = self._parse_int_env("KB_SANITIZE_LIMIT", 30000)
         self.kb_compress_ratio = float(os.getenv("KB_COMPRESS_RATIO", "0.5"))
 
-        # Knowledge Gardening Settings
-        self.kg_importance_weight_recency = float(os.getenv("KG_WEIGHT_RECENCY", "0.3"))
-        self.kg_importance_weight_impact = float(os.getenv("KG_WEIGHT_IMPACT", "0.5"))
-        self.kg_importance_weight_pattern = float(os.getenv("KG_WEIGHT_PATTERN", "0.2"))
-        self.kg_retention_days = self._parse_int_env("KG_RETENTION_DAYS", 90)
-        self.kg_dedupe_threshold = float(os.getenv("KG_DEDUPE_THRESHOLD", "0.85"))
-
         # CLI & Agent Settings
         self.cli_max_workers = self._parse_int_env("COMPOUNDING_WORKERS", 3)
         self.agent_max_iters = self._parse_int_env("COMPOUNDING_AGENT_MAX_ITERS", 5)
