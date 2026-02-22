@@ -57,6 +57,42 @@ class GitService:
         return result
 
     @staticmethod
+    def _get_github_client():
+        """Get PyGithub client using GITHUB_TOKEN or GH_TOKEN."""
+        try:
+            from github import Github
+            from github import Auth
+
+            token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+            if token:
+                auth = Auth.Token(token)
+                return Github(auth=auth)
+            # Fallback to unauthenticated
+            return Github()
+        except ImportError:
+            return None
+
+    @staticmethod
+    def _get_repo_from_remote():
+        """Get the 'owner/repo' string from git remote."""
+        try:
+            result = run_safe_command(
+                ["git", "remote", "get-url", "origin"], capture_output=True, text=True, check=True
+            )
+            url = result.stdout.strip()
+            if "github.com" in url:
+                if url.startswith("git@"):
+                    path = url.split("github.com:", 1)[1]
+                else:
+                    path = url.split("github.com/", 1)[1]
+                if path.endswith(".git"):
+                    path = path[:-4]
+                return path
+        except Exception:
+            pass
+        return None
+
+    @staticmethod
     def is_git_repo() -> bool:
         """Check if current directory is a git repo."""
         return (
@@ -261,34 +297,88 @@ class GitService:
         """
         Checkout a PR into a worktree.
         Uses direct ref fetching to avoid disrupting the main directory's branch.
+        Handles forks by adding a remote and tracking the fork's branch.
         """
-        if not shutil.which("gh"):
-            raise RuntimeError("GitHub CLI (gh) is not installed")
-
         try:
-            # 1. Get PR details
-            details = GitService.get_pr_details(pr_id_or_url)
-            pr_number = details.get("number")
+            pr_number = None
+            is_fork = False
+            head_ref_name = None
+            head_repo_clone_url = None
+            fork_owner = None
+
+            # 1. Try to get PR details via gh CLI
+            if shutil.which("gh"):
+                try:
+                    details = GitService.get_pr_details(pr_id_or_url)
+                    pr_number = details.get("number")
+                    
+                    head_repo_owner = details.get("headRepositoryOwner", {}).get("login")
+                    repo_name = GitService._get_repo_from_remote()
+                    if repo_name and head_repo_owner:
+                        base_owner = repo_name.split('/')[0]
+                        if base_owner.lower() != head_repo_owner.lower():
+                            is_fork = True
+                            head_ref_name = details.get("headRefName")
+                            fork_owner = head_repo_owner
+                            # Use ssh or https based on current remote style, default https
+                            head_repo_clone_url = f"https://github.com/{head_repo_owner}/{repo_name.split('/')[1]}.git"
+                except Exception as e:
+                    logger.debug(f"gh CLI failed to fetch PR details: {e}")
+
+            # 2. Add fallback to PyGithub
             if not pr_number:
-                raise RuntimeError(f"Could not determine PR number for: {pr_id_or_url}")
+                gh_client = GitService._get_github_client()
+                if gh_client:
+                    repo_str = GitService._get_repo_from_remote()
+                    if repo_str:
+                        repo = gh_client.get_repo(repo_str)
+                        try:
+                            if "pull/" in str(pr_id_or_url):
+                                pr_num = int(str(pr_id_or_url).split("pull/")[-1].split("/")[0])
+                            else:
+                                pr_num = int(pr_id_or_url)
+                            
+                            pr = repo.get_pull(pr_num)
+                            pr_number = pr.number
+                            if pr.head.repo and pr.head.repo.full_name != repo.full_name:
+                                is_fork = True
+                                head_ref_name = pr.head.ref
+                                fork_owner = pr.head.repo.owner.login
+                                head_repo_clone_url = pr.head.repo.clone_url
+                        except Exception as e:
+                            logger.debug(f"PyGithub failed to fetch PR: {e}")
 
-            # 2. Fetch the PR ref to a special local review branch
-            # This avoids 'gh pr checkout' which switches the main repo's branch.
-            # We use force (-f) to overwrite if the local review branch already exists/diverged.
+            if not pr_number:
+                raise RuntimeError(f"Could not determine PR number for: {pr_id_or_url}. Ensure 'gh' CLI is installed or 'PyGithub' works.")
+
             local_review_branch = f"review-pr-{pr_number}"
-            # Standard GitHub ref for PR heads
-            ref = f"pull/{pr_number}/head:{local_review_branch}"
 
-            logger.info(f"Fetching {ref} into isolated branch...", to_cli=True)
-
-            # Note: We fetch from 'origin'. If the PR is from a fork,
-            # refs/pull/ID/head still exists on the upstream 'origin'.
-            run_safe_command(["git", "fetch", "origin", ref, "-f"], check=True)
-
-            # 3. Create worktree
-            # Syntax: git worktree add <path> <branch>
-            cmd = ["git", "worktree", "add", worktree_path, local_review_branch]
-            run_safe_command(cmd, check=True)
+            if is_fork and head_ref_name and head_repo_clone_url and fork_owner:
+                logger.info(f"PR is from a fork ({fork_owner}). Adding remote and fetching...", to_cli=True)
+                fork_remote = f"fork-{fork_owner}"
+                
+                # Check if remote exists
+                remotes = run_safe_command(["git", "remote"], capture_output=True, text=True).stdout.splitlines()
+                if fork_remote not in remotes:
+                    run_safe_command(["git", "remote", "add", fork_remote, head_repo_clone_url], check=True)
+                
+                # Fetch the branch from the fork remote
+                run_safe_command(["git", "fetch", fork_remote, head_ref_name], check=True)
+                
+                # Setup proper tracking so the user can push back to the fork
+                start_point = f"{fork_remote}/{head_ref_name}"
+                
+                logger.info(f"Creating worktree at {worktree_path} tracking {start_point}...", to_cli=True)
+                cmd = ["git", "worktree", "add", "-B", local_review_branch, worktree_path, start_point]
+                run_safe_command(cmd, check=True)
+            else:
+                # Standard inner-repo PR
+                ref = f"pull/{pr_number}/head:{local_review_branch}"
+                logger.info(f"Fetching {ref} into isolated branch...", to_cli=True)
+                run_safe_command(["git", "fetch", "origin", ref, "-f"], check=True)
+                
+                cmd = ["git", "worktree", "add", worktree_path, local_review_branch]
+                run_safe_command(cmd, check=True)
 
         except subprocess.CalledProcessError as e:
             raise RuntimeError(f"Failed to setup PR worktree: {e.stderr}") from e
