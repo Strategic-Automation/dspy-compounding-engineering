@@ -99,7 +99,8 @@ class LLMKBCompressor(dspy.Module):
                 try:
                     res = self.compressor(content=chunk, ratio=ratio)
                     compressed_chunks.append(res.compressed_content)
-                except Exception:
+                except Exception as e:
+                    logging.warning(f"Compression failed for chunk: {e}")
                     compressed_chunks.append(chunk)
 
             result = "\n\n".join(compressed_chunks)

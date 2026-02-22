@@ -5,23 +5,33 @@ This module manages the persistent storage and retrieval of learnings,
 enabling the system to improve over time by accessing past insights.
 """
 
-import glob
-import itertools
 import json
 import os
+import sqlite3
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from urllib.parse import urlparse
 
 from filelock import FileLock
-from qdrant_client import QdrantClient
-from qdrant_client.models import (
-    FieldCondition,
-    Filter,
-    MatchValue,
-    PointStruct,
-)
+
+if TYPE_CHECKING:
+    from qdrant_client import QdrantClient
+
+try:
+    from qdrant_client.models import (
+        FieldCondition,
+        Filter,
+        Fusion,
+        FusionQuery,
+        MatchValue,
+        PointStruct,
+        Prefetch,
+    )
+except ImportError:
+    pass  # Handled by vector_db_available check
+
+from config import settings
 
 from ..io.logger import console, logger
 from ..security.scrubber import scrubber
@@ -33,13 +43,13 @@ from .utils import CollectionManagerMixin
 
 class KnowledgeBase(CollectionManagerMixin):
     """
-    Manages a collection of learnings stored as JSON files and indexed in Qdrant.
+    Manages a collection of learnings stored in a local SQLite database and indexed in Qdrant.
     """
 
     MAX_COLLECTION_NAME_LENGTH = 60
 
     def __init__(
-        self, knowledge_dir: Optional[str] = None, qdrant_client: Optional[QdrantClient] = None
+        self, knowledge_dir: Optional[str] = None, qdrant_client: Optional["QdrantClient"] = None
     ):
         from config import get_project_hash, get_project_root, registry
 
@@ -50,6 +60,14 @@ class KnowledgeBase(CollectionManagerMixin):
 
         self.knowledge_dir = os.path.abspath(knowledge_dir)
         self._ensure_knowledge_dir()
+
+        # SQL Storage
+        self.db_path = os.path.join(self.knowledge_dir, "knowledge.db")
+        self._init_db()
+
+        # Migration
+        # self._migrate_legacy_files()
+
         backups_dir = os.path.join(self.knowledge_dir, "backups")
         os.makedirs(backups_dir, exist_ok=True)
         self.lock_path = os.path.join(self.knowledge_dir, "kb.lock")
@@ -78,15 +96,121 @@ class KnowledgeBase(CollectionManagerMixin):
         # Ensure 'learnings' collection exists (if DB available)
         self._ensure_collection()
 
-        # Sync if empty
+        # Sync if empty in Vector DB but present in SQL
         try:
             if self.vector_db_available and self.client.count(self.collection_name).count == 0:
-                console.print("[yellow]Vector store empty. Syncing from disk...[/yellow]")
-                self._sync_to_qdrant()
+                # Check if we have data in SQL
+                all_learnings = self.get_all_learnings()
+                if all_learnings:
+                    console.print("[yellow]Vector store empty. Syncing from SQLite...[/yellow]")
+                    self._sync_to_qdrant(all_learnings)
         except Exception as e:
             logger.debug(f"Could not check collection count: {e}")
 
         logger.info("KnowledgeBase service is ready", to_cli=True)
+
+    def _init_db(self):
+        """Initialize SQLite database schema."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS learnings (
+                    id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    category TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    metadata TEXT,  -- JSON blob for extra fields (tags, context, etc)
+                    source TEXT,
+                    created_at DATETIME,
+                    updated_at DATETIME
+                )
+            """)
+            conn.commit()
+
+    # def _migrate_legacy_files(self):
+    #     """Migrate existing .json files to SQLite and archive them."""
+    #     json_files = glob.glob(os.path.join(self.knowledge_dir, "*.json"))
+    #     if not json_files:
+    #         return
+    #
+    #     archive_dir = os.path.join(self.knowledge_dir, "archive")
+    #     os.makedirs(archive_dir, exist_ok=True)
+    #
+    #     migrated_count = 0
+    #     console.print(f"[dim]Migrating {len(json_files)} legacy JSON files to SQLite...[/dim]")
+    #
+    #     files_to_archive = []
+    #
+    #     with sqlite3.connect(self.db_path) as conn:
+    #         for filepath in json_files:
+    #             try:
+    #                 with open(filepath, "r") as f:
+    #                     data = json.load(f)
+    #
+    #                 self._insert_learning_tx(conn, data)
+    #                 files_to_archive.append(filepath)
+    #             except Exception as e:
+    #                 logger.error(f"Failed to migrate {filepath}: {e}")
+    #
+    #         # Commit first
+    #         conn.commit()
+    #
+    #     # Archive files only after successful commit
+    #     for filepath in files_to_archive:
+    #         try:
+    #             filename = os.path.basename(filepath)
+    #             shutil.move(filepath, os.path.join(archive_dir, filename))
+    #             migrated_count += 1
+    #         except Exception as e:
+    #             logger.error(f"Failed to archive {filepath}: {e}")
+    #
+    #     if migrated_count > 0:
+    #         console.print(
+    #             f"[green]Successfully migrated {migrated_count} files to knowledge.db[/green]"
+    #         )
+
+    def _insert_learning_tx(self, conn, learning: Dict[str, Any]):
+        """Insert learning within an existing transaction context."""
+        meta = learning.copy()
+        # Pop standard columns to keep metadata clean, or duplicate?
+        # Let's keep metadata inclusive for now or selective.
+        # Actually, extracting specific fields and dumping the rest into metadata is cleaner.
+
+        l_id = meta.pop("id")
+        title = meta.pop("title", "Untitled")
+        category = meta.pop("category", "general")
+
+        # Handle content: it can be a string or a dict
+        content_raw = meta.pop("content", "")
+        if isinstance(content_raw, dict):
+            # Storing as string representation for simple search,
+            # but keeping structure in metadata might be valid.
+            # However, schema says content is TEXT. Let's assume content is the "insight".
+            # If content was a dict with summary, etc,
+            # let's stringify it for the main text column.
+            content_val = (
+                content_raw.get("summary", "")
+                or content_raw.get("description", "")
+                or str(content_raw)
+            )
+            # Put original complex content back into metadata for full fidelity reconstruction
+            meta["original_content_object"] = content_raw
+        else:
+            content_val = str(content_raw)
+
+        source = meta.pop("source", "unknown")
+        created_at = meta.pop("created_at", datetime.now().isoformat())
+        updated_at = datetime.now().isoformat()
+
+        metadata_json = json.dumps(meta)
+
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO learnings
+            (id, title, category, content, metadata, source, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+            (l_id, title, category, content_val, metadata_json, source, created_at, updated_at),
+        )
 
     def get_codify_lock_path(self) -> str:
         """Returns the path to the codify-specific lock file."""
@@ -133,62 +257,51 @@ class KnowledgeBase(CollectionManagerMixin):
             registry_flag="learnings_ensured",
         )
 
-    def _sync_to_qdrant(self, batch_size: Optional[int] = None):
-        """Sync all local JSON files to Qdrant with batching."""
-        from config import settings
-
+    def _sync_to_qdrant(self, learnings: List[Dict[str, Any]], batch_size: Optional[int] = None):
+        """Sync a list of learnings to Qdrant."""
         if batch_size is None:
             batch_size = settings.kb_sync_batch_size
         if not self.vector_db_available:
             return
 
-        lock = self.get_lock()
-        with lock:
-            files = glob.glob(os.path.join(self.knowledge_dir, "*.json"))
-            total_files = len(files)
-            synced_count = 0
+        total_items = len(learnings)
+        synced_count = 0
 
-            # Process in batches
-            file_iter = iter(files)
-            while True:
-                batch_files = list(itertools.islice(file_iter, batch_size))
-                if not batch_files:
-                    break
+        # Iterate in batches
+        for i in range(0, total_items, batch_size):
+            batch = learnings[i : i + batch_size]
+            points = []
 
-                points = []
-                for filepath in batch_files:
-                    try:
-                        with open(filepath, "r") as f:
-                            learning = json.load(f)
+            for learning in batch:
+                try:
+                    text_to_embed = self._prepare_embedding_text(learning)
+                    vector = self.embedding_provider.get_embedding(text_to_embed)
+                    sparse_vector = self.embedding_provider.get_sparse_embedding(text_to_embed)
 
-                        # Prepare point
-                        text_to_embed = self._prepare_embedding_text(learning)
-                        vector = self.embedding_provider.get_embedding(text_to_embed)
-                        sparse_vector = self.embedding_provider.get_sparse_embedding(text_to_embed)
+                    learning_id = learning.get("id") or str(uuid.uuid4())
+                    point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, str(learning_id)))
 
-                        learning_id = learning.get("id") or str(uuid.uuid4())
-                        # Use UUIDv5 for deterministic but unique point IDs
-                        point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, str(learning_id)))
-
-                        points.append(
-                            PointStruct(
-                                id=point_id,
-                                vector={"": vector, "text-sparse": sparse_vector},
-                                payload=learning,
-                            )
+                    points.append(
+                        PointStruct(
+                            id=point_id,
+                            vector={"": vector, "text-sparse": sparse_vector},
+                            payload=learning,
                         )
-                    except Exception as e:
-                        console.print(f"[red]Failed to prepare {filepath}: {e}[/red]")
+                    )
+                except Exception as e:
+                    console.print(
+                        f"[red]Failed to prepare learning {learning.get('id')}: {e}[/red]"
+                    )
 
-                if points:
-                    try:
-                        self.client.upsert(collection_name=self.collection_name, points=points)
-                        synced_count += len(points)
-                        console.print(f"[dim]Synced batch: {synced_count}/{total_files}[/dim]")
-                    except Exception as e:
-                        console.print(f"[red]Failed to upsert batch: {e}[/red]")
+            if points:
+                try:
+                    self.client.upsert(collection_name=self.collection_name, points=points)
+                    synced_count += len(points)
+                    console.print(f"[dim]Synced batch: {synced_count}/{total_items}[/dim]")
+                except Exception as e:
+                    console.print(f"[red]Failed to upsert batch: {e}[/red]")
 
-            console.print(f"[green]Synced {synced_count} learnings to Qdrant.[/green]")
+        console.print(f"[green]Synced {synced_count} learnings to Qdrant.[/green]")
 
     def _prepare_embedding_text(self, learning: Dict[str, Any]) -> str:
         """Helper to create text for embedding."""
@@ -223,6 +336,8 @@ class KnowledgeBase(CollectionManagerMixin):
             # Use UUIDv5 for deterministic but unique point IDs
             point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, str(learning_id)))
 
+            from qdrant_client.models import PointStruct
+
             self.client.upsert(
                 collection_name=self.collection_name,
                 points=[
@@ -236,52 +351,42 @@ class KnowledgeBase(CollectionManagerMixin):
         except Exception as e:
             logger.error(f"Error indexing learning {learning.get('id', 'unknown')}", str(e))
 
-    def save_learning(self, learning: Dict[str, Any], silent: bool = False) -> str:
+    def save_learning(
+        self, learning: Dict[str, Any], silent: bool = False, update_docs: bool = True
+    ) -> str:
         """
-        Add a new learning item to the knowledge base.
-
-        Args:
-            learning: Dictionary containing learning details.
-                      Should include 'category', 'title', 'description', etc.
-            silent: If True, suppress verbose output messages.
-
-        Returns:
-            Path to the saved learning file.
+        Add a new learning item to the knowledge base (SQLite + Qdrant).
         """
         # Generate ID
-        # Generate ID with high resolution and entropy to prevent collisions
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
-        random_suffix = os.urandom(4).hex()
-        learning_id = f"{timestamp}-{random_suffix}"
+        learning_id = learning.get("id")
+        if not learning_id:
+            timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
+            random_suffix = os.urandom(4).hex()
+            learning_id = f"{timestamp}-{random_suffix}"
+            learning["id"] = learning_id
 
-        category = learning.get("category", "general").lower().replace(" ", "-")
-        filename = f"{learning_id}-{category}.json"
-        filepath = os.path.join(self.knowledge_dir, filename)
-
-        # Add metadata
-        learning["created_at"] = datetime.now().isoformat()
-        learning["id"] = learning_id
+        if "created_at" not in learning:
+            learning["created_at"] = datetime.now().isoformat()
 
         lock = self.get_lock()
         try:
             with lock:
-                # 1. Save to Disk (Source of Truth/Backup)
-                tmp_path = filepath + ".tmp"
-                with open(tmp_path, "w") as f:
-                    json.dump(learning, f, indent=2)
-                os.replace(tmp_path, filepath)
+                # 1. Save to SQLite (Source of Truth)
+                with sqlite3.connect(self.db_path) as conn:
+                    self._insert_learning_tx(conn, learning)
+                    conn.commit()
 
                 # 2. Index in Qdrant
                 self._index_learning(learning)
 
                 if not silent:
-                    logger.success(f"Learning saved to {filepath} and indexed in Qdrant")
+                    logger.success(f"Learning saved to DB ({learning_id})")
 
                 # 3. Update Docs
-                self.docs_service.update_ai_md(self.get_all_learnings(), silent=silent)
-                self.docs_service.review_and_compress(silent=silent)
+                if update_docs:
+                    self.docs_service.update_ai_md(self.get_all_learnings(), silent=silent)
 
-            return filepath
+            return learning_id
         except Exception as e:
             if not silent:
                 console.print(f"[red]Failed to save learning: {e}[/red]")
@@ -291,15 +396,7 @@ class KnowledgeBase(CollectionManagerMixin):
         self, query: str = "", tags: List[str] = None, limit: int = 5
     ) -> List[Dict[str, Any]]:
         """
-        Search for relevant learnings using Hybrid Search (Dense + Sparse).
-
-        Args:
-            query: Text to search for.
-            tags: List of tags to filter by.
-            limit: Maximum number of results to return.
-
-        Returns:
-            List of learning dictionaries.
+        Search for relevant learnings using Hybrid Search (Qdrant) with Local SQLite fallback.
         """
         if not query and not tags:
             return self.get_all_learnings()[:limit]
@@ -313,24 +410,17 @@ class KnowledgeBase(CollectionManagerMixin):
             if tags:
                 should_conditions = []
                 for tag in tags:
-                    # Check 'tags' field
                     should_conditions.append(
                         FieldCondition(key="tags", match=MatchValue(value=tag))
                     )
-                    # Check 'category' field (treat as implicit tag)
+                    # Also check category
                     should_conditions.append(
-                        FieldCondition(
-                            key="category",
-                            match=MatchValue(value=tag),  # Categories are stored as-is in payload
-                        )
+                        FieldCondition(key="category", match=MatchValue(value=tag))
                     )
 
-                # Check if ANY tag matches
                 query_filter = Filter(should=should_conditions)
 
-            # Vector Search Inputs
-            from qdrant_client.models import Fusion, FusionQuery, Prefetch
-
+            # Vector Search logic
             dense_vector = self.embedding_provider.get_embedding(query)
             sparse_vector = self.embedding_provider.get_sparse_embedding(query)
 
@@ -339,7 +429,7 @@ class KnowledgeBase(CollectionManagerMixin):
                 prefetch=[
                     Prefetch(
                         query=dense_vector,
-                        using=None,  # Default dense
+                        using=None,  # standard dense
                         limit=limit * 2,
                         filter=query_filter,
                     ),
@@ -358,100 +448,135 @@ class KnowledgeBase(CollectionManagerMixin):
             return results
 
         except Exception as e:
-            console.print(f"[red]Hybrid search failed: {e}. Falling back to disk search.[/red]")
-            return self._legacy_search(query, tags, limit)
+            # Log failure before falling back
+            logger.warning(f"Hybrid search failed: {e}. Falling back to local DB.")
+            return self.search_local(query, tags, limit)
 
-    def _legacy_search(
+    def search_local(
         self, query: str = "", tags: List[str] = None, limit: Optional[int] = None
     ) -> List[Dict[str, Any]]:
-        """Legacy disk-based search (fallback)."""
+        """
+        Local search using SQLite LIKE queries.
+        Replaces the old _legacy_search (file-based).
+        """
         from config import settings
 
         if limit is None:
             limit = settings.search_limit_codebase
 
         results = []
-        files = glob.glob(os.path.join(self.knowledge_dir, "*.json"))
-        files.sort(reverse=True)
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
 
-        for filepath in files:
-            try:
-                with open(filepath, "r") as f:
-                    learning = json.load(f)
+            sql = "SELECT * FROM learnings WHERE 1=1"
+            params = []
 
+            if query:
+                # Simple keyword matching in title/content/desc
+                sql += " AND (title LIKE ? OR content LIKE ? OR category LIKE ?)"
+                wildcard = f"%{query}%"
+                params.extend([wildcard, wildcard, wildcard])
+
+            # If tags are provided, we'd need to parse metadata.
+            # JSON_EXTRACT is available in newer sqlite, but for safety
+            # let's filter in python or basic string matching on metadata.
+
+            sql += " ORDER BY created_at DESC"
+
+            cursor = conn.execute(sql, params)
+
+            count = 0
+            for row in cursor:
+                learning = self._row_to_dict(row)
+
+                # Manual Tag Filtering
                 if tags:
                     learning_tags = learning.get("tags", [])
                     learning_tags.append(learning.get("category", ""))
                     if not any(tag.lower() in [t.lower() for t in learning_tags] for tag in tags):
                         continue
 
-                if query:
-                    search_text = (
-                        f"{learning.get('title', '')} {learning.get('description', '')} "
-                        f"{learning.get('content', '')}"
-                    ).lower()
-                    if query.lower() not in search_text:
-                        continue
-
                 results.append(learning)
-                if len(results) >= limit:
+                count += 1
+                if limit and count >= limit:
                     break
-            except Exception:
-                continue
+
         return results
 
     def get_all_learnings(self) -> List[Dict[str, Any]]:
-        """Retrieve all learnings."""
-        from config import settings
+        """Retrieve all learnings from SQLite."""
+        results = []
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.execute("SELECT * FROM learnings ORDER BY created_at DESC")
+                for row in cursor:
+                    results.append(self._row_to_dict(row))
+        except Exception:
+            return []
+        return results
 
-        return self._legacy_search(limit=settings.kb_legacy_search_limit)
+    def _row_to_dict(self, row: sqlite3.Row) -> Dict[str, Any]:
+        """Convert SQLite row to full learning dict, merging metadata."""
+        data = {
+            "id": row["id"],
+            "title": row["title"],
+            "category": row["category"],
+            "content": row["content"],  # string
+            "source": row["source"],
+            "created_at": row["created_at"],
+        }
 
+        # Merge metadata
+        if row["metadata"]:
+            try:
+                meta = json.loads(row["metadata"])
+
+                # Reconstruct complex content if it was saved
+                if "original_content_object" in meta:
+                    data["content"] = meta.pop("original_content_object")
+
+                # Merge rest
+                data.update(meta)
+            except Exception:
+                pass
+
+        return data
     def get_context_string(self, query: str = "", tags: List[str] = None) -> str:
         """
         Get a formatted string of relevant learnings for context injection.
+        Wraps content in XML tags to prevent prompt injection.
         """
         logger.debug(f"Retrieving relevant context for query: {query[:100]}... Tags: {tags}")
         learnings = self.retrieve_relevant(query, tags)
         if not learnings:
-            logger.debug("No relevant past learnings found for query.")
             return "No relevant past learnings found."
-
-        logger.debug(f"Found {len(learnings)} relevant learnings.")
 
         context = "## Relevant Past Learnings\\n\\n"
         for learning in learnings:
-            context += f"### {learning.get('title', 'Untitled')}\\n"
-            context += f"- **Category**: {learning.get('category', 'General')}\\n"
-            context += f"- **Source**: {learning.get('source', 'Unknown')}\\n"
-            context += f"- **Date**: {learning.get('created_at', 'Unknown')}\\n"
+            title = learning.get('title', 'Untitled').replace("<", "&lt;")
+            cat = learning.get('category', 'General').replace("<", "&lt;")
+
             content = learning.get("content", "")
             if isinstance(content, dict):
-                context += f"\\n{content.get('summary', '')}\\n\\n"
+                content_str = content.get('summary', '')
             else:
-                context += f"\\n{content}\\n\\n"
-            if learning.get("codified_improvements"):
-                context += "- **Improvements**:\\n"
-                for imp in learning["codified_improvements"]:
-                    context += (
-                        f"  - [{imp.get('type', 'item')}] {imp.get('title', '')}: "
-                        f"{imp.get('description', '')}\\n"
-                    )
-            context += "\\n"
+                content_str = str(content)
+
+            # Simple sanitization for XML structure
+            content_str = content_str.replace("</context_item>", "")
+
+            context += "<context_item>\\n"
+            context += f"  <title>{title}</title>\\n"
+            context += f"  <category>{cat}</category>\\n"
+            context += f"  <content>\\n{content_str}\\n  </content>\\n"
+            context += "</context_item>\\n\\n"
 
         return context
 
     def get_compounding_ai_prompt(self, limit: int = 20) -> str:
         """
         Get a formatted prompt suffix for auto-injection into ALL AI interactions.
-
-        This is the equivalent of CLAUDE.md in the original plugin - a way to ensure
-        every LLM call benefits from past learnings.
-
-        Args:
-            limit: Maximum number of recent learnings to include (default: 20)
-
-        Returns:
-            Formatted string ready to be prepended/appended to prompts
         """
         all_learnings = self.get_all_learnings()
 
@@ -468,14 +593,16 @@ class KnowledgeBase(CollectionManagerMixin):
         prompt += "Apply these automatically to the current task:\\n\\n"
 
         for learning in sorted_learnings:
-            prompt += f"### {learning.get('title', 'Untitled')}\\n"
-            prompt += f"**Source:** {learning.get('source', 'unknown')}\\n"
-
+            title = learning.get('title', 'Untitled').replace("<", "&lt;")
+            prompt += "<system_learning>\\n"
+            prompt += f"  <title>{title}</title>\\n"
             if learning.get("codified_improvements"):
+                prompt += "  <improvements>\\n"
                 for imp in learning["codified_improvements"]:
-                    prompt += f"- {imp.get('description', '')}\\n"
-
-            prompt += "\\n"
+                    desc = imp.get('description', '').replace("<", "&lt;")
+                    prompt += f"    <item>{desc}</item>\\n"
+                prompt += "  </improvements>\\n"
+            prompt += "</system_learning>\\n"
 
         return prompt
 
