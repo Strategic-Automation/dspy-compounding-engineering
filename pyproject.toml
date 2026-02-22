@@ -63,7 +63,6 @@ full = [
 
 [project.scripts]
 compounding = "cli:app"
-compounding-mcp = "mcp_servers.compounding_server:main"
 
 [build-system]
 requires = ["hatchling"]

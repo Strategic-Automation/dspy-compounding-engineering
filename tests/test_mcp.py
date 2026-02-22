@@ -52,25 +52,3 @@ def test_mcp_client_connects_and_wraps_tools(manager):
         # Assuming the root directory has a pyproject.toml
         result = tool(file_path="pyproject.toml", start_line=1, end_line=3)
         assert "[project]" in result or "version =" in result or "name =" in result
-
-
-def test_mcp_compounding_server_connects(manager):
-    """
-    Integration test: Connects to the compounding server and verifies the tools are exported.
-    """
-    with patch("utils.mcp.client.settings") as mock_settings:
-        mock_settings.mcp_servers = {
-            "compounding": ["python", "-m", "mcp_servers.compounding_server"]
-        }
-        
-        manager.connect_all()
-        
-        tools = manager.get_all_tools()
-        # Should have at least the 5 we exposed
-        assert len(tools) >= 5
-        
-        tool_names = [t.name for t in tools]
-        assert "compounding_review" in tool_names
-        assert "compounding_work" in tool_names
-        assert "compounding_plan" in tool_names
-

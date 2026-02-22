@@ -248,28 +248,6 @@ CONTEXT_OUTPUT_RESERVE=4096
 DOCS_MAX_TOKENS=32768  # Limit for documentation fetching (default: 32k)
 ```
 
-## MCP Server Integration (Claude Desktop)
-
-`compounding` can be attached to any Model Context Protocol (MCP) client, such as Claude Desktop, to expose its capabilities as native tools to the assistant.
-
-To configure Claude Desktop to use the DSPy Compounding Engineering FastMCP server:
-
-1. Open your Claude Desktop configuration file (typically at `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS).
-2. Add the following to the `mcpServers` section:
-
-```json
-{
-  "mcpServers": {
-    "dspy-compounding": {
-      "command": "uvx",
-      "args": ["compounding-mcp"]
-    }
-  }
-}
-```
-
-3. Restart Claude Desktop. The agent will now have access to `compounding_review`, `compounding_plan`, `compounding_work`, `compounding_triage`, and `compounding_sync` directly from your chat!
-
 ## Multi-Source Configuration
 
 As a tool meant to be used across multiple repositories, configuration can be managed at different levels:
