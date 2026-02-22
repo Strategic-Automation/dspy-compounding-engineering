@@ -142,6 +142,35 @@ def get_directory_tool(base_dir: str = ".") -> dspy.Tool:
     return dspy.Tool(list_dir)
 
 
+def get_git_log_search_tool() -> dspy.Tool:
+    """Returns a tool for searching the repository's git commit history."""
+    from utils.git.service import GitService
+
+    def git_log_search(query: str, path: str = ".") -> str:
+        """
+        Search the git commit history for a specific exact string (e.g., a function name or token).
+        Useful for finding out when a specific piece of code or text was added or removed.
+        Returns up to 30 relevant commits.
+        """
+        return GitService.get_git_log_search(query=query, path=path)
+
+    return dspy.Tool(git_log_search)
+
+
+def get_git_blame_tool() -> dspy.Tool:
+    """Returns a tool for running git blame on a file."""
+    from utils.git.service import GitService
+
+    def git_blame(file_path: str) -> str:
+        """
+        Run git blame on a file to see who last modified each line and in which commit.
+        Useful for tracking down the origin of a specific line of code or logic.
+        """
+        return GitService.get_git_blame(file_path=file_path)
+
+    return dspy.Tool(git_blame)
+
+
 def get_gather_context_tool() -> dspy.Tool:
     """Returns a tool for gathering smart project context."""
     from utils.context import ProjectContext
@@ -173,6 +202,8 @@ def get_research_tools(base_dir: str = ".") -> list[dspy.Tool]:
         get_codebase_search_tool(base_dir),  # Grep-based keyword search
         get_file_reader_tool(base_dir),  # Read specific file sections
         get_audit_logs_tool(),
+        get_git_log_search_tool(),
+        get_git_blame_tool(),
     ]
 
 
