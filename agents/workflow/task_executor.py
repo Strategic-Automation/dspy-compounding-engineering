@@ -4,11 +4,6 @@ import dspy
 from pydantic import BaseModel, Field
 
 
-from utils.mcp.client import MCPManager
-
-import subprocess
-
-
 class FileOperation(BaseModel):
     action: str = Field(..., description="create|modify|delete")
     file_path: str = Field(..., description="Path to the file")
@@ -26,20 +21,6 @@ class TaskExecution(BaseModel):
         description="Shell commands to run (e.g., migrations, installs)",
     )
     next_steps: List[str] = Field(default_factory=list, description="Follow-up actions needed")
-
-
-# Global MCP Manager (initialize when needed)
-_mcp_manager = None
-
-def get_mcp_tools() -> List[dspy.Tool]:
-    """Retrieves all standard tools from the MCP ecosystem."""
-    global _mcp_manager
-    if not _mcp_manager:
-        _mcp_manager = MCPManager()
-        _mcp_manager.connect_all()
-    # The client creates wrapped dspy.Tool instances
-    return _mcp_manager.get_all_tools()
-
 
 
 class TaskExecutor(dspy.Signature):

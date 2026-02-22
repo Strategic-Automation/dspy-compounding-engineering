@@ -62,24 +62,15 @@ This CLI tool provides AI-powered development tools for code review, planning, a
 
 ## Installation
 
-### The One-Liner (Recommended)
+### Prerequisites
 
-To install the `compounding` CLI securely and quickly on any machine, use our installer script. This will download `uv`, fetch the CLI, lock it to a known-good Python version (3.12), and place it in an isolated environment that avoids dependency conflicts.
-
-```bash
-curl -LsSf https://raw.githubusercontent.com/Strategic-Automation/dspy-compounding-engineering/main/scripts/install.sh | sh
-```
-
-### Via Pip (For standard Python setups)
-
-If you prefer using `pip`, you can install our lightweight wrapper which will bootstrap the `uv` environment under the hood:
+Install [uv](https://github.com/astral-sh/uv) (fast Python package installer):
 
 ```bash
-pip install dspyce-install
-dspyce-install
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-### For Contributors (Source Installation)
+### Setup
 
 ```bash
 # Clone repository
@@ -88,13 +79,24 @@ cd dspy-compounding-engineering
 
 # Configure environment
 cp .env.example .env
+# Edit .env with your API keys (OpenAI, Anthropic, or Ollama)
 
-# Install dependencies and sync environment
+# Install dependencies
 uv sync
-
-# Install Playwright browsers (Required for high-fidelity documentation fetching)
-uv run playwright install chromium
 ```
+
+### Repo-Agnostic Installation (Recommended)
+
+To use `compounding` in **other repositories**, install it globally using `uv tool`:
+
+```bash
+# Install globally from source
+uv tool install .
+# or from git once published
+# uv tool install git+https://github.com/Strategic-Automation/dspy-compounding-engineering.git
+```
+
+This exposes the `compounding` command globally, allowing you to run it inside any project folder.
 
 ### Vector Database Setup (Qdrant)
 
@@ -247,28 +249,6 @@ CONTEXT_WINDOW_LIMIT=128000
 CONTEXT_OUTPUT_RESERVE=4096
 DOCS_MAX_TOKENS=32768  # Limit for documentation fetching (default: 32k)
 ```
-
-## MCP Server Integration (Claude Desktop)
-
-`compounding` can be attached to any Model Context Protocol (MCP) client, such as Claude Desktop, to expose its capabilities as native tools to the assistant.
-
-To configure Claude Desktop to use the DSPy Compounding Engineering FastMCP server:
-
-1. Open your Claude Desktop configuration file (typically at `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS).
-2. Add the following to the `mcpServers` section:
-
-```json
-{
-  "mcpServers": {
-    "dspy-compounding": {
-      "command": "uvx",
-      "args": ["compounding-mcp"]
-    }
-  }
-}
-```
-
-3. Restart Claude Desktop. The agent will now have access to `compounding_review`, `compounding_plan`, `compounding_work`, `compounding_triage`, and `compounding_sync` directly from your chat!
 
 ## Multi-Source Configuration
 

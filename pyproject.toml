@@ -43,9 +43,6 @@ dependencies = [
     "langfuse>=3.11.2",
     "openinference-instrumentation-dspy>=0.1.32",
     "ddgs>=9.10.0",
-    "playwright>=1.57.0",
-    "pygithub>=2.8.1",
-    "mcp>=1.26.0",
 ]
 
 
@@ -63,7 +60,6 @@ full = [
 
 [project.scripts]
 compounding = "cli:app"
-compounding-mcp = "mcp_servers.compounding_server:main"
 
 [build-system]
 requires = ["hatchling"]

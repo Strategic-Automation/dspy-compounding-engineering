@@ -29,10 +29,5 @@ class KnowledgeGardener(dspy.Signature):
     )
 
     compressed_knowledge_json = dspy.OutputField(
-        desc=(
-            "The refined, compressed list of knowledge items in JSON format. "
-            "Each item must have 'importance_score' (0.0-1.0), "
-            "'compression_tier' (detailed/compressed/principle), "
-            "and 'fact_statement' (structured)."
-        )
+        desc="The refined, compressed list of knowledge items in JSON format."
     )

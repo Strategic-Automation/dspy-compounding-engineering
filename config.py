@@ -245,13 +245,6 @@ class AppConfig:
         self.dspy_lm_provider = os.getenv("DSPY_LM_PROVIDER", "openai")
         self.dspy_lm_model = os.getenv("DSPY_LM_MODEL", "gpt-4.1")
 
-        self.mcp_servers = {
-            "compounding": ["python", "-m", "mcp_servers.compounding_server"],
-            "file": ["python", "-m", "mcp_servers.file_server"],
-            "git": ["python", "-m", "mcp_servers.git_server"],
-            "search": ["python", "-m", "mcp_servers.search_server"]
-        }
-
         # Embedding Settings
         self.embedding_provider = os.getenv("EMBEDDING_PROVIDER", "openai")
         self.embedding_model = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
@@ -273,13 +266,6 @@ class AppConfig:
         self.kb_sync_batch_size = self._parse_int_env("KB_SYNC_BATCH_SIZE", 50)
         self.kb_sanitize_limit = self._parse_int_env("KB_SANITIZE_LIMIT", 30000)
         self.kb_compress_ratio = float(os.getenv("KB_COMPRESS_RATIO", "0.5"))
-
-        # Knowledge Gardening Settings
-        self.kg_importance_weight_recency = float(os.getenv("KG_WEIGHT_RECENCY", "0.3"))
-        self.kg_importance_weight_impact = float(os.getenv("KG_WEIGHT_IMPACT", "0.5"))
-        self.kg_importance_weight_pattern = float(os.getenv("KG_WEIGHT_PATTERN", "0.2"))
-        self.kg_retention_days = self._parse_int_env("KG_RETENTION_DAYS", 90)
-        self.kg_dedupe_threshold = float(os.getenv("KG_DEDUPE_THRESHOLD", "0.85"))
 
         # CLI & Agent Settings
         self.cli_max_workers = self._parse_int_env("COMPOUNDING_WORKERS", 3)
