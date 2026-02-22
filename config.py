@@ -245,6 +245,12 @@ class AppConfig:
         self.dspy_lm_provider = os.getenv("DSPY_LM_PROVIDER", "openai")
         self.dspy_lm_model = os.getenv("DSPY_LM_MODEL", "gpt-4.1")
 
+        self.mcp_servers = {
+            "file": ["python", "-m", "mcp_servers.file_server"],
+            "git": ["python", "-m", "mcp_servers.git_server"],
+            "search": ["python", "-m", "mcp_servers.search_server"]
+        }
+
         # Embedding Settings
         self.embedding_provider = os.getenv("EMBEDDING_PROVIDER", "openai")
         self.embedding_model = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
