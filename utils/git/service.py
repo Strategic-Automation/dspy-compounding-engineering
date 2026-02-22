@@ -209,6 +209,40 @@ class GitService:
             return "Could not retrieve file status summary."
 
     @staticmethod
+    def get_git_log_search(query: str, path: str = ".") -> str:
+        """
+        Deep git log analysis: Search for a string in commit history (git log -S).
+        Returns commit hashes, dates, authors, and subjects where the query was added/removed.
+        """
+        try:
+            cmd = [
+                "git", "log", "-S", query, 
+                "--pretty=format:%h - %an, %ar : %s",
+                "-n", "30",
+                "--", path
+            ]
+            result = run_safe_command(cmd, capture_output=True, text=True, check=True)
+            return result.stdout if result.stdout else f"No commits found altering '{query}'"
+        except subprocess.CalledProcessError as e:
+            return f"Failed to search git log: {e.stderr}"
+
+    @staticmethod
+    def get_git_blame(file_path: str) -> str:
+        """
+        Get git blame for a file to see who last modified each line and when.
+        """
+        if not os.path.isfile(file_path):
+            return f"File not found: {file_path}"
+            
+        try:
+            # -w ignores whitespace, -M detects moved lines within a file
+            cmd = ["git", "blame", "-w", "-M", file_path]
+            result = run_safe_command(cmd, capture_output=True, text=True, check=True)
+            return result.stdout
+        except subprocess.CalledProcessError as e:
+            return f"Failed to run git blame: {e.stderr}"
+
+    @staticmethod
     def get_pr_diff(pr_id_or_url: str) -> str:
         """Fetch PR diff using gh CLI."""
         if not shutil.which("gh"):

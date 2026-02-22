@@ -6,6 +6,7 @@ from rich.console import Console
 from agents.research.best_practices_researcher import BestPracticesResearcherModule
 from agents.research.framework_docs_researcher import FrameworkDocsResearcherModule
 from agents.research.repo_research_analyst import RepoResearchAnalystModule
+from agents.research.git_history_analyzer import GitHistoryAnalyzerModule
 from agents.workflow.plan_generator import PlanGenerator
 from agents.workflow.spec_flow_analyzer import SpecFlowAnalyzer
 from config import settings
@@ -13,13 +14,11 @@ from utils.knowledge import KBPredict, KnowledgeBase
 
 console = Console()
 
-
 def _get_safe_name(description: str) -> str:
     """Generate a safe filename from description."""
     safe_name = description.lower()
     safe_name = re.sub(r"[^\w\s-]", "", safe_name)
-    safe_name = re.sub(r"[\s_]+", "-", safe_name)
-    safe_name = re.sub(r"-+", "-", safe_name).strip("-")
+    safe_name = re.sub(r"[\s_]+", "-", safe_name).strip("-")
     return safe_name[:50]
 
 
@@ -152,6 +151,14 @@ def run_plan(feature_description: str):
         console.print("[green]✓ Repo Research Complete[/green]")
         repo_md = repo_research.research_report.format_markdown()
         _save_stage_output(plans_dir, safe_name, "1-repo-research", repo_md)
+        
+        git_history = KBPredict(
+            GitHistoryAnalyzerModule,
+            kb_tags=["planning", "git-history"],
+        )(feature_description=target_description)
+        console.print("[green]✓ Git History Analysis Complete[/green]")
+        git_md = git_history.historical_report.format_markdown()
+        _save_stage_output(plans_dir, safe_name, "2-git-history", git_md)
 
         best_practices = KBPredict(
             BestPracticesResearcherModule,
@@ -159,7 +166,7 @@ def run_plan(feature_description: str):
         )(topic=target_description, repo_research=repo_md)
         console.print("[green]✓ Best Practices Research Complete[/green]")
         bp_md = best_practices.research_report.format_markdown()
-        _save_stage_output(plans_dir, safe_name, "2-best-practices", bp_md)
+        _save_stage_output(plans_dir, safe_name, "3-best-practices", bp_md)
 
         # Framework research now sees both local repo context and general best practices
         framework_docs = KBPredict(
@@ -178,11 +185,14 @@ def run_plan(feature_description: str):
         )
         console.print("[green]✓ Framework Docs Research Complete[/green]")
         fw_md = framework_docs.documentation_report.format_markdown()
-        _save_stage_output(plans_dir, safe_name, "3-framework-docs", fw_md)
+        _save_stage_output(plans_dir, safe_name, "4-framework-docs", fw_md)
 
     research_summary = f"""
 ## Repo Research
 {repo_md}
+
+## Git History Analysis
+{git_md}
 
 ## Best Practices
 {bp_md}

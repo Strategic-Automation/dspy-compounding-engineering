@@ -28,10 +28,11 @@ def test_save_learning(temp_dir, sample_learning, monkeypatch):
     sample_learning["category"] = "test"
 
     # Use correct method name: save_learning
-    learning_path = kb.save_learning(sample_learning)
+    learning_id = kb.save_learning(sample_learning)
 
-    assert learning_path is not None
-    assert os.path.exists(learning_path)
+    assert learning_id is not None
+    learnings = kb.get_all_learnings()
+    assert any(l["id"] == learning_id for l in learnings)
 
 
 @pytest.mark.unit
