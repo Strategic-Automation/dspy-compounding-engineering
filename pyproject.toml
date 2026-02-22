@@ -45,7 +45,6 @@ dependencies = [
     "ddgs>=9.10.0",
     "playwright>=1.57.0",
     "pygithub>=2.8.1",
-    "mcp>=1.26.0",
 ]
 
 
