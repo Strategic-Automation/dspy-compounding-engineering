@@ -62,24 +62,15 @@ This CLI tool provides AI-powered development tools for code review, planning, a
 
 ## Installation
 
-### The One-Liner (Recommended)
+### Prerequisites
 
-To install the `compounding` CLI securely and quickly on any machine, use our installer script. This will download `uv`, fetch the CLI, lock it to a known-good Python version (3.12), and place it in an isolated environment that avoids dependency conflicts.
-
-```bash
-curl -LsSf https://raw.githubusercontent.com/Strategic-Automation/dspy-compounding-engineering/main/scripts/install.sh | sh
-```
-
-### Via Pip (For standard Python setups)
-
-If you prefer using `pip`, you can install our lightweight wrapper which will bootstrap the `uv` environment under the hood:
+Install [uv](https://github.com/astral-sh/uv) (fast Python package installer):
 
 ```bash
-pip install dspyce-install
-dspyce-install
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-### For Contributors (Source Installation)
+### Setup
 
 ```bash
 # Clone repository
@@ -88,13 +79,27 @@ cd dspy-compounding-engineering
 
 # Configure environment
 cp .env.example .env
+# Edit .env with your API keys (OpenAI, Anthropic, or Ollama)
 
-# Install dependencies and sync environment
+# Install dependencies
 uv sync
 
 # Install Playwright browsers (Required for high-fidelity documentation fetching)
 uv run playwright install chromium
 ```
+
+### Repo-Agnostic Installation (Recommended)
+
+To use `compounding` in **other repositories**, install it globally using `uv tool`:
+
+```bash
+# Install globally from source
+uv tool install .
+# or from git once published
+# uv tool install git+https://github.com/Strategic-Automation/dspy-compounding-engineering.git
+```
+
+This exposes the `compounding` command globally, allowing you to run it inside any project folder.
 
 ### Vector Database Setup (Qdrant)
 
