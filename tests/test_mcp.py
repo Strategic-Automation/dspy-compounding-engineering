@@ -73,4 +73,3 @@ def test_mcp_compounding_server_connects(manager):
         assert "compounding_review" in tool_names
         assert "compounding_work" in tool_names
         assert "compounding_plan" in tool_names
-
