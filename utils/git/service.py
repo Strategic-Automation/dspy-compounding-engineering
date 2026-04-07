@@ -420,6 +420,96 @@ class GitService:
             raise RuntimeError(f"Unexpected error creating PR worktree: {e}") from e
 
     @staticmethod
+    def get_git_log_search(query: str, path: str = ".") -> str:
+        """
+        Search git commit history for a specific string using pickaxe search (git log -S).
+        Finds commits where the given string was added or removed.
+
+        Args:
+            query: The exact string to search for in diffs.
+            path: File path to limit the search scope (default: entire repo).
+
+        Returns:
+            A formatted string of up to 20 matching commits with metadata.
+        """
+        try:
+            cmd = [
+                "git", "log",
+                "-S", query,
+                "--format=%h|%an|%ae|%ai|%s",
+                "-n", "20",
+                "--",
+            ]
+            if path and path != ".":
+                cmd.append(path)
+
+            result = run_safe_command(cmd, capture_output=True, text=True, check=False)
+            if result.returncode != 0:
+                return f"git log -S search failed: {result.stderr.strip()}"
+
+            commits = [line for line in result.stdout.strip().splitlines() if line]
+            if not commits:
+                return f"No commits found containing '{query}'"
+
+            lines = [f"Found {len(commits)} commit(s) containing '{query}':\n"]
+            lines.append("-" * 60)
+            for commit in commits:
+                parts = commit.split("|", 4)
+                if len(parts) == 5:
+                    short_hash, author, email, date, subject = parts
+                    lines.append(f"  {short_hash}  {date}  {author.strip()}")
+                    lines.append(f"    {subject}")
+                    lines.append("")
+            return "\n".join(lines)
+
+        except Exception as e:
+            return f"git log -S search error: {e}"
+
+    @staticmethod
+    def get_git_blame(file_path: str) -> str:
+        """
+        Run git blame on a file to show who last modified each line and when.
+
+        Args:
+            file_path: Path to the file to blame.
+
+        Returns:
+            Formatted blame output with up to 200 lines, or an error message.
+        """
+        if not os.path.isfile(file_path):
+            return f"File not found: {file_path}"
+
+        # Sanity check file size to avoid hanging on huge files
+        try:
+            file_size = os.path.getsize(file_path)
+            if file_size > 1_000_000:
+                return f"File too large for blame (>{file_size/1024/1024:.1f}MB): {file_path}"
+        except OSError:
+            return f"Cannot access file: {file_path}"
+
+        try:
+            cmd = [
+                "git", "blame",
+                "--date=short",
+                "--max-line-length=200",
+                "-n", "--", file_path,
+            ]
+            result = run_safe_command(cmd, capture_output=True, text=True, check=False)
+            if result.returncode != 0:
+                return f"git blame failed for '{file_path}': {result.stderr.strip()}"
+
+            lines = result.stdout.strip().splitlines()
+            # Truncate very large blame output
+            if len(lines) > 200:
+                truncated_msg = f"\n... ({len(lines) - 200} more lines truncated)"
+                return "\n".join(lines[:200]) + truncated_msg
+
+            return "\n".join(lines)
+
+        except Exception as e:
+            return f"git blame error: {e}"
+
+    @staticmethod
     def create_feature_worktree(branch_name: str, worktree_path: str) -> None:
         """Create a worktree for a feature branch (creating branch if needed)."""
         try:
