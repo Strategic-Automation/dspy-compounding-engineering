@@ -301,5 +301,23 @@ def status() -> None:
     console.print(Panel(status_text, title="System Diagnostics", border_style="cyan"))
 
 
+@app.command(name="verify-kb")
+def verify_kb() -> None:
+    """
+    Verify Knowledge Base consistency.
+
+    Checks that JSON learnings, SQLite database, and AI.md are all
+    in sync. Reports orphaned entries and inconsistencies.
+    """
+    from utils.knowledge.verifier import KnowledgeBaseVerifier, format_report
+    from config import get_project_root
+
+    kb = KnowledgeBase()
+    kb_dir = kb.knowledge_dir
+    verifier = KnowledgeBaseVerifier(knowledge_dir=kb_dir)
+    report = verifier.verify()
+    console.print(format_report(report))
+
+
 if __name__ == "__main__":
     app()
