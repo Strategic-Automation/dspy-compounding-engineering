@@ -1,0 +1,68 @@
+name: PR Review
+
+on:
+  pull_request:
+    branches: [master, dev]
+    types: [opened, synchronize, reopened]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python + Install compounding
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          uv sync --all-extras
+
+      - name: Install Playwright
+        run: uv run playwright install chromium
+
+      - name: Run Compounding Review
+        if: ${{ env.OPENAI_API_KEY != '' || env.ANTHROPIC_API_KEY != '' || env.OPENROUTER_API_KEY != '' }}
+        id: review
+        continue-on-error: true
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          COMPOUNDING_QUIET: "true"
+        run: |
+          echo "## Compounding Engineering Review" >> review_output.txt
+          echo "" >> review_output.txt
+          uv run python -m cli review ${{ github.event.pull_request.number }} >> review_output.txt 2>&1 || true
+          cat review_output.txt
+
+      - name: Post Review Findings as PR Comment
+        if: always() && steps.review.outcome == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const reviewOutput = fs.readFileSync('review_output.txt', 'utf8');
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: reviewOutput
+            });
+
+      - name: Check for P1 findings
+        if: always() && steps.review.outcome == 'success'
+        run: |
+          if grep -q "P1\|Critical\|critical" review_output.txt; then
+            echo "::warning::P1/Critical findings detected in review. Consider blocking merge until resolved."
+            exit 1
+          fi
