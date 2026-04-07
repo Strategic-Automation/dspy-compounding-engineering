@@ -31,6 +31,9 @@ jobs:
       - name: Install dependencies
         run: uv sync --group dev
       
+      - name: Auto-generate API docs
+        run: uv run python scripts/generate_api_docs.py --output-dir docs/api
+      
       - name: Build documentation
         run: uv run mkdocs build --strict
       
