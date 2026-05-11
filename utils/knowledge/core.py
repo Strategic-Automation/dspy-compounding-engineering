@@ -542,11 +542,14 @@ class KnowledgeBase(CollectionManagerMixin):
                 pass
 
         return data
+
     def get_context_string(self, query: str = "", tags: List[str] = None) -> str:
         """
         Get a formatted string of relevant learnings for context injection.
         Wraps content in XML tags to prevent prompt injection.
         """
+        import xml.sax.saxutils as xml_safe
+
         logger.debug(f"Retrieving relevant context for query: {query[:100]}... Tags: {tags}")
         learnings = self.retrieve_relevant(query, tags)
         if not learnings:
@@ -554,17 +557,14 @@ class KnowledgeBase(CollectionManagerMixin):
 
         context = "## Relevant Past Learnings\\n\\n"
         for learning in learnings:
-            title = learning.get('title', 'Untitled').replace("<", "&lt;")
-            cat = learning.get('category', 'General').replace("<", "&lt;")
+            title = xml_safe.escape(str(learning.get("title", "Untitled")))
+            cat = xml_safe.escape(str(learning.get("category", "General")))
 
             content = learning.get("content", "")
             if isinstance(content, dict):
-                content_str = content.get('summary', '')
+                content_str = xml_safe.escape(str(content.get("summary", "")))
             else:
-                content_str = str(content)
-
-            # Simple sanitization for XML structure
-            content_str = content_str.replace("</context_item>", "")
+                content_str = xml_safe.escape(str(content))
 
             context += "<context_item>\\n"
             context += f"  <title>{title}</title>\\n"
@@ -593,13 +593,13 @@ class KnowledgeBase(CollectionManagerMixin):
         prompt += "Apply these automatically to the current task:\\n\\n"
 
         for learning in sorted_learnings:
-            title = learning.get('title', 'Untitled').replace("<", "&lt;")
+            title = xml_safe.escape(str(learning.get("title", "Untitled")))
             prompt += "<system_learning>\\n"
             prompt += f"  <title>{title}</title>\\n"
             if learning.get("codified_improvements"):
                 prompt += "  <improvements>\\n"
                 for imp in learning["codified_improvements"]:
-                    desc = imp.get('description', '').replace("<", "&lt;")
+                    desc = xml_safe.escape(str(imp.get("description", "")))
                     prompt += f"    <item>{desc}</item>\\n"
                 prompt += "  </improvements>\\n"
             prompt += "</system_learning>\\n"
