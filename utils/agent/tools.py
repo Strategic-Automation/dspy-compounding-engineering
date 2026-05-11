@@ -186,6 +186,45 @@ def get_gather_context_tool() -> dspy.Tool:
     return dspy.Tool(gather_context)
 
 
+def get_knowledge_garden_tool() -> dspy.Tool:
+    """Returns a tool for running the knowledge gardening pipeline programmatically."""
+    from utils.knowledge.gardener import KnowledgeGardeningService
+
+    def garden_knowledge_base(dry_run: bool = False, deep_mode: bool = False) -> str:
+        """
+        Run the knowledge gardening pipeline to score, deduplicate, and extract
+        structured facts from the knowledge base.
+
+        Args:
+            dry_run: If True, simulate without saving changes.
+            deep_mode: If True, force LLM-based fact extraction on all unique items.
+
+        Returns:
+            A summary of the gardening operation results.
+        """
+        import io
+        from rich.console import Console
+
+        gardener = KnowledgeGardeningService()
+
+        # Capture rich console output by using a temporary console with StringIO
+        buffer = io.StringIO()
+        temp_console = Console(file=buffer, width=120)
+        original_console = gardener.__dict__.get("console")
+        try:
+            gardener.console = temp_console
+            gardener.garden(dry_run=dry_run, deep_mode=deep_mode)
+            output = buffer.getvalue()
+            return output.strip() if output else "Gardening completed successfully."
+        except Exception as e:
+            return f"Gardening failed: {e}"
+        finally:
+            if original_console:
+                gardener.console = original_console
+
+    return dspy.Tool(garden_knowledge_base)
+
+
 # --- Tool Bundles ---
 
 

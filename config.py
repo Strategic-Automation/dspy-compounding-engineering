@@ -231,6 +231,17 @@ class AppConfig:
         except ValueError:
             return default
 
+    @staticmethod
+    def _clamp(value: float, name: str, low: float = 0.0, high: float = 1.0) -> float:
+        """Clamp a float value to [low, high] with warning on out-of-range."""
+        result = max(low, min(high, value))
+        if result != value:
+            import warnings
+            warnings.warn(
+                f"{name}={value} outside valid range [{low}, {high}], clamped to {result}"
+            )
+        return result
+
     def load(self):
         """Load settings from environment variables."""
         self.context_window_limit = self._parse_int_env("CONTEXT_WINDOW_LIMIT", 128000)
@@ -274,12 +285,20 @@ class AppConfig:
         self.kb_sanitize_limit = self._parse_int_env("KB_SANITIZE_LIMIT", 30000)
         self.kb_compress_ratio = float(os.getenv("KB_COMPRESS_RATIO", "0.5"))
 
-        # Knowledge Gardening Settings
-        self.kg_importance_weight_recency = float(os.getenv("KG_WEIGHT_RECENCY", "0.3"))
-        self.kg_importance_weight_impact = float(os.getenv("KG_WEIGHT_IMPACT", "0.5"))
-        self.kg_importance_weight_pattern = float(os.getenv("KG_WEIGHT_PATTERN", "0.2"))
+        # Knowledge Gardening Settings (validated to [0,1] range)
+        self.kg_importance_weight_recency = self._clamp(
+            float(os.getenv("KG_WEIGHT_RECENCY", "0.3")), "KG_WEIGHT_RECENCY"
+        )
+        self.kg_importance_weight_impact = self._clamp(
+            float(os.getenv("KG_WEIGHT_IMPACT", "0.5")), "KG_WEIGHT_IMPACT"
+        )
+        self.kg_importance_weight_pattern = self._clamp(
+            float(os.getenv("KG_WEIGHT_PATTERN", "0.2")), "KG_WEIGHT_PATTERN"
+        )
         self.kg_retention_days = self._parse_int_env("KG_RETENTION_DAYS", 90)
-        self.kg_dedupe_threshold = float(os.getenv("KG_DEDUPE_THRESHOLD", "0.85"))
+        self.kg_dedupe_threshold = self._clamp(
+            float(os.getenv("KG_DEDUPE_THRESHOLD", "0.85")), "KG_DEDUPE_THRESHOLD"
+        )
 
         # CLI & Agent Settings
         self.cli_max_workers = self._parse_int_env("COMPOUNDING_WORKERS", 3)
@@ -315,6 +334,11 @@ class AppConfig:
         self.codify_context_truncation = 1000
         self.review_finding_truncation = 800
         self.triage_finding_truncation = 500
+
+        # Compression Threshold - KB docs compression
+        self.kb_compression_threshold = self._parse_int_env(
+            "KB_COMPRESSION_THRESHOLD", 15000
+        )
 
         # Embedding Metadata
         self.embedding_dimension_map = {
