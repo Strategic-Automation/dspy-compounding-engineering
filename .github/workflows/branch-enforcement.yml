@@ -27,8 +27,8 @@ jobs:
               exit 1
             fi
           elif [[ "$TARGET_BRANCH" == "dev" ]]; then
-            if [[ ! "$SOURCE_BRANCH" =~ ^(feature|fix|testing|chore)/ ]]; then
-              echo "ERROR: Development on 'dev' must come from feature/*, fix/*, testing/*, or chore/* branches via PR."
+            if [[ ! "$SOURCE_BRANCH" =~ ^(feature|fix|testing|chore|sentinel)/ ]]; then
+              echo "ERROR: Development on 'dev' must come from feature/*, fix/*, testing/*, chore/*, or sentinel/* branches via PR."
               exit 1
             fi
           fi
