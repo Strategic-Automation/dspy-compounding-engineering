@@ -477,9 +477,21 @@ class KnowledgeBase(CollectionManagerMixin):
                 wildcard = f"%{query}%"
                 params.extend([wildcard, wildcard, wildcard])
 
-            # If tags are provided, we'd need to parse metadata.
-            # JSON_EXTRACT is available in newer sqlite, but for safety
-            # let's filter in python or basic string matching on metadata.
+            if tags:
+                tag_conditions = []
+                for tag in tags:
+                    # Check if tag is in category OR inside the JSON tags array
+                    # LOWER() for case-insensitive matching if SQLite is configured for it,
+                    # but LIKE is case-insensitive by default for ASCII
+                    condition = (
+                        "(category LIKE ? OR EXISTS ("
+                        "SELECT 1 FROM json_each(json_extract(metadata, '$.tags')) "
+                        "WHERE value LIKE ?))"
+                    )
+                    tag_conditions.append(condition)
+                    params.extend([tag, tag])
+
+                sql += " AND (" + " OR ".join(tag_conditions) + ")"
 
             sql += " ORDER BY created_at DESC"
 
@@ -487,16 +499,7 @@ class KnowledgeBase(CollectionManagerMixin):
 
             count = 0
             for row in cursor:
-                learning = self._row_to_dict(row)
-
-                # Manual Tag Filtering
-                if tags:
-                    learning_tags = learning.get("tags", [])
-                    learning_tags.append(learning.get("category", ""))
-                    if not any(tag.lower() in [t.lower() for t in learning_tags] for tag in tags):
-                        continue
-
-                results.append(learning)
+                results.append(self._row_to_dict(row))
                 count += 1
                 if limit and count >= limit:
                     break
@@ -542,6 +545,7 @@ class KnowledgeBase(CollectionManagerMixin):
                 pass
 
         return data
+
     def get_context_string(self, query: str = "", tags: List[str] = None) -> str:
         """
         Get a formatted string of relevant learnings for context injection.
@@ -554,12 +558,12 @@ class KnowledgeBase(CollectionManagerMixin):
 
         context = "## Relevant Past Learnings\\n\\n"
         for learning in learnings:
-            title = learning.get('title', 'Untitled').replace("<", "&lt;")
-            cat = learning.get('category', 'General').replace("<", "&lt;")
+            title = learning.get("title", "Untitled").replace("<", "&lt;")
+            cat = learning.get("category", "General").replace("<", "&lt;")
 
             content = learning.get("content", "")
             if isinstance(content, dict):
-                content_str = content.get('summary', '')
+                content_str = content.get("summary", "")
             else:
                 content_str = str(content)
 
@@ -593,13 +597,13 @@ class KnowledgeBase(CollectionManagerMixin):
         prompt += "Apply these automatically to the current task:\\n\\n"
 
         for learning in sorted_learnings:
-            title = learning.get('title', 'Untitled').replace("<", "&lt;")
+            title = learning.get("title", "Untitled").replace("<", "&lt;")
             prompt += "<system_learning>\\n"
             prompt += f"  <title>{title}</title>\\n"
             if learning.get("codified_improvements"):
                 prompt += "  <improvements>\\n"
                 for imp in learning["codified_improvements"]:
-                    desc = imp.get('description', '').replace("<", "&lt;")
+                    desc = imp.get("description", "").replace("<", "&lt;")
                     prompt += f"    <item>{desc}</item>\\n"
                 prompt += "  </improvements>\\n"
             prompt += "</system_learning>\\n"
