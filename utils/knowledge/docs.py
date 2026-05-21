@@ -167,7 +167,7 @@ class KnowledgeDocumentation:
 
     def _run_compression(self, content: str, ratio: float, silent: bool = False) -> str:
         """Run the LLM-based compression with caching."""
-        content_hash = hashlib.md5(content.encode("utf-8")).hexdigest()
+        content_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
         cache_key = f"{content_hash}_{ratio}"
 
         if cache_key in self._compression_cache:

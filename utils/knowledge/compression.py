@@ -79,7 +79,7 @@ class LLMKBCompressor(dspy.Module):
         # Check cache first
         import hashlib
 
-        content_hash = hashlib.md5(f"{content}:{ratio}".encode()).hexdigest()
+        content_hash = hashlib.sha256(f"{content}:{ratio}".encode()).hexdigest()
         cache = self._load_cache()
         if content_hash in cache:
             return cache[content_hash]
