@@ -295,10 +295,11 @@ def status() -> None:
     """
     Check the current status of external services (Qdrant, API keys).
     """
+    from rich.markdown import Markdown
     from rich.panel import Panel
 
     status_text = get_system_status()
-    console.print(Panel(status_text, title="System Diagnostics", border_style="cyan"))
+    console.print(Panel(Markdown(status_text), title="System Diagnostics", border_style="cyan"))
 
 
 @app.command(name="verify-kb")
@@ -310,7 +311,6 @@ def verify_kb() -> None:
     in sync. Reports orphaned entries and inconsistencies.
     """
     from utils.knowledge.verifier import KnowledgeBaseVerifier, format_report
-    from config import get_project_root
 
     kb = KnowledgeBase()
     kb_dir = kb.knowledge_dir
