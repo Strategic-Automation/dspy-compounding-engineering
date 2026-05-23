@@ -252,11 +252,6 @@ def run_sync(
 
     if not syncable_files:
         console.print("[dim]No pending or ready todos found to sync.[/dim]")
-        console.print(
-            "[dim]Use [cyan]compounding review[/cyan] to analyze your code and "
-            "generate new findings,\n"
-            "or [cyan]compounding plan[/cyan] to create a new feature plan.[/dim]\n"
-        )
         return results
 
     console.print(f"[bold]Found {len(syncable_files)} todos to sync.[/bold]\n")

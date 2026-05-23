@@ -109,10 +109,6 @@ def _run_react_todo(  # noqa: C901
 
     if not todos:
         console.print("[yellow]No ready todos found matching the criteria.[/yellow]")
-        console.print(
-            "[dim]Use [cyan]compounding triage[/cyan] to approve pending todos "
-            "or [cyan]compounding review[/cyan] to generate new ones.[/dim]\n"
-        )
         return
 
     console.print(f"[green]Found {len(todos)} ready todos.[/green]")
