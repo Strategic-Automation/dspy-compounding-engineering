@@ -178,21 +178,19 @@ def _normalize_llm_escapes(content: str) -> str:
     newlines when constructing multi-line code edits. This function converts
     them to real newlines.
 
-    Uses regex with raw strings to ensure we match the exact two-character
+    Uses string replacement to ensure we match the exact two-character
     sequence (backslash followed by 'n').
     """
-    import re
-
     if not content:
         return content
 
     # Match literal backslash followed by 'n' (two characters, not escape sequence)
-    # The raw string r'\\n' matches the two-character sequence: \ followed by n
-    content = re.sub(r"\\n", "\n", content)
-    content = re.sub(r"\\t", "\t", content)
+    # The raw string r'\n' matches the two-character sequence: \ followed by n
+    content = content.replace(r"\n", "\n")
+    content = content.replace(r"\t", "\t")
     # Handle escaped quotes
-    content = re.sub(r'\\"', '"', content)
-    content = re.sub(r"\\'", "'", content)
+    content = content.replace(r'\"', '"')
+    content = content.replace(r"\'", "'")
 
     return content
 
