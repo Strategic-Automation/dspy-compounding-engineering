@@ -4,7 +4,6 @@ import inspect
 import os
 import pkgutil
 import re
-import subprocess
 from typing import Any, Optional, Set, Type
 
 import dspy
@@ -18,6 +17,7 @@ from utils.context import ProjectContext
 from utils.git import GitService
 from utils.github import GitHubService
 from utils.io.logger import console, logger
+from utils.io.safe import run_safe_command
 from utils.knowledge import KBPredict
 from utils.todo import create_finding_todo
 
@@ -724,7 +724,7 @@ def run_review(
     if worktree_path and os.path.exists(worktree_path):
         console.print(f"\n[yellow]Cleaning up worktree {worktree_path}...[/yellow]")
         try:
-            subprocess.run(
+            run_safe_command(
                 ["git", "worktree", "remove", "--force", worktree_path],
                 check=True,
                 capture_output=True,
