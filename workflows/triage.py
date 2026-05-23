@@ -84,7 +84,11 @@ def run_triage():  # noqa: C901
     pending_files.sort(key=sort_key)
 
     if not pending_files:
-        console.print("[green]No pending todos found![/green]")
+        console.print("\n[green]✨ No pending todos found to triage![/green]")
+        console.print(
+            "[dim]Use [cyan]compounding review[/cyan] to analyze your code and "
+            "generate new findings.[/dim]\n"
+        )
         return
 
     console.print(f"[bold]Found {len(pending_files)} pending items for triage.[/bold]\n")
