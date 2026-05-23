@@ -34,7 +34,9 @@ class TokenCounter:
         target_model = model or self.default_model
 
         # Check cache
-        content_hash = hashlib.md5(text.encode("utf-8")).hexdigest()
+        # SECURITY: Using SHA-256 instead of MD5 to mitigate collision vulnerabilities
+        # and satisfy static analysis checks
+        content_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
         if target_model in _TOKEN_CACHE and content_hash in _TOKEN_CACHE[target_model]:
             return _TOKEN_CACHE[target_model][content_hash]
 
