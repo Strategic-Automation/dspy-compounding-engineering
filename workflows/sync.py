@@ -261,8 +261,9 @@ def run_sync(
 
     console.print(f"[bold]Found {len(syncable_files)} todos to sync.[/bold]\n")
 
-    for file_path in sorted(syncable_files):
-        _sync_single_file(file_path, dry_run, available_labels, results)
+    with console.status("Syncing to GitHub..."):
+        for file_path in sorted(syncable_files):
+            _sync_single_file(file_path, dry_run, available_labels, results)
 
     # Print summary
     _print_summary(results, dry_run)
