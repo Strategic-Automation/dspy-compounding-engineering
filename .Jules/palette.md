@@ -1,3 +1,6 @@
-## 2024-05-24 - CLI Markdown Rendering
-**Learning:** Pure CLI applications utilizing `rich` library can still benefit from rich markdown rendering to make diagnostic outputs easier to read.
-**Action:** When working on CLI apps built with `rich`, ensure strings containing markdown elements (e.g. lists, bold text) are wrapped with `Markdown()` before passing them to display elements like `Panel()`.
+## 2024-05-15 - Micro-UX Observation
+**Learning:** Found no package.json, which means this isn't a Node/frontend project, but a pure Python CLI. UX enhancements here should focus on CLI interactions, output formatting, or accessible documentation output.
+**Action:** Always check the project type before assuming frontend tasks.
+## 2024-05-15 - Command output enhancement
+**Learning:** Found that CLI output via `SystemLogger.info` only prints to console if `to_cli=True`, otherwise it only logs to file. This makes some commands feel unresponsive, like it is hanging, to the user.
+**Action:** Enhance CLI UX by changing the rich console output using rich spinners for long operations.
