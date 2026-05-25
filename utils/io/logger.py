@@ -209,6 +209,7 @@ class SystemLogger:
     @staticmethod
     def status(msg: str):
         """Returns a status context for rich spinners."""
+        SystemLogger.info(msg, to_cli=False)
         return console.status(msg)
 
     @staticmethod

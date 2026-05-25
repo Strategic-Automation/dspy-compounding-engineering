@@ -76,15 +76,15 @@ class EmbeddingProvider:
             if key in _MODEL_CACHE:
                 return _MODEL_CACHE[key]
 
-            logger.info(f"Loading model: {model_name}...", to_cli=True)
-            try:
-                model = loader_func(model_name=model_name)
-                _MODEL_CACHE[key] = model
-                logger.success(f"Model {model_name} loaded successfully")
-                return model
-            except Exception as e:
-                logger.error(f"Failed to load model {model_name}", detail=str(e))
-                raise e
+            with logger.status(f"Loading model: {model_name}..."):
+                try:
+                    model = loader_func(model_name=model_name)
+                    _MODEL_CACHE[key] = model
+                    logger.success(f"Model {model_name} loaded successfully")
+                    return model
+                except Exception as e:
+                    logger.error(f"Failed to load model {model_name}", detail=str(e))
+                    raise e
 
     def _get_fastembed_model(self, model_name: str) -> Any:
         """Get or initialize a FastEmbed model from global cache."""

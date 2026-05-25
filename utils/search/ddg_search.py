@@ -72,9 +72,9 @@ def internet_search(query: str, max_results: int = 5) -> str:
     """
     from ..io.logger import logger
 
-    logger.info(f"Searching the internet for: {query}", to_cli=True)
-    results = search_web(query, max_results=max_results)
-    formatted_results = format_search_results(results)
+    with logger.status(f"Searching the internet for: {query}"):
+        results = search_web(query, max_results=max_results)
+        formatted_results = format_search_results(results)
 
     # Proactive scrubbing of data retrieved from the web
     from ..security.scrubber import scrubber

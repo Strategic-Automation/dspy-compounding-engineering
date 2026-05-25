@@ -231,9 +231,9 @@ def _gather_review_context(
         elif pr_url_or_id == "latest":
             code_diff = _gather_local_changes()
         else:
-            logger.info(f"Fetching diff for {pr_url_or_id}...", to_cli=True)
-            code_diff = GitService.get_diff(pr_url_or_id)
-            worktree_path = _setup_worktree(pr_url_or_id)
+            with logger.status(f"Fetching diff for {pr_url_or_id}..."):
+                code_diff = GitService.get_diff(pr_url_or_id)
+                worktree_path = _setup_worktree(pr_url_or_id)
 
         if not code_diff:
             logger.error(f"No changes found to review for: {pr_url_or_id}!")
@@ -250,25 +250,25 @@ def _gather_review_context(
 
 def _gather_project_context() -> str | None:
     """Helper to gather full project context."""
-    logger.info("Gathering project files...", to_cli=True)
-    context_service = ProjectContext()
+    with logger.status("Gathering project files..."):
+        context_service = ProjectContext()
 
-    audit_task = (
-        "Perform a comprehensive architectural, security, and code quality audit "
-        "of the entire project. Prioritize core logic, configuration, and entry points."
-    )
-    code_diff = context_service.gather_smart_context(task=audit_task)
-    if not code_diff:
-        logger.error("No source files found to review!")
-    else:
-        logger.success(f"Gathered {len(code_diff):,} characters of project code")
-    return code_diff
+        audit_task = (
+            "Perform a comprehensive architectural, security, and code quality audit "
+            "of the entire project. Prioritize core logic, configuration, and entry points."
+        )
+        code_diff = context_service.gather_smart_context(task=audit_task)
+        if not code_diff:
+            logger.error("No source files found to review!")
+        else:
+            logger.success(f"Gathered {len(code_diff):,} characters of project code")
+        return code_diff
 
 
 def _gather_local_changes() -> str | None:
     """Helper to gather local changes."""
-    logger.info("Fetching local changes...", to_cli=True)
-    code_diff = GitService.get_diff("HEAD")
+    with logger.status("Fetching local changes..."):
+        code_diff = GitService.get_diff("HEAD")
     summary = GitService.get_file_status_summary("HEAD")
 
     if not code_diff:
