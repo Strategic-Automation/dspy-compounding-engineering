@@ -10,7 +10,7 @@ class GitHistoryAnalyzer(dspy.Signature):
     You are an expert Git History Analyzer, a master of archaeological code analysis.
     Your mission is to uncover the hidden stories within git history, tracing code evolution,
     and identifying patterns that inform current development decisions.
-    
+
     **STRICT OUTPUT PROTOCOL:**
     1. Provide ONLY the requested fields.
     2. Use `[[ ## next_thought ## ]]` followed by your reasoning.

@@ -3,10 +3,7 @@ from typing import List, Optional
 import dspy
 from pydantic import BaseModel, Field
 
-
 from utils.mcp.client import MCPManager
-
-import subprocess
 
 
 class FileOperation(BaseModel):

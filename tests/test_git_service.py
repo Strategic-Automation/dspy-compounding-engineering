@@ -79,21 +79,21 @@ def test_checkout_pr_worktree_fork(
 ):
     """Test that checkout_pr_worktree correctly handles a fork PR using gh CLI."""
     mock_which.return_value = "/usr/bin/gh"
-    
+
     mock_get_pr_details.return_value = {
         "number": 123,
         "headRefName": "feature-branch",
         "headRepositoryOwner": {"login": "contributor_name"},
     }
     mock_get_repo.return_value = "main_owner/main_repo"
-    
+
     # Mock the return value of remote list
     mock_remote_list = MagicMock()
     mock_remote_list.stdout = "origin\n"
     mock_run_safe.return_value = mock_remote_list
-    
+
     GitService.checkout_pr_worktree("123", "/tmp/worktree")
-    
+
     # Verify we added the fork remote
     mock_run_safe.assert_any_call(["git", "remote", "add", "fork-contributor_name", "https://github.com/contributor_name/main_repo.git"], check=True)
     # Verify we fetched the fork remote
@@ -124,7 +124,7 @@ def test_get_git_log_search_success():
     assert "John Doe" in result
     assert "Add search endpoint" in result
     # verify the cmd included -S flag
-    call_args = mock_result.__class__.call_args_list if hasattr(mock_result, "call_args_list") else None
+    mock_result.__class__.call_args_list if hasattr(mock_result, "call_args_list") else None
     # Instead check via patch verification
     with patch("utils.git.service.run_safe_command", return_value=mock_result) as mock_cmd:
         GitService.get_git_log_search(query="search", path="src/")

@@ -1,9 +1,7 @@
 """Tests for Knowledge Base verification functionality."""
 
 import json
-import os
 import sqlite3
-from unittest.mock import patch
 
 import pytest
 
@@ -353,7 +351,6 @@ def test_missing_db_table(temp_dir):
     with sqlite3.connect(db_path) as conn:
         conn.execute("CREATE TABLE other_table (id TEXT)")
 
-    ai_md_content = "# AI Knowledge Base\n\n"
 
     verifier = KnowledgeBaseVerifier(knowledge_dir=str(kb_dir))
     report = verifier.verify()
@@ -396,7 +393,7 @@ def test_format_report():
 def test_report_determines_status_correctly():
     """Test that status determination works for all cases."""
     # No findings → healthy
-    report1 = VerificationReport(status="healthy", findings=[])
+    VerificationReport(status="healthy", findings=[])
     verifier = KnowledgeBaseVerifier(knowledge_dir="/some/path")
     assert verifier._determine_status([]) == "healthy"
 

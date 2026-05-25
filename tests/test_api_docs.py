@@ -6,8 +6,6 @@ import sys
 import tempfile
 from pathlib import Path
 
-import pytest
-
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
@@ -15,9 +13,7 @@ from scripts.generate_api_docs import (
     extract_classes_and_functions,
     extract_docstring,
     generate_module_docs,
-    main,
 )
-
 
 # =============================================================================
 # Tests for extract_docstring
@@ -65,11 +61,11 @@ def test_extract_class_and_function():
     """Test extraction of class and function definitions."""
     source = '''class MyService:
     """A test service."""
-    
+
     def __init__(self):
         """Initialize."""
         pass
-    
+
     def do_thing(self, name: str):
         """Does a thing."""
         pass
@@ -135,7 +131,7 @@ def test_generate_module_docs(tmp_path):
 
 class Foo:
     """Foo class docstring."""
-    
+
     def bar(self, arg):
         """Bar method."""
         pass

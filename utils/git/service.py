@@ -60,8 +60,7 @@ class GitService:
     def _get_github_client():
         """Get PyGithub client using GITHUB_TOKEN or GH_TOKEN."""
         try:
-            from github import Github
-            from github import Auth
+            from github import Auth, Github
 
             token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
             if token:
@@ -216,7 +215,7 @@ class GitService:
         """
         try:
             cmd = [
-                "git", "log", "-S", query, 
+                "git", "log", "-S", query,
                 "--pretty=format:%h - %an, %ar : %s",
                 "-n", "30",
                 "--", path
@@ -233,7 +232,7 @@ class GitService:
         """
         if not os.path.isfile(file_path):
             return f"File not found: {file_path}"
-            
+
         try:
             # -w ignores whitespace, -M detects moved lines within a file
             cmd = ["git", "blame", "-w", "-M", file_path]
@@ -345,7 +344,7 @@ class GitService:
                 try:
                     details = GitService.get_pr_details(pr_id_or_url)
                     pr_number = details.get("number")
-                    
+
                     head_repo_owner = details.get("headRepositoryOwner", {}).get("login")
                     repo_name = GitService._get_repo_from_remote()
                     if repo_name and head_repo_owner:
@@ -371,7 +370,7 @@ class GitService:
                                 pr_num = int(str(pr_id_or_url).split("pull/")[-1].split("/")[0])
                             else:
                                 pr_num = int(pr_id_or_url)
-                            
+
                             pr = repo.get_pull(pr_num)
                             pr_number = pr.number
                             if pr.head.repo and pr.head.repo.full_name != repo.full_name:
@@ -390,18 +389,18 @@ class GitService:
             if is_fork and head_ref_name and head_repo_clone_url and fork_owner:
                 logger.info(f"PR is from a fork ({fork_owner}). Adding remote and fetching...", to_cli=True)
                 fork_remote = f"fork-{fork_owner}"
-                
+
                 # Check if remote exists
                 remotes = run_safe_command(["git", "remote"], capture_output=True, text=True).stdout.splitlines()
                 if fork_remote not in remotes:
                     run_safe_command(["git", "remote", "add", fork_remote, head_repo_clone_url], check=True)
-                
+
                 # Fetch the branch from the fork remote
                 run_safe_command(["git", "fetch", fork_remote, head_ref_name], check=True)
-                
+
                 # Setup proper tracking so the user can push back to the fork
                 start_point = f"{fork_remote}/{head_ref_name}"
-                
+
                 logger.info(f"Creating worktree at {worktree_path} tracking {start_point}...", to_cli=True)
                 cmd = ["git", "worktree", "add", "-B", local_review_branch, worktree_path, start_point]
                 run_safe_command(cmd, check=True)
@@ -410,7 +409,7 @@ class GitService:
                 ref = f"pull/{pr_number}/head:{local_review_branch}"
                 logger.info(f"Fetching {ref} into isolated branch...", to_cli=True)
                 run_safe_command(["git", "fetch", "origin", ref, "-f"], check=True)
-                
+
                 cmd = ["git", "worktree", "add", worktree_path, local_review_branch]
                 run_safe_command(cmd, check=True)
 
