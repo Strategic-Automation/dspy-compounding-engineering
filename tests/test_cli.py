@@ -6,6 +6,12 @@ import pytest
 from typer.testing import CliRunner
 
 from cli import app
+from workflows.triage import run_triage
+from workflows.plan import run_plan
+from workflows.work import run_unified_work
+from workflows.review import run_review
+from workflows.generate_agent import run_generate_agent
+from workflows.codify import run_codify
 
 runner = CliRunner()
 
@@ -14,12 +20,12 @@ runner = CliRunner()
 def mock_workflows():
     """Mock all workflow functions to prevent actual execution."""
     with (
-        patch("cli.run_triage") as m_triage,
-        patch("cli.run_plan") as m_plan,
-        patch("cli.run_unified_work") as m_work,
-        patch("cli.run_review") as m_review,
-        patch("cli.run_generate_agent") as m_gen,
-        patch("cli.run_codify") as m_codify,
+        patch("workflows.triage.run_triage") as m_triage,
+        patch("workflows.plan.run_plan") as m_plan,
+        patch("workflows.work.run_unified_work") as m_work,
+        patch("workflows.review.run_review") as m_review,
+        patch("workflows.generate_agent.run_generate_agent") as m_gen,
+        patch("workflows.codify.run_codify") as m_codify,
     ):
         yield {
             "triage": m_triage,
@@ -34,7 +40,7 @@ def mock_workflows():
 @pytest.fixture
 def mock_knowledge_base_class():
     """Mock KnowledgeBase class."""
-    with patch("cli.KnowledgeBase") as m_kb:
+    with patch("utils.knowledge.KnowledgeBase") as m_kb:
         mock_instance = m_kb.return_value
         yield mock_instance
 

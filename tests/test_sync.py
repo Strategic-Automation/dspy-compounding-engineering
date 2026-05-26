@@ -72,7 +72,7 @@ class TestSyncCommand:
     @pytest.fixture
     def mock_sync(self):
         """Mock the run_sync function."""
-        with patch("cli.run_sync") as m_sync:
+        with patch("workflows.sync.run_sync") as m_sync:
             m_sync.return_value = {"created": [], "updated": [], "errors": []}
             yield m_sync
 

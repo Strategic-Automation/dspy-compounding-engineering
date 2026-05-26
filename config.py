@@ -16,7 +16,6 @@ import threading
 from pathlib import Path
 from typing import Any
 
-import dspy
 from dotenv import load_dotenv
 
 from utils.io.logger import configure_logging, console, logger
@@ -564,6 +563,7 @@ def _configure_observability():
 
 def configure_dspy(env_file: str | None = None):
     """Configure DSPy with the appropriate LM provider and settings."""
+    import dspy
     load_configuration(env_file)
     _configure_observability()
 

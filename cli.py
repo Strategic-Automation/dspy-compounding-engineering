@@ -7,14 +7,6 @@ from rich.console import Console
 
 from config import configure_dspy, settings
 from utils.io import get_system_status, validate_agent_filters
-from utils.knowledge import KnowledgeBase
-from workflows.codify import run_codify
-from workflows.generate_agent import run_generate_agent
-from workflows.plan import run_plan
-from workflows.review import run_review
-from workflows.sync import run_sync
-from workflows.triage import run_triage
-from workflows.work import run_unified_work
 
 console = Console()
 app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
@@ -47,6 +39,7 @@ def triage() -> None:
     """
     Triage and categorize findings for the CLI todo system.
     """
+    from workflows.triage import run_triage
     run_triage()
 
 
@@ -68,6 +61,7 @@ def sync(
         compounding sync --dry-run        # Preview what would be created
         compounding sync -p "*-p1-*"      # Only sync P1 priority todos
     """
+    from workflows.sync import run_sync
     run_sync(dry_run=dry_run, pattern=pattern)
 
 
@@ -85,6 +79,7 @@ def plan(
         compounding plan 30
         compounding plan https://github.com/user/repo/issues/30
     """
+    from workflows.plan import run_plan
     run_plan(description)
 
 
@@ -127,6 +122,7 @@ def work(
         if ".." in pattern or pattern.startswith("/"):
             raise typer.BadParameter("Path traversal sequences not allowed")
 
+    from workflows.work import run_unified_work
     run_unified_work(
         pattern=pattern,
         dry_run=dry_run,
@@ -172,6 +168,7 @@ def review(
     if agent and safe_agent_filter is None:
         return
 
+    from workflows.review import run_review
     run_review(pr_url_or_id, project=project, agent_filter=safe_agent_filter)
 
 
@@ -199,6 +196,7 @@ def generate_agent(
         compounding generate-agent "Ensure all Python functions have docstrings"
         compounding generate-agent --dry-run "Audit for frontend race conditions"
     """
+    from workflows.generate_agent import run_generate_agent
     run_generate_agent(description=description, dry_run=dry_run)
 
 
@@ -223,6 +221,7 @@ def codify(
         compounding codify "Always use strict typing in Python files"
         compounding codify "We should use factory pattern for creating agents" --source retro
     """
+    from workflows.codify import run_codify
     run_codify(feedback=feedback, source=source)
 
 
@@ -252,6 +251,7 @@ def compress_kb(
     if not math.isfinite(ratio):
         raise ValueError("Ratio must be a finite number (not NaN or infinity)")
 
+    from utils.knowledge import KnowledgeBase
     kb = KnowledgeBase()
     kb.compress_ai_md(ratio=ratio, dry_run=dry_run)
 
@@ -286,6 +286,7 @@ def index(
     Use this to enable agents to find relevant code snippets.
     Performs smart incremental indexing (skips unchanged files).
     """
+    from utils.knowledge import KnowledgeBase
     kb = KnowledgeBase()
     kb.index_codebase(root_dir=root_dir, force_recreate=recreate)
 
@@ -311,6 +312,7 @@ def verify_kb() -> None:
     in sync. Reports orphaned entries and inconsistencies.
     """
     from utils.knowledge.verifier import KnowledgeBaseVerifier, format_report
+    from utils.knowledge import KnowledgeBase
 
     kb = KnowledgeBase()
     kb_dir = kb.knowledge_dir
