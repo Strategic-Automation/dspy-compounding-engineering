@@ -6,13 +6,11 @@ into the persistent knowledge base using the FeedbackCodifier agent.
 """
 
 import dspy
-from rich.console import Console
 from rich.panel import Panel
 
 from agents.workflow.feedback_codifier import FeedbackCodifier
+from utils.io.logger import console, logger
 from utils.knowledge import KnowledgeBase
-
-console = Console()
 
 
 def run_codify(feedback: str, source: str = "manual_input"):
@@ -32,7 +30,7 @@ def run_codify(feedback: str, source: str = "manual_input"):
     existing_knowledge = kb.get_context_string(query=feedback)
 
     # 2. Run FeedbackCodifier Agent
-    with console.status("[cyan]Analyzing and codifying feedback...[/cyan]"):
+    with logger.status("[cyan]Analyzing and codifying feedback...[/cyan]"):
         # Use ChainOfThought for robust typed output
         codifier = dspy.ChainOfThought(FeedbackCodifier)
         result = codifier(

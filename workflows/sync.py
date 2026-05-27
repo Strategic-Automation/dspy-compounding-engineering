@@ -10,13 +10,11 @@ import os
 import re
 from typing import Optional
 
-from rich.console import Console
 from rich.table import Table
 
 from utils.github import GitHubService
+from utils.io.logger import console, logger
 from utils.todo import parse_todo, serialize_todo
-
-console = Console()
 
 
 def _extract_title_from_body(body: str) -> str:
@@ -261,7 +259,7 @@ def run_sync(
 
     console.print(f"[bold]Found {len(syncable_files)} todos to sync.[/bold]\n")
 
-    with console.status("Syncing to GitHub..."):
+    with logger.status("Syncing to GitHub..."):
         for file_path in sorted(syncable_files):
             _sync_single_file(file_path, dry_run, available_labels, results)
 

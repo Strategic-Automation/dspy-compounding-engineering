@@ -244,7 +244,7 @@ class KnowledgeBaseVerifier:
                 findings.append(VerificationFinding(
                     severity="warning",
                     category="orphan",
-                    message=f"Orphaned DB entry (no JSON file)",
+                    message="Orphaned DB entry (no JSON file)",
                     details=f"Learning ID: {oid}",
                 ))
 
