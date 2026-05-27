@@ -211,7 +211,7 @@ class CodebaseIndexer(CollectionManagerMixin):
         updated_count = 0
         skipped_count = 0
 
-        with console.status(f"Indexing {len(files)} files...") as status:
+        with logger.status(f"Indexing {len(files)} files...") as status:
             for filepath in files:
                 if self._should_ignore(filepath):
                     continue

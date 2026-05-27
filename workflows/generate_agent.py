@@ -17,6 +17,7 @@ from rich.syntax import Syntax
 from agents.workflow.agent_generator import AgentGenerator
 from config import settings
 from utils.agent.tools import get_research_tools
+from utils.io.logger import logger
 
 console = Console()
 
@@ -176,7 +177,7 @@ def run_generate_agent(description: str, dry_run: bool = False):
     # Phase 1: Gather context
     console.rule("[bold]Phase 1: Context Gathering[/bold]")
 
-    with console.status("[cyan]Analyzing existing review agents...[/cyan]"):
+    with logger.status("[cyan]Analyzing existing review agents...[/cyan]"):
         existing_agents = _get_existing_review_agents()
 
     console.print("[green]✓ Context gathered[/green]")
@@ -185,7 +186,7 @@ def run_generate_agent(description: str, dry_run: bool = False):
     # Phase 2: Generate agent specification
     console.rule("[bold]Phase 2: Agent Generation[/bold]")
 
-    with console.status("[cyan]Generating agent code (with research)...[/cyan]"):
+    with logger.status("[cyan]Generating agent code (with research)...[/cyan]"):
         # Use centralized research tools (web search, docs, codebase, etc.)
         tools = get_research_tools()
 

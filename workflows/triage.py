@@ -7,7 +7,7 @@ from rich.prompt import Prompt
 from rich.table import Table
 
 from agents.workflow.triage_agent import TriageAgent
-from utils.io.logger import console
+from utils.io.logger import console, logger
 from utils.knowledge import KBPredict
 from utils.todo import add_work_log_entry, complete_todo
 
@@ -117,7 +117,7 @@ def run_triage():  # noqa: C901
         console.rule(f"[{idx}/{total_items}] Triaging: {filename}")
 
         # Use LLM to present the finding
-        with console.status("Analyzing finding..."):
+        with logger.status("Analyzing finding..."):
             response = triage_predictor(finding_content=content)
 
         console.print(Markdown(response.formatted_presentation))
