@@ -1,18 +1,16 @@
 import os
 import re
 
-from rich.console import Console
-
 from agents.research.best_practices_researcher import BestPracticesResearcherModule
 from agents.research.framework_docs_researcher import FrameworkDocsResearcherModule
-from agents.research.repo_research_analyst import RepoResearchAnalystModule
 from agents.research.git_history_analyzer import GitHistoryAnalyzerModule
+from agents.research.repo_research_analyst import RepoResearchAnalystModule
 from agents.workflow.plan_generator import PlanGenerator
 from agents.workflow.spec_flow_analyzer import SpecFlowAnalyzer
 from config import settings
+from utils.io.logger import console, logger
 from utils.knowledge import KBPredict, KnowledgeBase
 
-console = Console()
 
 def _get_safe_name(description: str) -> str:
     """Generate a safe filename from description."""
@@ -59,7 +57,7 @@ def _handle_github_issue(feature_description: str) -> tuple[str, dict]:
             )
 
     if is_issue:
-        with console.status(f"Fetching GitHub issue {feature_description}..."):
+        with logger.status(f"Fetching GitHub issue {feature_description}..."):
             issue_id = feature_description.lstrip("#")
             # If it's a URL, the git service should handle extraction or we do it here
             if "/" in issue_id:
@@ -136,14 +134,14 @@ def run_plan(feature_description: str):
     console.rule("Phase 1: Research")
     kb = KnowledgeBase()
 
-    with console.status("Scanning project structure..."):
+    with logger.status("Scanning project structure..."):
         semantic_results = kb.search_codebase(
             target_description, limit=settings.search_limit_codebase
         )
         if semantic_results:
             console.print(f"[dim]Found {len(semantic_results)} semantic code matches[/dim]")
 
-    with console.status("Running Research Agents..."):
+    with logger.status("Running Research Agents..."):
         repo_research = KBPredict(
             RepoResearchAnalystModule,
             kb_tags=["planning", "repo-research"],
@@ -151,7 +149,7 @@ def run_plan(feature_description: str):
         console.print("[green]✓ Repo Research Complete[/green]")
         repo_md = repo_research.research_report.format_markdown()
         _save_stage_output(plans_dir, safe_name, "1-repo-research", repo_md)
-        
+
         git_history = KBPredict(
             GitHistoryAnalyzerModule,
             kb_tags=["planning", "git-history"],
@@ -204,7 +202,7 @@ def run_plan(feature_description: str):
 
     # 2. SpecFlow Analysis
     console.rule("Phase 2: SpecFlow Analysis")
-    with console.status("Analyzing User Flows..."):
+    with logger.status("Analyzing User Flows..."):
         spec_flow = KBPredict(
             SpecFlowAnalyzer,
             kb_tags=["planning", "spec-flow"],
@@ -214,7 +212,7 @@ def run_plan(feature_description: str):
 
     # 3. Plan Generation
     console.rule("Phase 3: Plan Generation")
-    with console.status("Generating Plan..."):
+    with logger.status("Generating Plan..."):
         planner = KBPredict(
             PlanGenerator,
             kb_tags=["planning", "architecture"],
