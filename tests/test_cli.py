@@ -34,7 +34,7 @@ def mock_workflows():
 @pytest.fixture
 def mock_knowledge_base_class():
     """Mock KnowledgeBase class."""
-    with patch("cli.KnowledgeBase") as m_kb:
+    with patch("utils.knowledge.KnowledgeBase") as m_kb:
         mock_instance = m_kb.return_value
         yield mock_instance
 

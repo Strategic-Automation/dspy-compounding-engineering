@@ -16,7 +16,6 @@ import threading
 from pathlib import Path
 from typing import Any
 
-import dspy
 from dotenv import load_dotenv
 
 from utils.io.logger import configure_logging, console, logger
@@ -249,7 +248,7 @@ class AppConfig:
             "compounding": ["python", "-m", "mcp_servers.compounding_server"],
             "file": ["python", "-m", "mcp_servers.file_server"],
             "git": ["python", "-m", "mcp_servers.git_server"],
-            "search": ["python", "-m", "mcp_servers.search_server"]
+            "search": ["python", "-m", "mcp_servers.search_server"],
         }
 
         # Embedding Settings
@@ -563,6 +562,8 @@ def _configure_observability():
 
 
 def configure_dspy(env_file: str | None = None):
+    import dspy
+
     """Configure DSPy with the appropriate LM provider and settings."""
     load_configuration(env_file)
     _configure_observability()

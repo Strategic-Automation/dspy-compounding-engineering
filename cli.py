@@ -7,14 +7,49 @@ from rich.console import Console
 
 from config import configure_dspy, settings
 from utils.io import get_system_status, validate_agent_filters
-from utils.knowledge import KnowledgeBase
-from workflows.codify import run_codify
-from workflows.generate_agent import run_generate_agent
-from workflows.plan import run_plan
-from workflows.review import run_review
-from workflows.sync import run_sync
-from workflows.triage import run_triage
-from workflows.work import run_unified_work
+
+
+def run_codify(*args, **kwargs):
+    from workflows.codify import run_codify as _run_codify
+
+    return _run_codify(*args, **kwargs)
+
+
+def run_generate_agent(*args, **kwargs):
+    from workflows.generate_agent import run_generate_agent as _run_generate_agent
+
+    return _run_generate_agent(*args, **kwargs)
+
+
+def run_plan(*args, **kwargs):
+    from workflows.plan import run_plan as _run_plan
+
+    return _run_plan(*args, **kwargs)
+
+
+def run_review(*args, **kwargs):
+    from workflows.review import run_review as _run_review
+
+    return _run_review(*args, **kwargs)
+
+
+def run_sync(*args, **kwargs):
+    from workflows.sync import run_sync as _run_sync
+
+    return _run_sync(*args, **kwargs)
+
+
+def run_triage(*args, **kwargs):
+    from workflows.triage import run_triage as _run_triage
+
+    return _run_triage(*args, **kwargs)
+
+
+def run_unified_work(*args, **kwargs):
+    from workflows.work import run_unified_work as _run_unified_work
+
+    return _run_unified_work(*args, **kwargs)
+
 
 console = Console()
 app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
@@ -252,6 +287,8 @@ def compress_kb(
     if not math.isfinite(ratio):
         raise ValueError("Ratio must be a finite number (not NaN or infinity)")
 
+    from utils.knowledge import KnowledgeBase
+
     kb = KnowledgeBase()
     kb.compress_ai_md(ratio=ratio, dry_run=dry_run)
 
@@ -286,6 +323,8 @@ def index(
     Use this to enable agents to find relevant code snippets.
     Performs smart incremental indexing (skips unchanged files).
     """
+    from utils.knowledge import KnowledgeBase
+
     kb = KnowledgeBase()
     kb.index_codebase(root_dir=root_dir, force_recreate=recreate)
 
@@ -310,6 +349,7 @@ def verify_kb() -> None:
     Checks that JSON learnings, SQLite database, and AI.md are all
     in sync. Reports orphaned entries and inconsistencies.
     """
+    from utils.knowledge import KnowledgeBase
     from utils.knowledge.verifier import KnowledgeBaseVerifier, format_report
 
     kb = KnowledgeBase()
