@@ -44,7 +44,7 @@ def codify_learning(
 
         if not silent:
             console.print(f"[dim cyan]Codifying {category} learnings...[/dim cyan]")
-        logger.info(f"Codifying {category} learnings from {source}")
+
         logger.debug(f"Context length: {len(context)} chars. Metadata: {metadata}")
 
         # Run FeedbackCodifier Agent with Typed Output
@@ -56,11 +56,12 @@ def codify_learning(
         codifier_cot = dspy.ChainOfThought(FeedbackCodifier)
         codifier = KBPredict.wrap(codifier_cot, kb_tags=kb_tags)
 
-        result = codifier(
-            feedback_content=context,
-            feedback_source=source,
-            project_context="",
-        )
+        with logger.status(f"Codifying {category} learnings from {source}"):
+            result = codifier(
+                feedback_content=context,
+                feedback_source=source,
+                project_context="",
+            )
 
         # Result should already be the Pydantic object
         codified_obj = result.codified_output

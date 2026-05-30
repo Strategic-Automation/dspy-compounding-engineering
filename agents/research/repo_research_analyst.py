@@ -53,5 +53,5 @@ class RepoResearchAnalystModule(dspy.Module):
         )
 
     def forward(self, feature_description: str):
-        logger.info(f"Starting Repo Research for: {feature_description}")
-        return self.agent(feature_description=feature_description)
+        with logger.status(f"Starting Repo Research for: {feature_description}"):
+            return self.agent(feature_description=feature_description)

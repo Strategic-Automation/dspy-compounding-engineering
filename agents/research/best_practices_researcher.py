@@ -56,5 +56,5 @@ class BestPracticesResearcherModule(dspy.Module):
         )
 
     def forward(self, topic: str, repo_research: str = None):
-        logger.info(f"Starting Best Practices Research for: {topic}")
-        return self.agent(topic=topic, repo_research=repo_research)
+        with logger.status(f"Starting Best Practices Research for: {topic}"):
+            return self.agent(topic=topic, repo_research=repo_research)

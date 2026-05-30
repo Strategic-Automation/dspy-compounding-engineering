@@ -60,7 +60,7 @@ class FrameworkDocsResearcherModule(dspy.Module):
         )
 
     def forward(self, framework_or_library: str, previous_research: str = None):
-        logger.info(f"Starting Framework Docs Research for: {framework_or_library}")
-        return self.agent(
-            framework_or_library=framework_or_library, previous_research=previous_research
-        )
+        with logger.status(f"Starting Framework Docs Research for: {framework_or_library}"):
+            return self.agent(
+                framework_or_library=framework_or_library, previous_research=previous_research
+            )
