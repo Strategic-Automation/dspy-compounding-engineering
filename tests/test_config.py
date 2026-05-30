@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-from config import load_configuration
+from config import load_configuration, get_project_root
 
 
 @pytest.fixture
@@ -35,6 +35,7 @@ def test_load_configuration_priority(temp_env_files, monkeypatch):
     # We need to be careful with how load_dotenv is called in config.py
     # Since we use os.getcwd() and expanduser, we should mock those or change CWD
 
+    get_project_root.cache_clear()
     monkeypatch.chdir(temp_env_files["local"].parent)
 
     # Mock os.path.exists to return True for our specific paths

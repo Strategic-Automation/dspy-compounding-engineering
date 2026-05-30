@@ -8,6 +8,7 @@ Handles:
 - Project root and hash utilities
 """
 
+import functools
 import hashlib
 import os
 import subprocess
@@ -26,9 +27,13 @@ from utils.io.logger import configure_logging, console, logger
 # =============================================================================
 
 
+@functools.lru_cache(maxsize=1)
 def get_project_root() -> Path:
     """
     Determine the root directory of the current project.
+
+    ⚡ Bolt Optimization: Cached to prevent redundant subprocess calls to `git rev-parse`,
+    which significantly slows down repeated configuration/utility checks.
 
     The function attempts to locate the Git repository root.
     If Git metadata is unavailable, it falls back to the current
@@ -49,6 +54,7 @@ def get_project_root() -> Path:
         return Path(os.getcwd())
 
 
+@functools.lru_cache(maxsize=1)
 def get_project_hash() -> str:
     """Generate a stable hash for the current project based on its root path."""
     root_path = str(get_project_root().absolute())
