@@ -249,7 +249,7 @@ class AppConfig:
             "compounding": ["python", "-m", "mcp_servers.compounding_server"],
             "file": ["python", "-m", "mcp_servers.file_server"],
             "git": ["python", "-m", "mcp_servers.git_server"],
-            "search": ["python", "-m", "mcp_servers.search_server"]
+            "search": ["python", "-m", "mcp_servers.search_server"],
         }
 
         # Embedding Settings

@@ -72,9 +72,7 @@ class KnowledgeDocumentation:
         elif item.get("codified_improvements"):
             # Try to use the first improvement
             first_imp = item["codified_improvements"][0]
-            candidate = str(
-                first_imp.get("title") or first_imp.get("description") or first_imp
-            )
+            candidate = str(first_imp.get("title") or first_imp.get("description") or first_imp)
 
         if candidate:
             # cleanup candidate
@@ -176,9 +174,9 @@ class KnowledgeDocumentation:
             self._log("Using cached compression result...", color="blue", silent=silent)
             return self._compression_cache[cache_key]
 
-        self._log("Performing LLM compression...", color="dim", silent=silent)
         compressor = LLMKBCompressor()
-        compressed_content = compressor(content=content, ratio=ratio)
+        with logger.status("Performing LLM compression..."):
+            compressed_content = compressor(content=content, ratio=ratio)
         self._compression_cache[cache_key] = compressed_content
         return compressed_content
 

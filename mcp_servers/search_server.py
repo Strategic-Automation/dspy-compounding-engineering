@@ -37,9 +37,7 @@ def semantic_search(query: str, limit: int = 5) -> str:
         chunk = r.get("chunk_index", 0)
         content = r.get("content", "")[:500]  # Limit content preview
         score = r.get("score", 0)
-        output.append(
-            f"**{file_path}** (chunk {chunk}, score: {score:.2f}):\n```\n{content}\n```"
-        )
+        output.append(f"**{file_path}** (chunk {chunk}, score: {score:.2f}):\n```\n{content}\n```")
 
     return "\n\n".join(output)
 

@@ -189,7 +189,7 @@ def _normalize_llm_escapes(content: str) -> str:
     content = content.replace(r"\n", "\n")
     content = content.replace(r"\t", "\t")
     # Handle escaped quotes
-    content = content.replace(r'\"', '"')
+    content = content.replace(r"\"", '"')
     content = content.replace(r"\'", "'")
 
     return content

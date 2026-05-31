@@ -14,7 +14,7 @@ class MCPManager:
     """
     Manages connections to MCP servers via stdio and provides synchronous
     wrappers around the tools so they can be consumed by DSPy agents.
-    
+
     Since DSPy expects synchronous tools, we run an asyncio event loop
     in a background thread to handle the async MCP client operations.
     """
@@ -50,10 +50,7 @@ class MCPManager:
         """Async method to initialize a stdio client connection to a server."""
         try:
             # We must hold references to the context managers to keep them alive
-            server_params = StdioServerParameters(
-                command=command[0],
-                args=command[1:]
-            )
+            server_params = StdioServerParameters(command=command[0], args=command[1:])
 
             # Since fastmcp stdio runs over stdin/stdout, we must be careful with logging
             # But here we are the client.
@@ -70,9 +67,11 @@ class MCPManager:
             self._servers[name] = {
                 "session": session,
                 "stdio_ctx": stdio_ctx,
-                "tools": response.tools
+                "tools": response.tools,
             }
-            logger.debug(f"Successfully connected to MCP Server: {name} ({len(response.tools)} tools)")
+            logger.debug(
+                f"Successfully connected to MCP Server: {name} ({len(response.tools)} tools)"
+            )
 
         except Exception as e:
             logger.error(f"Failed to connect to MCP server '{name}': {e}")
@@ -126,7 +125,9 @@ class MCPManager:
 
             # Convert args to kwargs if needed (simplified assumption: caller uses kwargs)
             if args:
-                logger.warning(f"MCP tool {mcp_tool.name} was called with positional arguments. This might fail if the names don't match the schema.")
+                logger.warning(
+                    f"MCP tool {mcp_tool.name} was called with positional arguments. This might fail if the names don't match the schema."
+                )
 
             async def _call():
                 session: ClientSession = self._servers[server_name]["session"]
@@ -149,6 +150,7 @@ class MCPManager:
 
     def close(self):
         """Closes all connections."""
+
         async def _close():
             for name, data in self._servers.items():
                 try:

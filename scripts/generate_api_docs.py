@@ -21,7 +21,11 @@ def extract_docstring(source: str) -> str:
     """Extract the module-level docstring from source code."""
     try:
         tree = ast.parse(source)
-        if tree.body and isinstance(tree.body[0], ast.Expr) and isinstance(tree.body[0].value, ast.Constant):
+        if (
+            tree.body
+            and isinstance(tree.body[0], ast.Expr)
+            and isinstance(tree.body[0].value, ast.Constant)
+        ):
             return tree.body[0].value.value.strip()
     except SyntaxError:
         pass

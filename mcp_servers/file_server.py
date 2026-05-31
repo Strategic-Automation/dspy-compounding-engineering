@@ -13,10 +13,7 @@ def read_file(file_path: str, start_line: int = 1, end_line: int = 100) -> str:
     start_line and end_line (inclusive, 1-indexed).
     """
     return read_file_range(
-        file_path=file_path,
-        start_line=start_line,
-        end_line=end_line,
-        base_dir="."
+        file_path=file_path, start_line=start_line, end_line=end_line, base_dir="."
     )
 
 

@@ -7,6 +7,7 @@ from utils.mcp.client import MCPManager
 # or we can do a light integration test if we have the servers locally. Since we just wrote
 # them, an integration test is very useful.
 
+
 @pytest.fixture
 def manager():
     manager = MCPManager()
@@ -32,22 +33,20 @@ def test_mcp_client_connects_and_wraps_tools(manager):
     """
     # Just configure one simple server to avoid heavy loads
     with patch("utils.mcp.client.settings") as mock_settings:
-        mock_settings.mcp_servers = {
-            "test_file": ["python", "-m", "mcp_servers.file_server"]
-        }
-        
+        mock_settings.mcp_servers = {"test_file": ["python", "-m", "mcp_servers.file_server"]}
+
         manager.connect_all()
-        
+
         # Check if the tools are loaded
         tools = manager.get_all_tools()
         assert len(tools) > 0
-        
+
         # Verify it has standard dspy.Tool properties
         tool = manager.get_tool("read_file")
         assert tool is not None
         assert tool.name == "read_file"
         assert callable(tool)
-        
+
         # Try a quick call (we expect it to execute the fastmcp via stdio)
         # Assuming the root directory has a pyproject.toml
         result = tool(file_path="pyproject.toml", start_line=1, end_line=3)
@@ -62,13 +61,13 @@ def test_mcp_compounding_server_connects(manager):
         mock_settings.mcp_servers = {
             "compounding": ["python", "-m", "mcp_servers.compounding_server"]
         }
-        
+
         manager.connect_all()
-        
+
         tools = manager.get_all_tools()
         # Should have at least the 5 we exposed
         assert len(tools) >= 5
-        
+
         tool_names = [t.name for t in tools]
         assert "compounding_review" in tool_names
         assert "compounding_work" in tool_names
