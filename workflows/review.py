@@ -311,9 +311,9 @@ def _setup_worktree(pr_url_or_id: str) -> str | None:
             console.print(f"[yellow]Worktree {target_path} already exists. Using it.[/yellow]")
             return target_path
 
-        console.print(f"[cyan]Creating isolated worktree at {target_path}...[/cyan]")
-        os.makedirs(base_worktree_dir, exist_ok=True)
-        GitService.checkout_pr_worktree(pr_url_or_id, target_path)
+        with logger.status(f"Creating isolated worktree at {target_path}..."):
+            os.makedirs(base_worktree_dir, exist_ok=True)
+            GitService.checkout_pr_worktree(pr_url_or_id, target_path)
         console.print("[green]✓ Worktree created[/green]")
         return target_path
     except Exception as e:
@@ -377,8 +377,6 @@ def _execute_review_agents(code_diff: str, agent_filter: Optional[list[str]] = N
             "(not applicable for detected languages)[/dim]"
         )
 
-    console.print(f"[green]Running {len(review_agents)} applicable reviewers...[/green]\n")
-
     findings = []
 
     def run_single_agent(name, agent_cls, diff):
@@ -391,6 +389,8 @@ def _execute_review_agents(code_diff: str, agent_filter: Optional[list[str]] = N
         except Exception as e:
             return name, f"Error: {e}"
 
+    console.print(f"[green]Running {len(review_agents)} applicable reviewers...[/green]\n")
+
     with Progress() as progress:
         task = progress.add_task("[cyan]Running agents...", total=len(review_agents))
 
@@ -398,7 +398,11 @@ def _execute_review_agents(code_diff: str, agent_filter: Optional[list[str]] = N
             max_workers=settings.review_max_workers
         ) as executor:
             future_to_agent = {
-                executor.submit(run_single_agent, name, cls, code_diff): (name, category, severity)
+                executor.submit(run_single_agent, name, cls, code_diff): (
+                    name,
+                    category,
+                    severity,
+                )
                 for name, cls, category, severity in review_agents
             }
 

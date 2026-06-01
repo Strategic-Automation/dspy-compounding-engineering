@@ -4,3 +4,7 @@
 ## 2024-05-15 - Command output enhancement
 **Learning:** Found that CLI output via `SystemLogger.info` only prints to console if `to_cli=True`, otherwise it only logs to file. This makes some commands feel unresponsive, like it is hanging, to the user.
 **Action:** Enhance CLI UX by changing the rich console output using rich spinners for long operations.
+
+## 2026-06-01 - Nesting Live displays in rich
+**Learning:** The `rich` library does not support running multiple simultaneous `Live` displays in the same console (like `status` and `Progress`). Nesting them causes rendering bugs or LiveError crashes.
+**Action:** Never nest `logger.status` (or `console.status`) with `rich.progress.Progress()` context managers.
