@@ -12,8 +12,6 @@ Usage:
 import argparse
 import ast
 import os
-import re
-import sys
 from pathlib import Path
 
 
@@ -148,7 +146,7 @@ def main():
     with open(output_path / "agents.md", "w") as f:
         f.write(agents_md)
     generated.append("agents.md")
-    print(f"  Generated docs/api/agents.md")
+    print("  Generated docs/api/agents.md")
 
     # Generate workflows API
     workflows_md = "# Workflows API Reference\n\n"
@@ -159,7 +157,7 @@ def main():
     with open(output_path / "workflows.md", "w") as f:
         f.write(workflows_md)
     generated.append("workflows.md")
-    print(f"  Generated docs/api/workflows.md")
+    print("  Generated docs/api/workflows.md")
 
     # Generate utilities API
     utilities_md = "# Utilities API Reference\n\n"
@@ -170,7 +168,7 @@ def main():
     with open(output_path / "utilities.md", "w") as f:
         f.write(utilities_md)
     generated.append("utilities.md")
-    print(f"  Generated docs/api/utilities.md")
+    print("  Generated docs/api/utilities.md")
 
     # Generate config + CLI API
     config_md = "# Configuration & CLI API Reference\n\n"
@@ -182,7 +180,7 @@ def main():
     with open(output_path / "config.md", "w") as f:
         f.write(config_md)
     generated.append("config.md")
-    print(f"  Generated docs/api/config.md")
+    print("  Generated docs/api/config.md")
 
     print(f"Done. Generated {len(generated)} API documentation files.")
 
