@@ -95,6 +95,8 @@ def _clean_generated_code(code: str) -> str:
 
 def _verify_agent_code(spec_content: str) -> tuple[bool, str]:
     """Validate generated agent code. Returns (is_valid, cleaned_code)."""
+    import ast
+
     # Clean the code first
     cleaned = _clean_generated_code(spec_content)
 
@@ -108,7 +110,7 @@ def _verify_agent_code(spec_content: str) -> tuple[bool, str]:
 
     # Validate Python syntax
     try:
-        compile(cleaned, "<generated>", "exec")
+        ast.parse(cleaned)
     except SyntaxError as e:
         console.print(f"[red]Error: Generated code has syntax error: {e}[/red]")
         return False, cleaned
