@@ -7,14 +7,6 @@ from rich.console import Console
 
 from config import configure_dspy, settings
 from utils.io import get_system_status, validate_agent_filters
-from utils.knowledge import KnowledgeBase
-from workflows.codify import run_codify
-from workflows.generate_agent import run_generate_agent
-from workflows.plan import run_plan
-from workflows.review import run_review
-from workflows.sync import run_sync
-from workflows.triage import run_triage
-from workflows.work import run_unified_work
 
 console = Console()
 app = typer.Typer(context_settings={"help_option_names": ["-h", "--help"]})
@@ -47,6 +39,9 @@ def triage() -> None:
     """
     Triage and categorize findings for the CLI todo system.
     """
+    # Lazy load for performance
+    from workflows.triage import run_triage
+
     run_triage()
 
 
@@ -68,6 +63,9 @@ def sync(
         compounding sync --dry-run        # Preview what would be created
         compounding sync -p "*-p1-*"      # Only sync P1 priority todos
     """
+    # Lazy load for performance
+    from workflows.sync import run_sync
+
     run_sync(dry_run=dry_run, pattern=pattern)
 
 
@@ -85,6 +83,9 @@ def plan(
         compounding plan 30
         compounding plan https://github.com/user/repo/issues/30
     """
+    # Lazy load for performance
+    from workflows.plan import run_plan
+
     run_plan(description)
 
 
@@ -126,6 +127,9 @@ def work(
             raise typer.BadParameter("Null bytes not allowed in pattern")
         if ".." in pattern or pattern.startswith("/"):
             raise typer.BadParameter("Path traversal sequences not allowed")
+
+    # Lazy load for performance
+    from workflows.work import run_unified_work
 
     run_unified_work(
         pattern=pattern,
@@ -172,6 +176,9 @@ def review(
     if agent and safe_agent_filter is None:
         return
 
+    # Lazy load for performance
+    from workflows.review import run_review
+
     run_review(pr_url_or_id, project=project, agent_filter=safe_agent_filter)
 
 
@@ -199,6 +206,9 @@ def generate_agent(
         compounding generate-agent "Ensure all Python functions have docstrings"
         compounding generate-agent --dry-run "Audit for frontend race conditions"
     """
+    # Lazy load for performance
+    from workflows.generate_agent import run_generate_agent
+
     run_generate_agent(description=description, dry_run=dry_run)
 
 
@@ -223,6 +233,9 @@ def codify(
         compounding codify "Always use strict typing in Python files"
         compounding codify "We should use factory pattern for creating agents" --source retro
     """
+    # Lazy load for performance
+    from workflows.codify import run_codify
+
     run_codify(feedback=feedback, source=source)
 
 
@@ -251,6 +264,9 @@ def compress_kb(
         raise ValueError("Ratio must be between 0.0 and 1.0")
     if not math.isfinite(ratio):
         raise ValueError("Ratio must be a finite number (not NaN or infinity)")
+
+    # Lazy load for performance
+    from utils.knowledge import KnowledgeBase
 
     kb = KnowledgeBase()
     kb.compress_ai_md(ratio=ratio, dry_run=dry_run)
@@ -286,6 +302,9 @@ def index(
     Use this to enable agents to find relevant code snippets.
     Performs smart incremental indexing (skips unchanged files).
     """
+    # Lazy load for performance
+    from utils.knowledge import KnowledgeBase
+
     kb = KnowledgeBase()
     kb.index_codebase(root_dir=root_dir, force_recreate=recreate)
 
@@ -310,6 +329,8 @@ def verify_kb() -> None:
     Checks that JSON learnings, SQLite database, and AI.md are all
     in sync. Reports orphaned entries and inconsistencies.
     """
+    # Lazy load for performance
+    from utils.knowledge import KnowledgeBase
     from utils.knowledge.verifier import KnowledgeBaseVerifier, format_report
 
     kb = KnowledgeBase()
