@@ -7,3 +7,8 @@
 **Vulnerability:** Use of direct `subprocess.run` calls (e.g., in `workflows/review.py`) instead of the custom `run_safe_command` wrapper (`utils.io.safe`), bypassing the executable allowlist and `shell=True` prevention mechanisms.
 **Learning:** Security wrappers like `run_safe_command` are only effective if used universally. Direct use of lower-level execution primitives can silently circumvent established security controls, creating command execution and injection risks.
 **Prevention:** Consistently audit and refactor all command execution logic to route through centralized safe wrappers. Prohibit direct use of modules like `subprocess` or `os.system` via linting rules or code review policies.
+
+## 2025-02-24 - Validate Python Syntax with ast.parse instead of compile
+**Vulnerability:** Use of the `compile()` function in `workflows/generate_agent.py` to validate Python syntax on AI-generated untrusted code.
+**Learning:** `compile()` evaluates and generates executable bytecode, which can trigger static analysis security tool (SAST) warnings and poses a Denial of Service (DoS) risk if the code is deeply nested. It is unsafe for simple syntax validation.
+**Prevention:** Always use `ast.parse()` instead of `compile()`, `exec()`, or `eval()` to validate the syntax of untrusted or AI-generated Python code, ensuring no executable bytecode is created.
