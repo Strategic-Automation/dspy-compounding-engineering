@@ -47,6 +47,9 @@ def test_load_configuration_priority(temp_env_files, monkeypatch):
             return True
         return original_exists(path)
 
+    from config import get_project_root
+    get_project_root.cache_clear()
+
     with patch("os.path.exists", side_effect=mock_exists):
         with patch("config.load_dotenv") as mock_load:
             load_configuration()
@@ -72,6 +75,9 @@ def test_load_configuration_explicit(tmp_path):
     """Test that explicit env file takes precedence."""
     explicit_env = tmp_path / "explicit.env"
     explicit_env.write_text("TEST_VAR=explicit")
+
+    from config import get_project_root
+    get_project_root.cache_clear()
 
     with patch("os.path.exists", return_value=True):
         with patch("config.load_dotenv") as mock_load:

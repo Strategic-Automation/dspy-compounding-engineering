@@ -8,6 +8,7 @@ Handles:
 - Project root and hash utilities
 """
 
+import functools
 import hashlib
 import os
 import subprocess
@@ -26,6 +27,7 @@ from utils.io.logger import configure_logging, console, logger
 # =============================================================================
 
 
+@functools.lru_cache(maxsize=1)
 def get_project_root() -> Path:
     """
     Determine the root directory of the current project.
@@ -33,6 +35,10 @@ def get_project_root() -> Path:
     The function attempts to locate the Git repository root.
     If Git metadata is unavailable, it falls back to the current
     working directory.
+
+    This function is cached to improve performance. For tests that mock directory
+    structures or environment variables, ensure to call `get_project_root.cache_clear()`
+    before applying the mocks.
 
     Returns:
         Path: Absolute path to the project root directory.
@@ -249,7 +255,7 @@ class AppConfig:
             "compounding": ["python", "-m", "mcp_servers.compounding_server"],
             "file": ["python", "-m", "mcp_servers.file_server"],
             "git": ["python", "-m", "mcp_servers.git_server"],
-            "search": ["python", "-m", "mcp_servers.search_server"]
+            "search": ["python", "-m", "mcp_servers.search_server"],
         }
 
         # Embedding Settings
