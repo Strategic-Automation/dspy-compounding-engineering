@@ -42,6 +42,18 @@ class SecretScrubber:
             ),
         }
 
+        # Pre-compile regex patterns for performance
+        self.compiled_patterns = {
+            name: re.compile(pattern, flags=re.IGNORECASE)
+            for name, pattern in self.patterns.items()
+        }
+
+    def _generic_redactor(self, match) -> str:
+        """Redacts only the value portion for generic API keys."""
+        full_match = match.group(0)
+        secret_val = match.group(1)
+        return full_match.replace(secret_val, "[REDACTED_GENERIC_API_KEY]")
+
     def scrub(self, text: str) -> str:
         """
         Scrub secrets and PII from the given text.
@@ -50,24 +62,12 @@ class SecretScrubber:
             return ""
 
         scrubbed = text
-        for name, pattern in self.patterns.items():
+        for name, compiled_pattern in self.compiled_patterns.items():
             try:
                 if name == "generic_api_key":
-                    # For generic keys, we only want to redact the value group
-                    def create_redactor(redact_name):
-                        def redact_value(match):
-                            full_match = match.group(0)
-                            secret_val = match.group(1)
-                            msg = f"[REDACTED_{redact_name.upper()}]"
-                            return full_match.replace(secret_val, msg)
-
-                        return redact_value
-
-                    scrubbed = re.sub(pattern, create_redactor(name), scrubbed, flags=re.IGNORECASE)
+                    scrubbed = compiled_pattern.sub(self._generic_redactor, scrubbed)
                 else:
-                    scrubbed = re.sub(
-                        pattern, f"[REDACTED_{name.upper()}]", scrubbed, flags=re.IGNORECASE
-                    )
+                    scrubbed = compiled_pattern.sub(f"[REDACTED_{name.upper()}]", scrubbed)
             except Exception:
                 # Fallback if regex fails for some reason
                 continue
