@@ -208,7 +208,11 @@ class KnowledgeDocumentation:
             with open(self.ai_md_path, "r") as f:
                 content = f.read()
 
-            compressed_content = self._run_compression(content, ratio, silent=silent)
+            if not dry_run:
+                with logger.status("Applying LLM semantic compression..."):
+                    compressed_content = self._run_compression(content, ratio, silent=silent)
+            else:
+                compressed_content = self._run_compression(content, ratio, silent=silent)
 
             if not compressed_content or len(compressed_content) > len(content) * 1.2:
                 raise ValueError("Compression produced invalid result")
