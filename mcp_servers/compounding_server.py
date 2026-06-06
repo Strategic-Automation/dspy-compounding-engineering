@@ -1,7 +1,5 @@
-import asyncio
 import io
-import sys
-from contextlib import redirect_stdout, redirect_stderr
+from contextlib import redirect_stderr, redirect_stdout
 from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
@@ -20,7 +18,7 @@ def _run_with_captured_output(func, *args, **kwargs) -> str:
     """Helper to run a synchronous CLI function and capture its stdout/stderr."""
     # Ensure DSPy is configured before running any workflow
     configure_dspy()
-    
+
     f = io.StringIO()
     with redirect_stdout(f), redirect_stderr(f):
         try:
@@ -43,11 +41,11 @@ def compounding_review(target: str = "latest", project: bool = False, agent_filt
     """
     # agent_filter needs careful handling as CLI expects a list
     agent_list = [agent_filter] if agent_filter else None
-    
+
     # We must validate it just like the CLI does
     from utils.io import validate_agent_filters
     safe_agent_filter = validate_agent_filters(agent_list) if agent_list else None
-    
+
     return _run_with_captured_output(run_review, target, project=project, agent_filter=safe_agent_filter)
 
 

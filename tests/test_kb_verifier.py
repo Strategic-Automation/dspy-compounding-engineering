@@ -1,9 +1,7 @@
 """Tests for Knowledge Base verification functionality."""
 
 import json
-import os
 import sqlite3
-from unittest.mock import patch
 
 import pytest
 
