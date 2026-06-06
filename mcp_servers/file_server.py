@@ -1,7 +1,7 @@
-from mcp.server.fastmcp import FastMCP
-import os
 
-from utils.io import read_file_range, list_directory, edit_file_lines, create_file
+from mcp.server.fastmcp import FastMCP
+
+from utils.io import create_file, edit_file_lines, list_directory, read_file_range
 
 mcp = FastMCP("File Server")
 
