@@ -6,8 +6,6 @@ import sys
 import tempfile
 from pathlib import Path
 
-import pytest
-
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
@@ -15,9 +13,7 @@ from scripts.generate_api_docs import (
     extract_classes_and_functions,
     extract_docstring,
     generate_module_docs,
-    main,
 )
-
 
 # =============================================================================
 # Tests for extract_docstring
