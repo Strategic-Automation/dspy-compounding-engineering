@@ -4,3 +4,7 @@
 ## 2024-05-15 - Command output enhancement
 **Learning:** Found that CLI output via `SystemLogger.info` only prints to console if `to_cli=True`, otherwise it only logs to file. This makes some commands feel unresponsive, like it is hanging, to the user.
 **Action:** Enhance CLI UX by changing the rich console output using rich spinners for long operations.
+
+## 2026-06-04 - CLI Spinner UX
+**Learning:** Using `logger.status` for long-running blocking operations like fetching DB state provides crucial user feedback in this CLI app, preventing it from appearing unresponsive.
+**Action:** Use the `logger.status` context manager for any long database or network fetch tasks.
