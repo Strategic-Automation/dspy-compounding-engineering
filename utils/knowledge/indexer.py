@@ -204,8 +204,8 @@ class CodebaseIndexer(CollectionManagerMixin):
             return
 
         # 2. Get current index state
-        logger.info("Fetching existing index state...")
-        indexed_files = self._get_indexed_files_metadata()
+        with logger.status("Fetching existing index state..."):
+            indexed_files = self._get_indexed_files_metadata()
 
         # 3. Process files
         updated_count = 0
