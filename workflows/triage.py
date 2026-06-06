@@ -194,11 +194,12 @@ def run_triage():  # noqa: C901
                 from utils.knowledge import codify_triage_decision
 
                 try:
-                    codify_triage_decision(
-                        finding_content=content,
-                        decision="approved",
-                        proposed_solution=solution,
-                    )
+                    with logger.status("Codifying triage decision..."):
+                        codify_triage_decision(
+                            finding_content=content,
+                            decision="approved",
+                            proposed_solution=solution,
+                        )
                 except Exception:
                     pass  # Don't fail triage if codification fails
         elif choice == "complete":
@@ -336,12 +337,13 @@ def run_triage():  # noqa: C901
         from utils.knowledge import codify_batch_triage_session
 
         try:
-            codify_batch_triage_session(
-                approved_count=approved_count,
-                skipped_count=skipped_count,
-                total_count=total_items,
-                approved_todos=approved_todos,
-            )
+            with logger.status("Codifying batch triage session..."):
+                codify_batch_triage_session(
+                    approved_count=approved_count,
+                    skipped_count=skipped_count,
+                    total_count=total_items,
+                    approved_todos=approved_todos,
+                )
         except Exception as e:
             console.print(f"[dim yellow]⚠ Could not codify session: {e}[/dim yellow]")
 
