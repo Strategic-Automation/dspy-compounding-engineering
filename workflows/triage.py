@@ -16,9 +16,10 @@ def consistency_check_todos(todos_dir: str) -> None:
     issue_to_files = {}
     for file_path in glob.glob(os.path.join(todos_dir, "*.md")):
         filename = os.path.basename(file_path)
-        match = re.match(r"^(\d+)-", filename)
-        if match:
-            issue_id = match.group(1)
+        # ⚡ Optimization: Native string split is faster than regex for prefix extraction
+        parts = filename.split("-", 1)
+        if len(parts) > 1 and parts[0].isdigit():
+            issue_id = parts[0]
             issue_to_files.setdefault(issue_id, []).append(filename)
     duplicates = {iid: files for iid, files in issue_to_files.items() if len(files) > 1}
     if duplicates:
@@ -77,8 +78,9 @@ def run_triage():  # noqa: C901
         else:
             priority = 3
         # Extract ID
-        match = re.match(r"^(\d+)-", filename)
-        issue_id = int(match.group(1)) if match else 999
+        # ⚡ Optimization: Native string split is faster than regex for prefix extraction
+        parts = filename.split("-", 1)
+        issue_id = int(parts[0]) if (len(parts) > 1 and parts[0].isdigit()) else 999
         return (priority, issue_id)
 
     pending_files.sort(key=sort_key)
