@@ -74,9 +74,7 @@ def test_is_git_repo_false(mock_git_subprocess):
 @patch("utils.git.service.GitService.get_pr_details")
 @patch("utils.git.service.GitService._get_repo_from_remote")
 @patch("utils.git.service.run_safe_command")
-def test_checkout_pr_worktree_fork(
-    mock_run_safe, mock_get_repo, mock_get_pr_details, mock_which
-):
+def test_checkout_pr_worktree_fork(mock_run_safe, mock_get_repo, mock_get_pr_details, mock_which):
     """Test that checkout_pr_worktree correctly handles a fork PR using gh CLI."""
     mock_which.return_value = "/usr/bin/gh"
 
@@ -95,11 +93,33 @@ def test_checkout_pr_worktree_fork(
     GitService.checkout_pr_worktree("123", "/tmp/worktree")
 
     # Verify we added the fork remote
-    mock_run_safe.assert_any_call(["git", "remote", "add", "fork-contributor_name", "https://github.com/contributor_name/main_repo.git"], check=True)
+    mock_run_safe.assert_any_call(
+        [
+            "git",
+            "remote",
+            "add",
+            "fork-contributor_name",
+            "https://github.com/contributor_name/main_repo.git",
+        ],
+        check=True,
+    )
     # Verify we fetched the fork remote
-    mock_run_safe.assert_any_call(["git", "fetch", "fork-contributor_name", "feature-branch"], check=True)
+    mock_run_safe.assert_any_call(
+        ["git", "fetch", "fork-contributor_name", "feature-branch"], check=True
+    )
     # Verify we created the worktree tracking the fork remote
-    mock_run_safe.assert_any_call(["git", "worktree", "add", "-B", "review-pr-123", "/tmp/worktree", "fork-contributor_name/feature-branch"], check=True)
+    mock_run_safe.assert_any_call(
+        [
+            "git",
+            "worktree",
+            "add",
+            "-B",
+            "review-pr-123",
+            "/tmp/worktree",
+            "fork-contributor_name/feature-branch",
+        ],
+        check=True,
+    )
 
 
 # =============================================================================
@@ -124,7 +144,9 @@ def test_get_git_log_search_success():
     assert "John Doe" in result
     assert "Add search endpoint" in result
     # verify the cmd included -S flag
-    call_args = mock_result.__class__.call_args_list if hasattr(mock_result, "call_args_list") else None
+    call_args = (
+        mock_result.__class__.call_args_list if hasattr(mock_result, "call_args_list") else None
+    )
     # Instead check via patch verification
     with patch("utils.git.service.run_safe_command", return_value=mock_result) as mock_cmd:
         GitService.get_git_log_search(query="search", path="src/")
@@ -253,4 +275,3 @@ def test_get_git_blame_os_error():
         result = GitService.get_git_blame(file_path="src/main.py")
 
     assert "Cannot access file" in result
-

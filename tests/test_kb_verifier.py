@@ -87,12 +87,7 @@ def test_healthy_kb(temp_dir):
     json_files = {"learn-001.json": learning}
 
     # AI.md with matching content
-    ai_md_content = (
-        "# AI Knowledge Base\n\n"
-        "## Test\n\n"
-        "### Test Learning\n"
-        "Test content\n\n"
-    )
+    ai_md_content = "# AI Knowledge Base\n\n## Test\n\n### Test Learning\nTest content\n\n"
 
     kb_dir = _create_test_kb(
         temp_dir,
@@ -243,7 +238,9 @@ def test_ai_md_inconsistency_detection(temp_dir):
     ai_md_findings = [f for f in report.findings if f.category == "ai_md"]
     ai_md_warnings = [f for f in ai_md_findings if f.severity == "warning"]
     assert len(ai_md_warnings) >= 1
-    assert any("missing sections" in f.message or "missing" in f.message.lower() for f in ai_md_warnings)
+    assert any(
+        "missing sections" in f.message or "missing" in f.message.lower() for f in ai_md_warnings
+    )
 
 
 @pytest.mark.unit
@@ -358,7 +355,9 @@ def test_missing_db_table(temp_dir):
 
     assert report.status == "critical"
     db_findings = [f for f in report.findings if f.category == "db"]
-    assert any("learnings" in f.message.lower() and "missing" in f.message.lower() for f in db_findings)
+    assert any(
+        "learnings" in f.message.lower() and "missing" in f.message.lower() for f in db_findings
+    )
 
 
 @pytest.mark.unit
@@ -377,7 +376,9 @@ def test_format_report():
     findings = [
         VerificationFinding(severity="error", category="json", message="Bad JSON"),
         VerificationFinding(severity="warning", category="orphan", message="Orphaned file"),
-        VerificationFinding(severity="info", category="db", message="All good", details="some detail"),
+        VerificationFinding(
+            severity="info", category="db", message="All good", details="some detail"
+        ),
     ]
     report = VerificationReport(status="degraded", findings=findings)
     formatted = format_report(report)

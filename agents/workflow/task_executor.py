@@ -28,6 +28,7 @@ class TaskExecution(BaseModel):
 # Global MCP Manager (initialize when needed)
 _mcp_manager = None
 
+
 def get_mcp_tools() -> List[dspy.Tool]:
     """Retrieves all standard tools from the MCP ecosystem."""
     global _mcp_manager
@@ -36,7 +37,6 @@ def get_mcp_tools() -> List[dspy.Tool]:
         _mcp_manager.connect_all()
     # The client creates wrapped dspy.Tool instances
     return _mcp_manager.get_all_tools()
-
 
 
 class TaskExecutor(dspy.Signature):

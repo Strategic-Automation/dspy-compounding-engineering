@@ -8,6 +8,7 @@ from utils.mcp.client import MCPManager
 # or we can do a light integration test if we have the servers locally. Since we just wrote
 # them, an integration test is very useful.
 
+
 @pytest.fixture
 def manager():
     manager = MCPManager()
@@ -33,9 +34,7 @@ def test_mcp_client_connects_and_wraps_tools(manager):
     """
     # Just configure one simple server to avoid heavy loads
     with patch("utils.mcp.client.settings") as mock_settings:
-        mock_settings.mcp_servers = {
-            "test_file": ["python", "-m", "mcp_servers.file_server"]
-        }
+        mock_settings.mcp_servers = {"test_file": ["python", "-m", "mcp_servers.file_server"]}
 
         manager.connect_all()
 

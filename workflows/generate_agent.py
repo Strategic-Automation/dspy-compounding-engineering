@@ -5,6 +5,7 @@ This workflow generates new Review Agents for the Compounding Engineering
 based on natural language descriptions.
 """
 
+import ast
 import os
 from typing import Optional
 
@@ -108,7 +109,7 @@ def _verify_agent_code(spec_content: str) -> tuple[bool, str]:
 
     # Validate Python syntax
     try:
-        compile(cleaned, "<generated>", "exec")
+        ast.parse(cleaned)
     except SyntaxError as e:
         console.print(f"[red]Error: Generated code has syntax error: {e}[/red]")
         return False, cleaned

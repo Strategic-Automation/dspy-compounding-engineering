@@ -72,9 +72,7 @@ class KnowledgeDocumentation:
         elif item.get("codified_improvements"):
             # Try to use the first improvement
             first_imp = item["codified_improvements"][0]
-            candidate = str(
-                first_imp.get("title") or first_imp.get("description") or first_imp
-            )
+            candidate = str(first_imp.get("title") or first_imp.get("description") or first_imp)
 
         if candidate:
             # cleanup candidate

@@ -215,10 +215,15 @@ class GitService:
         """
         try:
             cmd = [
-                "git", "log", "-S", query,
+                "git",
+                "log",
+                "-S",
+                query,
                 "--pretty=format:%h - %an, %ar : %s",
-                "-n", "30",
-                "--", path
+                "-n",
+                "30",
+                "--",
+                path,
             ]
             result = run_safe_command(cmd, capture_output=True, text=True, check=True)
             return result.stdout if result.stdout else f"No commits found altering '{query}'"
@@ -348,7 +353,7 @@ class GitService:
                     head_repo_owner = details.get("headRepositoryOwner", {}).get("login")
                     repo_name = GitService._get_repo_from_remote()
                     if repo_name and head_repo_owner:
-                        base_owner = repo_name.split('/')[0]
+                        base_owner = repo_name.split("/")[0]
                         if base_owner.lower() != head_repo_owner.lower():
                             is_fork = True
                             head_ref_name = details.get("headRefName")
@@ -382,18 +387,26 @@ class GitService:
                             logger.debug(f"PyGithub failed to fetch PR: {e}")
 
             if not pr_number:
-                raise RuntimeError(f"Could not determine PR number for: {pr_id_or_url}. Ensure 'gh' CLI is installed or 'PyGithub' works.")
+                raise RuntimeError(
+                    f"Could not determine PR number for: {pr_id_or_url}. Ensure 'gh' CLI is installed or 'PyGithub' works."
+                )
 
             local_review_branch = f"review-pr-{pr_number}"
 
             if is_fork and head_ref_name and head_repo_clone_url and fork_owner:
-                with logger.status(f"PR is from a fork ({fork_owner}). Adding remote and fetching..."):
+                with logger.status(
+                    f"PR is from a fork ({fork_owner}). Adding remote and fetching..."
+                ):
                     fork_remote = f"fork-{fork_owner}"
 
                     # Check if remote exists
-                    remotes = run_safe_command(["git", "remote"], capture_output=True, text=True).stdout.splitlines()
+                    remotes = run_safe_command(
+                        ["git", "remote"], capture_output=True, text=True
+                    ).stdout.splitlines()
                     if fork_remote not in remotes:
-                        run_safe_command(["git", "remote", "add", fork_remote, head_repo_clone_url], check=True)
+                        run_safe_command(
+                            ["git", "remote", "add", fork_remote, head_repo_clone_url], check=True
+                        )
 
                     # Fetch the branch from the fork remote
                     run_safe_command(["git", "fetch", fork_remote, head_ref_name], check=True)
@@ -401,8 +414,18 @@ class GitService:
                     # Setup proper tracking so the user can push back to the fork
                     start_point = f"{fork_remote}/{head_ref_name}"
 
-                with logger.status(f"Creating worktree at {worktree_path} tracking {start_point}..."):
-                    cmd = ["git", "worktree", "add", "-B", local_review_branch, worktree_path, start_point]
+                with logger.status(
+                    f"Creating worktree at {worktree_path} tracking {start_point}..."
+                ):
+                    cmd = [
+                        "git",
+                        "worktree",
+                        "add",
+                        "-B",
+                        local_review_branch,
+                        worktree_path,
+                        start_point,
+                    ]
                     run_safe_command(cmd, check=True)
             else:
                 # Standard inner-repo PR
@@ -433,10 +456,13 @@ class GitService:
         """
         try:
             cmd = [
-                "git", "log",
-                "-S", query,
+                "git",
+                "log",
+                "-S",
+                query,
                 "--format=%h|%an|%ae|%ai|%s",
-                "-n", "20",
+                "-n",
+                "20",
                 "--",
             ]
             if path and path != ".":
@@ -482,16 +508,19 @@ class GitService:
         try:
             file_size = os.path.getsize(file_path)
             if file_size > 1_000_000:
-                return f"File too large for blame (>{file_size/1024/1024:.1f}MB): {file_path}"
+                return f"File too large for blame (>{file_size / 1024 / 1024:.1f}MB): {file_path}"
         except OSError:
             return f"Cannot access file: {file_path}"
 
         try:
             cmd = [
-                "git", "blame",
+                "git",
+                "blame",
                 "--date=short",
                 "--max-line-length=200",
-                "-n", "--", file_path,
+                "-n",
+                "--",
+                file_path,
             ]
             result = run_safe_command(cmd, capture_output=True, text=True, check=False)
             if result.returncode != 0:

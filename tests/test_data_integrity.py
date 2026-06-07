@@ -82,7 +82,7 @@ def test_indexer_shrinkage_cleanup(mock_qdrant):
     ):
         mock_open.return_value.__enter__.return_value.read.return_value = "content"
 
-    # Mocking _chunk_text to return 1 chunk (simulating shrinkage from a previous 2-chunk state)
+        # Mocking _chunk_text to return 1 chunk (simulating shrinkage from a previous 2-chunk state)
         with patch.object(indexer, "_chunk_text", return_value=["chunk1"]):
             indexer._index_single_file(filepath, "full/path/test.py", {})
 

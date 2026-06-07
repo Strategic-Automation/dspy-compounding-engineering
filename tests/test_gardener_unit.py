@@ -68,4 +68,3 @@ class TestKnowledgeGardeningService(unittest.TestCase):
         self.assertIn("importance_score", item1)
         self.assertIn("compression_tier", item1)
         self.assertIn("fact_statement", item1)
-

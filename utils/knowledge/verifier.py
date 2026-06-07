@@ -103,12 +103,14 @@ class KnowledgeBaseVerifier:
         excluded_dirs = {"backups", "archive", "__pycache__"}
 
         if not os.path.isdir(self.knowledge_dir):
-            findings.append(VerificationFinding(
-                severity="error",
-                category="json",
-                message="Knowledge directory does not exist",
-                details=self.knowledge_dir,
-            ))
+            findings.append(
+                VerificationFinding(
+                    severity="error",
+                    category="json",
+                    message="Knowledge directory does not exist",
+                    details=self.knowledge_dir,
+                )
+            )
             return findings
 
         json_files_found = 0
@@ -123,40 +125,50 @@ class KnowledgeBaseVerifier:
                         data = json.load(f)
                     # Basic validation: must have an 'id' or at least be a dict
                     if not isinstance(data, dict):
-                        findings.append(VerificationFinding(
-                            severity="warning",
-                            category="json",
-                            message=f"JSON file is not a dictionary: {entry}",
-                        ))
+                        findings.append(
+                            VerificationFinding(
+                                severity="warning",
+                                category="json",
+                                message=f"JSON file is not a dictionary: {entry}",
+                            )
+                        )
                 except json.JSONDecodeError as e:
                     invalid_count += 1
-                    findings.append(VerificationFinding(
-                        severity="error",
-                        category="json",
-                        message=f"Invalid JSON file: {entry}",
-                        details=str(e),
-                    ))
+                    findings.append(
+                        VerificationFinding(
+                            severity="error",
+                            category="json",
+                            message=f"Invalid JSON file: {entry}",
+                            details=str(e),
+                        )
+                    )
                 except (OSError, UnicodeDecodeError) as e:
                     invalid_count += 1
-                    findings.append(VerificationFinding(
-                        severity="error",
-                        category="json",
-                        message=f"Cannot read JSON file: {entry}",
-                        details=str(e),
-                    ))
+                    findings.append(
+                        VerificationFinding(
+                            severity="error",
+                            category="json",
+                            message=f"Cannot read JSON file: {entry}",
+                            details=str(e),
+                        )
+                    )
 
         if json_files_found == 0:
-            findings.append(VerificationFinding(
-                severity="info",
-                category="json",
-                message="No JSON learning files found in knowledge directory",
-            ))
+            findings.append(
+                VerificationFinding(
+                    severity="info",
+                    category="json",
+                    message="No JSON learning files found in knowledge directory",
+                )
+            )
         elif invalid_count == 0:
-            findings.append(VerificationFinding(
-                severity="info",
-                category="json",
-                message=f"All {json_files_found} JSON files are valid and parseable",
-            ))
+            findings.append(
+                VerificationFinding(
+                    severity="info",
+                    category="json",
+                    message=f"All {json_files_found} JSON files are valid and parseable",
+                )
+            )
 
         return findings
 
@@ -172,12 +184,14 @@ class KnowledgeBaseVerifier:
         findings: List[VerificationFinding] = []
 
         if not os.path.exists(self.db_path):
-            findings.append(VerificationFinding(
-                severity="warning",
-                category="db",
-                message="SQLite database file does not exist",
-                details=self.db_path,
-            ))
+            findings.append(
+                VerificationFinding(
+                    severity="warning",
+                    category="db",
+                    message="SQLite database file does not exist",
+                    details=self.db_path,
+                )
+            )
             return findings
 
         # Get DB entry IDs
@@ -189,22 +203,26 @@ class KnowledgeBaseVerifier:
                     "SELECT name FROM sqlite_master WHERE type='table' AND name='learnings'"
                 )
                 if cursor.fetchone() is None:
-                    findings.append(VerificationFinding(
-                        severity="error",
-                        category="db",
-                        message="Database exists but 'learnings' table is missing",
-                    ))
+                    findings.append(
+                        VerificationFinding(
+                            severity="error",
+                            category="db",
+                            message="Database exists but 'learnings' table is missing",
+                        )
+                    )
                     return findings
 
                 cursor = conn.execute("SELECT id FROM learnings")
                 db_ids = {row[0] for row in cursor.fetchall()}
         except sqlite3.DatabaseError as e:
-            findings.append(VerificationFinding(
-                severity="error",
-                category="db",
-                message="Database integrity check failed",
-                details=str(e),
-            ))
+            findings.append(
+                VerificationFinding(
+                    severity="error",
+                    category="db",
+                    message="Database integrity check failed",
+                    details=str(e),
+                )
+            )
             return findings
 
         # Get JSON file IDs
@@ -230,31 +248,37 @@ class KnowledgeBaseVerifier:
         orphaned_json = json_ids - db_ids
         if orphaned_json:
             for oid in sorted(orphaned_json):
-                findings.append(VerificationFinding(
-                    severity="warning",
-                    category="orphan",
-                    message=f"Orphaned JSON file (no DB entry): {json_id_to_file.get(oid, 'unknown')}",
-                    details=f"Learning ID: {oid}",
-                ))
+                findings.append(
+                    VerificationFinding(
+                        severity="warning",
+                        category="orphan",
+                        message=f"Orphaned JSON file (no DB entry): {json_id_to_file.get(oid, 'unknown')}",
+                        details=f"Learning ID: {oid}",
+                    )
+                )
 
         # Find orphaned DB entries (in DB but not in JSON)
         orphaned_db = db_ids - json_ids
         if orphaned_db:
             for oid in sorted(orphaned_db):
-                findings.append(VerificationFinding(
-                    severity="warning",
-                    category="orphan",
-                    message="Orphaned DB entry (no JSON file)",
-                    details=f"Learning ID: {oid}",
-                ))
+                findings.append(
+                    VerificationFinding(
+                        severity="warning",
+                        category="orphan",
+                        message="Orphaned DB entry (no JSON file)",
+                        details=f"Learning ID: {oid}",
+                    )
+                )
 
-        findings.append(VerificationFinding(
-            severity="info",
-            category="db",
-            message=f"DB-JSON sync: {len(overlapping)} synchronized, "
-                    f"{len(orphaned_json)} orphaned JSON, {len(orphaned_db)} orphaned DB",
-            details=f"Total DB entries: {total_db}, Total JSON files: {total_json}",
-        ))
+        findings.append(
+            VerificationFinding(
+                severity="info",
+                category="db",
+                message=f"DB-JSON sync: {len(overlapping)} synchronized, "
+                f"{len(orphaned_json)} orphaned JSON, {len(orphaned_db)} orphaned DB",
+                details=f"Total DB entries: {total_db}, Total JSON files: {total_json}",
+            )
+        )
 
         return findings
 
@@ -270,49 +294,59 @@ class KnowledgeBaseVerifier:
         findings: List[VerificationFinding] = []
 
         if not os.path.exists(self.ai_md_path):
-            findings.append(VerificationFinding(
-                severity="warning",
-                category="ai_md",
-                message="AI.md file does not exist",
-                details=self.ai_md_path,
-            ))
+            findings.append(
+                VerificationFinding(
+                    severity="warning",
+                    category="ai_md",
+                    message="AI.md file does not exist",
+                    details=self.ai_md_path,
+                )
+            )
             return findings
 
         try:
             with open(self.ai_md_path, "r", encoding="utf-8") as f:
                 content = f.read()
         except (OSError, UnicodeDecodeError) as e:
-            findings.append(VerificationFinding(
-                severity="error",
-                category="ai_md",
-                message="Cannot read AI.md file",
-                details=str(e),
-            ))
+            findings.append(
+                VerificationFinding(
+                    severity="error",
+                    category="ai_md",
+                    message="Cannot read AI.md file",
+                    details=str(e),
+                )
+            )
             return findings
 
         ai_md_size = len(content)
-        findings.append(VerificationFinding(
-            severity="info",
-            category="ai_md",
-            message=f"AI.md size: {ai_md_size:,} characters",
-        ))
+        findings.append(
+            VerificationFinding(
+                severity="info",
+                category="ai_md",
+                message=f"AI.md size: {ai_md_size:,} characters",
+            )
+        )
 
         if ai_md_size == 0:
-            findings.append(VerificationFinding(
-                severity="warning",
-                category="ai_md",
-                message="AI.md exists but is empty",
-            ))
+            findings.append(
+                VerificationFinding(
+                    severity="warning",
+                    category="ai_md",
+                    message="AI.md exists but is empty",
+                )
+            )
             return findings
 
         # Check if AI.md has the expected header
         if "# AI Knowledge Base" not in content and len(content) > 100:
-            findings.append(VerificationFinding(
-                severity="warning",
-                category="ai_md",
-                message="AI.md does not contain expected header '# AI Knowledge Base'",
-                details="File may have been manually edited or corrupted",
-            ))
+            findings.append(
+                VerificationFinding(
+                    severity="warning",
+                    category="ai_md",
+                    message="AI.md does not contain expected header '# AI Knowledge Base'",
+                    details="File may have been manually edited or corrupted",
+                )
+            )
 
         # Cross-reference: check if categories in DB are represented in AI.md
         categories_in_kb = set()
@@ -331,18 +365,22 @@ class KnowledgeBaseVerifier:
                     missing_categories.append(cat)
 
             if missing_categories:
-                findings.append(VerificationFinding(
-                    severity="warning",
-                    category="ai_md",
-                    message=f"AI.md is missing sections for {len(missing_categories)} category(ies)",
-                    details=f"Missing categories: {', '.join(sorted(missing_categories))}",
-                ))
+                findings.append(
+                    VerificationFinding(
+                        severity="warning",
+                        category="ai_md",
+                        message=f"AI.md is missing sections for {len(missing_categories)} category(ies)",
+                        details=f"Missing categories: {', '.join(sorted(missing_categories))}",
+                    )
+                )
             else:
-                findings.append(VerificationFinding(
-                    severity="info",
-                    category="ai_md",
-                    message=f"All {len(categories_in_kb)} KB category(ies) are represented in AI.md",
-                ))
+                findings.append(
+                    VerificationFinding(
+                        severity="info",
+                        category="ai_md",
+                        message=f"All {len(categories_in_kb)} KB category(ies) are represented in AI.md",
+                    )
+                )
 
         return findings
 

@@ -71,6 +71,7 @@ class KnowledgeGardeningService:
             registry,
             settings,
         )
+
         self.settings = settings
         self.registry = registry
         self.kb = KnowledgeBase()
@@ -154,9 +155,7 @@ class KnowledgeGardeningService:
     def _phase_scoring(self, all_learnings, progress, dry_run, stats):
         """Phase 1: Scoring (Local)"""
         total_items = len(all_learnings)
-        task_score = progress.add_task(
-            f"[cyan]Scoring {total_items} items...", total=total_items
-        )
+        task_score = progress.add_task(f"[cyan]Scoring {total_items} items...", total=total_items)
         for item in all_learnings:
             if self._score_item(item):
                 stats["scored"] += 1
@@ -169,9 +168,7 @@ class KnowledgeGardeningService:
         """Helper to compute vectors for descriptions."""
         vectors = []
         if self.kb.embedding_provider.embedding_provider == "fastembed":
-            vectors = list(
-                self.kb.embedding_provider.fast_model.embed(valid_descriptions)
-            )
+            vectors = list(self.kb.embedding_provider.fast_model.embed(valid_descriptions))
         else:
             for text in valid_descriptions:
                 vectors.append(self.kb.embedding_provider.get_embedding(text))
@@ -217,10 +214,7 @@ class KnowledgeGardeningService:
                             idx_j = valid_indices[j]
                             item_j = all_learnings[idx_j]
 
-                            if (
-                                item_j.get("id")
-                                and item_j.get("id") not in current_related
-                            ):
+                            if item_j.get("id") and item_j.get("id") not in current_related:
                                 current_related.add(item_j.get("id"))
                                 related_modified = True
 
@@ -228,9 +222,7 @@ class KnowledgeGardeningService:
                         item_i["related_ids"] = list(current_related)
                         stats["deduped"] += 1
                         if not dry_run:
-                            self.kb.save_learning(
-                                item_i, silent=True, update_docs=False
-                            )
+                            self.kb.save_learning(item_i, silent=True, update_docs=False)
                     progress.advance(task_dedupe)
         except Exception as e:
             logger.warning(f"In-memory deduplication failed: {e}")
@@ -274,9 +266,7 @@ class KnowledgeGardeningService:
                 if not dry_run:
                     self.kb.save_learning(item, silent=True, update_docs=False)
 
-    def _phase_extraction(
-        self, all_learnings, progress, dry_run, deep_mode, max_workers, stats
-    ):
+    def _phase_extraction(self, all_learnings, progress, dry_run, deep_mode, max_workers, stats):
         """Phase 3: Selective Extraction (LLM)"""
         items_to_extract = []
         for item in all_learnings:
@@ -300,9 +290,7 @@ class KnowledgeGardeningService:
 
             import concurrent.futures
 
-            with concurrent.futures.ThreadPoolExecutor(
-                max_workers=max_workers
-            ) as executor:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
                 future_to_item = {
                     executor.submit(self._extract_item, item, dry_run): item
                     for item in items_to_extract
@@ -317,11 +305,9 @@ class KnowledgeGardeningService:
                     finally:
                         progress.advance(task_extract)
         else:
-             logger.info("No items needed extraction.")
+            logger.info("No items needed extraction.")
 
-    def garden(
-        self, dry_run: bool = False, deep_mode: bool = False, max_workers: int = 10
-    ) -> None:
+    def garden(self, dry_run: bool = False, deep_mode: bool = False, max_workers: int = 10) -> None:
         """
         Hybrid Gardening Loop:
         1. Score & Assess (Local/Fast)
@@ -332,7 +318,6 @@ class KnowledgeGardeningService:
             dry_run: Simulate without saving.
             deep_mode: If True, force extraction on ALL unique items regardless of score.
         """
-
 
         from rich.progress import (
             BarColumn,
@@ -354,7 +339,6 @@ class KnowledgeGardeningService:
             TaskProgressColumn(),
             console=console,
         ) as progress:
-
             # Phase 1: Scoring
             self._phase_scoring(all_learnings, progress, dry_run, stats)
 
@@ -365,9 +349,7 @@ class KnowledgeGardeningService:
                 self._phase_dedup_qdrant(all_learnings, progress, dry_run, stats)
 
             # Phase 3: Extraction
-            self._phase_extraction(
-                all_learnings, progress, dry_run, deep_mode, max_workers, stats
-            )
+            self._phase_extraction(all_learnings, progress, dry_run, deep_mode, max_workers, stats)
 
         # Final Report
         console.rule("[bold green]Gardening Complete")
