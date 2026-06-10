@@ -713,7 +713,8 @@ def run_review(
         from utils.knowledge import codify_review_findings
 
         try:
-            codify_review_findings(findings, len(findings), silent=True)
+            with logger.status("Codifying review learnings..."):
+                codify_review_findings(findings, len(findings), silent=True)
             console.print(
                 f"[green]✓ Patterns from {len(findings)} reviews saved to .knowledge/[/green]"
             )

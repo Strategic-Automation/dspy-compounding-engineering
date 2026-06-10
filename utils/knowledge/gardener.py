@@ -342,7 +342,7 @@ class KnowledgeGardeningService:
             TextColumn,
         )
 
-        logger.info(f"Starting Hybrid Gardening (Deep Mode: {deep_mode})...")
+        logger.info(f"Starting Hybrid Gardening (Deep Mode: {deep_mode})...", to_cli=True)
         all_learnings = self.kb.get_all_learnings()
 
         stats = {"scored": 0, "deduped": 0, "extracted": 0, "skipped_extraction": 0}

@@ -298,7 +298,10 @@ def status() -> None:
     from rich.markdown import Markdown
     from rich.panel import Panel
 
-    status_text = get_system_status()
+    from utils.io.logger import logger
+
+    with logger.status("Fetching system status..."):
+        status_text = get_system_status()
     console.print(Panel(Markdown(status_text), title="System Diagnostics", border_style="cyan"))
 
 
