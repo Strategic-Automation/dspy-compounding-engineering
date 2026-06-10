@@ -54,7 +54,9 @@ def _run_git_grep(query: str, safe_path: str, regex: bool, limit: int = 50) -> O
     git_cmd = ["git", "grep", "-n"]
     if not regex:
         git_cmd.append("-F")
+    git_cmd.append("-e")
     git_cmd.append(query)
+    git_cmd.append("--")
     git_cmd.append(".")
 
     try:
@@ -86,7 +88,9 @@ def _run_standard_grep(query: str, safe_path: str, regex: bool, limit: int = 50)
     for d in exclude_dirs:
         cmd.append(f"--exclude-dir={d}")
 
+    cmd.append("-e")
     cmd.append(query)
+    cmd.append("--")
     cmd.append(safe_path)
 
     process = run_safe_command(
