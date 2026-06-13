@@ -121,21 +121,19 @@ def run_triage():  # noqa: C901
         # Use LLM to present the finding
         with logger.status("Analyzing finding..."):
             response = triage_predictor(finding_content=content)
+        triage_presentation = response.triage_presentation
 
-        console.print(Markdown(response.formatted_presentation))
+        console.print(Markdown(triage_presentation.formatted_presentation))
         console.print("\n")
 
         # Debug: Show action_required value
-        if hasattr(response, "action_required"):
-            if response.action_required:
-                action_status = "⚠️  Action IS Required (code changes needed)"
-            else:
-                action_status = "✅ No Action Required (review passed)"
-            console.print(f"[dim]Analysis: {action_status}[/dim]")
+        if triage_presentation.action_required:
+            action_status = "⚠️  Action IS Required (code changes needed)"
         else:
-            console.print("[dim yellow]Warning: action_required field not present[/dim yellow]")
+            action_status = "✅ No Action Required (review passed)"
+        console.print(f"[dim]Analysis: {action_status}[/dim]")
 
-        should_auto_complete = hasattr(response, "action_required") and not response.action_required
+        should_auto_complete = not triage_presentation.action_required
         if should_auto_complete:
             console.print("[dim]🤖 Auto-completing: No action required[/dim]")
 
@@ -172,9 +170,7 @@ def run_triage():  # noqa: C901
                 new_content = content.replace("status: pending", "status: ready")
 
                 # Fill recommended action with the proposed solution from triage
-                solution = (
-                    response.proposed_solution if hasattr(response, "proposed_solution") else None
-                )
+                solution = triage_presentation.proposed_solution
                 new_content = _fill_recommended_action(new_content, solution)
 
                 new_content = add_work_log_entry(
@@ -237,11 +233,7 @@ def run_triage():  # noqa: C901
                     new_content = remaining_content.replace("status: pending", "status: ready")
 
                     # Fill recommended action with proposed solution if available
-                    solution = (
-                        response.proposed_solution
-                        if hasattr(response, "proposed_solution")
-                        else None
-                    )
+                    solution = triage_presentation.proposed_solution
                     new_content = _fill_recommended_action(new_content, solution)
 
                     new_content = add_work_log_entry(
@@ -291,9 +283,7 @@ def run_triage():  # noqa: C901
                 new_content = re.sub(r"priority: p[123]", f"priority: {new_priority}", new_content)
 
                 # Fill recommended action with proposed solution
-                solution = (
-                    response.proposed_solution if hasattr(response, "proposed_solution") else None
-                )
+                solution = triage_presentation.proposed_solution
                 new_content = _fill_recommended_action(new_content, solution)
 
                 new_content = add_work_log_entry(

@@ -200,16 +200,7 @@ def run_generate_agent(description: str, dry_run: bool = False):
             valid_categories=valid_categories,
         )
 
-        # Reconstruct Spec object from individual fields
-        from agents.workflow.agent_generator import AgentFileSpec
-
-        spec = AgentFileSpec(
-            file_name=result.file_name,
-            class_name=result.class_name,
-            agent_name=result.agent_name,
-            applicable_languages=result.applicable_languages,
-            code_content=result.code_content,
-        )
+        spec = result.generated_agent
 
         if not spec.code_content:
             console.print("[red]Agent failed to return valid agent code.[/red]")
