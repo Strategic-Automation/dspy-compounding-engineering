@@ -155,11 +155,12 @@ def _run_react_todo(  # noqa: C901
             # Use ReAct resolver
             resolver = ReActTodoResolver(base_dir=worktree_path or ".")
             result = resolver(todo_content=todo["content"], todo_id=todo["id"])
+            resolution_result = result.resolution_result
 
             # Mark complete using service
             complete_todo(
                 todo["path"],
-                resolution_summary=getattr(result, "resolution_summary", "Resolved via ReAct"),
+                resolution_summary=resolution_result.resolution_summary,
                 action_msg="Resolved via ReAct Agent",
             )
 
@@ -170,17 +171,17 @@ def _run_react_todo(  # noqa: C901
                 codify_work_outcome(
                     todo_id=todo["id"],
                     todo_slug=todo["slug"],
-                    resolution_summary=getattr(result, "resolution_summary", "Resolved via ReAct"),
-                    operations_count=len(getattr(result, "files_modified", [])),
-                    success=getattr(result, "success_status", False),
+                    resolution_summary=resolution_result.resolution_summary,
+                    operations_count=len(resolution_result.files_modified),
+                    success=resolution_result.success_status,
                 )
             except Exception:
                 pass  # Don't fail resolution if codification fails
 
             return {
-                "status": "success" if getattr(result, "success_status", False) else "error",
+                "status": "success" if resolution_result.success_status else "error",
                 "todo_id": todo["id"],
-                "summary": getattr(result, "resolution_summary", str(result)),
+                "summary": resolution_result.resolution_summary,
             }
         except Exception as e:
             return {"status": "error", "todo_id": todo["id"], "error": str(e)}
@@ -316,10 +317,12 @@ def _run_react_plan(plan_path: str, dry_run: bool, in_place: bool = True):
 
         result = executor(plan_content=content, plan_path=plan_path)
 
-        if result.success_status:
-            console.print(f"[green]Success:[/green] {result.execution_summary}")
+        execution_result = result.execution_result
+
+        if execution_result.success_status:
+            console.print(f"[green]Success:[/green] {execution_result.execution_summary}")
         else:
-            console.print(f"[red]Failed:[/red] {result.execution_summary}")
+            console.print(f"[red]Failed:[/red] {execution_result.execution_summary}")
 
     except Exception as e:
         console.print(f"[red]Error executing plan: {e}[/red]")

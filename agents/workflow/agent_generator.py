@@ -1,19 +1,6 @@
-from typing import List, Optional
-
 import dspy
-from pydantic import BaseModel, Field
 
-
-class AgentFileSpec(BaseModel):
-    file_name: str = Field(..., description="Target file name (e.g. 'security_scanner.py')")
-    class_name: str = Field(..., description="Target class name (e.g. 'SecurityScanner')")
-    agent_name: str = Field(..., description="Human-readable agent name")
-    applicable_languages: Optional[List[str]] = Field(
-        None, description="List of languages this agent applies to, or None for all"
-    )
-    code_content: str = Field(
-        ..., description="Full Python file content including imports and signature"
-    )
+from agents.schema.workflow import GeneratedAgentSpec
 
 
 class AgentGenerator(dspy.Signature):
@@ -92,15 +79,6 @@ class AgentGenerator(dspy.Signature):
         desc="Comma-separated list of valid categories. __agent_category__ MUST be one of these."
     )
 
-    file_name: str = dspy.OutputField(desc="Snake-case file name (e.g. sql_injection_reviewer.py)")
-    class_name: str = dspy.OutputField(desc="CamelCase class name (e.g. SqlInjectionReviewer)")
-    agent_name: str = dspy.OutputField(
-        desc="Hyphenated name for CLI (e.g. SQL-Injection-Reviewer). NO SPACES - use hyphens!"
-    )
-    applicable_languages: List[str] = dspy.OutputField(
-        desc="List of languages this agent applies to (e.g. ['python', 'javascript'])"
-    )
-    code_content = dspy.OutputField(
-        desc="Full Python file content. MUST include: dspy.Signature class, "
-        "review_report output field using dspy.OutputField, and proper imports."
+    generated_agent: GeneratedAgentSpec = dspy.OutputField(
+        desc="Structured generated agent file specification and complete Python code content"
     )

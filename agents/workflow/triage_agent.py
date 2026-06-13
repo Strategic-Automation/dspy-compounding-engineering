@@ -1,5 +1,7 @@
 import dspy
 
+from agents.schema.workflow import TriagePresentation
+
 
 class TriageAgent(dspy.Signature):
     """
@@ -56,11 +58,6 @@ class TriageAgent(dspy.Signature):
     """
 
     finding_content: str = dspy.InputField(desc="The raw content of the finding or todo")
-    formatted_presentation: str = dspy.OutputField(desc="The formatted presentation for triage")
-    proposed_solution: str = dspy.OutputField(
-        desc="The specific proposed solution or recommended action to be taken"
-    )
-    action_required: bool = dspy.OutputField(
-        desc="False if no code changes needed (review passed, no issues), "
-        "True if action/changes required"
+    triage_presentation: TriagePresentation = dspy.OutputField(
+        desc="Structured triage presentation, proposed solution, and action-required decision"
     )

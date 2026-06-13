@@ -3,6 +3,23 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 
 
+class WorkflowResult(BaseModel):
+    """Base class for structured workflow result models."""
+
+
+class MarkdownCompressionRequest(BaseModel):
+    """Structured input for markdown compression requests."""
+
+    content: str = Field(..., description="The markdown content to compress")
+    ratio: float = Field(..., description="Target compression ratio from 0.0 to 1.0")
+
+
+class MarkdownCompressionResult(BaseModel):
+    """Structured output for markdown compression results."""
+
+    compressed_content: str = Field(..., description="The compressed markdown content")
+
+
 class ResearchInsight(BaseModel):
     """Standardized model for a single research discovery or insight."""
 

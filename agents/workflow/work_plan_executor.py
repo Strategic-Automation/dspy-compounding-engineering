@@ -1,5 +1,6 @@
 import dspy
 
+from agents.schema.workflow import PlanExecutionResult
 from config import settings
 from utils.agent.tools import get_todo_resolver_tools
 
@@ -59,13 +60,12 @@ class PlanExecutionSignature(dspy.Signature):
     plan_content: str = dspy.InputField(desc="Content of the plan file")
     plan_path: str = dspy.InputField(desc="Path to the plan file")
 
-    execution_summary: str = dspy.OutputField(desc="What was accomplished")
-    files_modified: list[str] = dspy.OutputField(desc="List of files that were changed")
-    reasoning_trace: str = dspy.OutputField(desc="Step-by-step ReAct reasoning process")
-    verification_status: dict[str, str] = dspy.OutputField(
-        desc="Verification results for each modified file. Key=filename, Value=status"
+    execution_result: PlanExecutionResult = dspy.OutputField(
+        desc=(
+            "Structured result containing summary, modified files, reasoning, "
+            "verification, and success"
+        )
     )
-    success_status: bool = dspy.OutputField(desc="Whether execution was successful")
 
 
 class ReActPlanExecutor(dspy.Module):

@@ -1,5 +1,6 @@
 import dspy
 
+from agents.schema.workflow import TodoResolutionResult
 from config import settings
 from utils.agent.tools import get_todo_resolver_tools
 
@@ -76,13 +77,12 @@ class TodoResolutionSignature(dspy.Signature):
     todo_content: str = dspy.InputField(desc="Content of the todo file")
     todo_id: str = dspy.InputField(desc="Unique identifier of the todo")
 
-    resolution_summary: str = dspy.OutputField(desc="What was accomplished")
-    files_modified: list[str] = dspy.OutputField(desc="List of files that were changed")
-    reasoning_trace: str = dspy.OutputField(desc="Step-by-step ReAct reasoning process")
-    verification_status: dict[str, str] = dspy.OutputField(
-        desc="Verification results for each modified file. Key=filename, Value=status"
+    resolution_result: TodoResolutionResult = dspy.OutputField(
+        desc=(
+            "Structured result containing summary, modified files, reasoning, "
+            "verification, and success"
+        )
     )
-    success_status: bool = dspy.OutputField(desc="Whether resolution was successful")
 
 
 class ReActTodoResolver(dspy.Module):

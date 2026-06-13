@@ -1,8 +1,11 @@
+import json
 import logging
 import os
 from typing import List
 
 import dspy
+
+from agents.schema.base import MarkdownCompressionRequest, MarkdownCompressionResult
 
 
 class CompressMarkdown(dspy.Signature):
@@ -13,9 +16,12 @@ class CompressMarkdown(dspy.Signature):
     Retain all headers, code blocks, and list structures where possible.
     """
 
-    content: str = dspy.InputField(desc="The markdown content to compress")
-    ratio: float = dspy.InputField(desc="Target compression ratio (0.0 to 1.0)")
-    compressed_content: str = dspy.OutputField(desc="The compressed markdown content")
+    compression_request: MarkdownCompressionRequest = dspy.InputField(
+        desc="Structured markdown content and target compression ratio"
+    )
+    compression_result: MarkdownCompressionResult = dspy.OutputField(
+        desc="Structured compressed markdown content"
+    )
 
 
 class LLMKBCompressor(dspy.Module):
@@ -52,8 +58,6 @@ class LLMKBCompressor(dspy.Module):
         cache_path = self._get_cache_path()
         if os.path.exists(cache_path):
             try:
-                import json
-
                 with open(cache_path, "r") as f:
                     return json.load(f)
             except Exception:
@@ -64,13 +68,11 @@ class LLMKBCompressor(dspy.Module):
         cache_path = self._get_cache_path()
         os.makedirs(os.path.dirname(cache_path), exist_ok=True)
         try:
-            import json
-
             with open(cache_path, "w") as f:
                 json.dump(cache, f, indent=2)
         except Exception:
             # Cache write failures are non-fatal; log and continue.
-            logging.debug("Failed to save LLM compression cache to %s", cache_path, exc_info=True)
+            logging.debug(f"Failed to save LLM compression cache to {cache_path}", exc_info=True)
 
     def forward(self, content: str, ratio: float = 0.5) -> str:
         """
@@ -88,7 +90,9 @@ class LLMKBCompressor(dspy.Module):
 
         # Use split-compress-merge strategy
         if len(content) < 4000:
-            result = self.compressor(content=content, ratio=ratio).compressed_content
+            result = self.compressor(
+                compression_request=MarkdownCompressionRequest(content=content, ratio=ratio)
+            ).compression_result.compressed_content
         else:
             chunks = self._split_markdown_by_headers(content)
             compressed_chunks = []
@@ -99,8 +103,10 @@ class LLMKBCompressor(dspy.Module):
                     continue
 
                 try:
-                    res = self.compressor(content=chunk, ratio=ratio)
-                    compressed_chunks.append(res.compressed_content)
+                    res = self.compressor(
+                        compression_request=MarkdownCompressionRequest(content=chunk, ratio=ratio)
+                    )
+                    compressed_chunks.append(res.compression_result.compressed_content)
                 except Exception as e:
                     logging.warning(f"Compression failed for chunk: {e}")
                     compressed_chunks.append(chunk)
