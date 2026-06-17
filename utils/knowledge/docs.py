@@ -24,13 +24,24 @@ class KnowledgeDocumentation:
     Manages the AI.md documentation file, including generation and compression.
     """
 
-    COMPRESSION_THRESHOLD = 500  # Always compress if content exists
+    # Default threshold used if config is not yet loaded
+    COMPRESSION_THRESHOLD = 15000
     LLM_COMPRESSION_MIN_SIZE = 10000
 
     def __init__(self, knowledge_dir: str):
         self.knowledge_dir = knowledge_dir
         self.ai_md_path = os.path.join(self.knowledge_dir, "AI.md")
         self._compression_cache: Dict[str, str] = {}
+
+    @property
+    def compression_threshold(self) -> int:
+        """Get compression threshold from config, falling back to default."""
+        try:
+            from config import settings
+
+            return settings.kb_compression_threshold
+        except Exception:
+            return self.COMPRESSION_THRESHOLD
 
     def get_ai_md_size(self) -> int:
         """
@@ -128,11 +139,12 @@ class KnowledgeDocumentation:
         content = self._generate_markdown(learnings)
 
         # Check size before writing
-        if len(content) > self.COMPRESSION_THRESHOLD:
+        threshold = self.compression_threshold
+        if len(content) > threshold:
             try:
                 msg = (
                     f"Content size ({len(content)} chars) exceeds threshold "
-                    f"({self.COMPRESSION_THRESHOLD}). Compressing..."
+                    f"({threshold}). Compressing..."
                 )
                 self._log(msg, color="cyan", silent=silent)
                 # Create backup of previous version if it exists
@@ -243,9 +255,9 @@ class KnowledgeDocumentation:
         """
         size = self.get_ai_md_size()
         self._log(
-            f"AI.md size: {size:,} chars (threshold: {self.COMPRESSION_THRESHOLD:,})",
+            f"AI.md size: {size:,} chars (threshold: {self.compression_threshold:,})",
             silent=silent,
         )
 
-        if size > self.COMPRESSION_THRESHOLD:
+        if size > self.compression_threshold:
             self.compress_ai_md(silent=silent)

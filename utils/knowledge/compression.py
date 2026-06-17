@@ -92,6 +92,7 @@ class LLMKBCompressor(dspy.Module):
         else:
             chunks = self._split_markdown_by_headers(content)
             compressed_chunks = []
+            failed_chunks = 0
 
             for chunk in chunks:
                 if len(chunk.strip()) < 100:
@@ -102,10 +103,20 @@ class LLMKBCompressor(dspy.Module):
                     res = self.compressor(content=chunk, ratio=ratio)
                     compressed_chunks.append(res.compressed_content)
                 except Exception as e:
-                    logging.warning(f"Compression failed for chunk: {e}")
+                    logging.warning(
+                        f"Compression failed for chunk of size {len(chunk)}: {e}",
+                        exc_info=True,
+                    )
                     compressed_chunks.append(chunk)
+                    failed_chunks += 1
 
             result = "\n\n".join(compressed_chunks)
+
+        if failed_chunks > 0:
+            logging.warning(
+                f"LLM compression failed for {failed_chunks}/{len(chunks)} chunks. "
+                "Failed chunks were preserved uncompressed.",
+            )
 
         # Save to cache
         cache[content_hash] = result
